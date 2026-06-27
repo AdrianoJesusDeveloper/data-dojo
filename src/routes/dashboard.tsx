@@ -50,6 +50,7 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen">
+      <Toaster position="top-right" theme="dark" richColors />
       <DojoHeader />
       <main className="mx-auto max-w-7xl px-4 py-10">
         <div className="flex flex-wrap items-end justify-between gap-6">

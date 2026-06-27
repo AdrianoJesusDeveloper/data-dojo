@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DojoHeader } from "@/components/DojoHeader";
 import { useDojo, useHydrated } from "@/lib/dojo-store";
+import { celebratePromotion, celebrateXp } from "@/lib/celebrate";
 import { useState } from "react";
 import { toast, Toaster } from "sonner";
 
