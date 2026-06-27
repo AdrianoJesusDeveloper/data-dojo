@@ -250,12 +250,13 @@ function Community() {
                 {p.tags && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {p.tags.map((t) => (
-                      <span key={t} className="text-[11px] font-mono text-data px-2 py-0.5 rounded bg-data/10 border border-data/30">
+                      <span key={t} className="text-[11px] font-mono text-[#4A9EFF] px-2 py-0.5 rounded bg-[#0057B8]/10 border border-[#0057B8]/40">
                         {t}
                       </span>
                     ))}
                   </div>
                 )}
+
                 <footer className="mt-4 flex items-center gap-5 text-xs">
                   <button
                     onClick={() => toggleLike(p.id)}
