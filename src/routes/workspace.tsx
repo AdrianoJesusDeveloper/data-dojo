@@ -63,8 +63,10 @@ export default function Workspace() {
       ].join("\n"),
     );
     if (result.promoted) {
+      celebratePromotion(result.newBelt.color);
       toast.success(`🥋 PROMOVIDO! Você agora é ${result.newBelt.name}`, { duration: 5000 });
     } else {
+      celebrateXp();
       toast.success("Desafio aprovado! +120 XP");
     }
     setRunning(false);
