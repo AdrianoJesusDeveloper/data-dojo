@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DojoHeader } from "@/components/DojoHeader";
 import { BeltBadge, BeltProgress } from "@/components/BeltBadge";
+import { celebratePromotion, celebrateXp } from "@/lib/celebrate";
+import { toast, Toaster } from "sonner";
 import { useDojo, getCurrentBelt, BELTS, useHydrated } from "@/lib/dojo-store";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
