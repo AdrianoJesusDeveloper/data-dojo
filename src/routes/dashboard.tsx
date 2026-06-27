@@ -39,6 +39,41 @@ function Dashboard() {
     });
   }, [state.history]);
 
+  // Frequência Kaizen — XP por dia nos últimos 7 dias
+  const weeklyData = useMemo(() => {
+    const days: { label: string; key: string; xp: number }[] = [];
+    const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "short" });
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - i);
+      days.push({
+        key: d.toISOString().slice(0, 10),
+        label: fmt.format(d).replace(".", ""),
+        xp: 0,
+      });
+    }
+    for (const h of state.history) {
+      const k = h.date.slice(0, 10);
+      const day = days.find((d) => d.key === k);
+      if (day) day.xp += h.xp;
+    }
+    return days;
+  }, [state.history]);
+
+  // Domínio de Habilidades (derivado do XP total — escala 0..100)
+  const skillsData = useMemo(() => {
+    const cap = (n: number) => Math.min(100, Math.round(n));
+    const base = state.xp;
+    return [
+      { skill: "SQL", nivel: cap(base / 18 + 10) },
+      { skill: "Python", nivel: cap(base / 22 + 5) },
+      { skill: "Dataviz", nivel: cap(base / 28) },
+      { skill: "Modelagem", nivel: cap(base / 32) },
+    ];
+  }, [state.xp]);
+
+
   if (!hydrated) {
     return (
       <div className="min-h-screen">
