@@ -39,6 +39,41 @@ function Dashboard() {
     });
   }, [state.history]);
 
+  // Frequência Kaizen — XP por dia nos últimos 7 dias
+  const weeklyData = useMemo(() => {
+    const days: { label: string; key: string; xp: number }[] = [];
+    const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "short" });
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - i);
+      days.push({
+        key: d.toISOString().slice(0, 10),
+        label: fmt.format(d).replace(".", ""),
+        xp: 0,
+      });
+    }
+    for (const h of state.history) {
+      const k = h.date.slice(0, 10);
+      const day = days.find((d) => d.key === k);
+      if (day) day.xp += h.xp;
+    }
+    return days;
+  }, [state.history]);
+
+  // Domínio de Habilidades (derivado do XP total — escala 0..100)
+  const skillsData = useMemo(() => {
+    const cap = (n: number) => Math.min(100, Math.round(n));
+    const base = state.xp;
+    return [
+      { skill: "SQL", nivel: cap(base / 18 + 10) },
+      { skill: "Python", nivel: cap(base / 22 + 5) },
+      { skill: "Dataviz", nivel: cap(base / 28) },
+      { skill: "Modelagem", nivel: cap(base / 32) },
+    ];
+  }, [state.xp]);
+
+
   if (!hydrated) {
     return (
       <div className="min-h-screen">
@@ -141,6 +176,47 @@ function Dashboard() {
             </ResponsiveContainer>
           </ChartCard>
         </div>
+
+        {/* Frequência Kaizen 7d + Domínio de Habilidades */}
+        <div className="mt-6 grid lg:grid-cols-2 gap-4">
+          <ChartCard title="Frequência Kaizen · últimos 7 dias">
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={weeklyData} margin={{ top: 10, right: 12, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="weekGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#FFA500" stopOpacity={0.85} />
+                    <stop offset="100%" stopColor="#FFA500" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#2F2F2F" strokeDasharray="3 3" />
+                <XAxis dataKey="label" stroke="#9CA3AF" fontSize={11} />
+                <YAxis stroke="#9CA3AF" fontSize={11} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: "#1C1C1C", border: "1px solid #2F2F2F", borderRadius: 8 }}
+                  labelStyle={{ color: "#E5E5E5" }}
+                  formatter={(v: number) => [`${v} XP`, "Kaizen"]}
+                />
+                <Area type="monotone" dataKey="xp" stroke="#FFA500" strokeWidth={2.5} fill="url(#weekGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard title="Domínio de Habilidades">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={skillsData} layout="vertical" margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+                <CartesianGrid stroke="#2F2F2F" strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} stroke="#9CA3AF" fontSize={11} />
+                <YAxis type="category" dataKey="skill" stroke="#9CA3AF" fontSize={12} width={90} />
+                <Tooltip
+                  contentStyle={{ background: "#1C1C1C", border: "1px solid #2F2F2F", borderRadius: 8 }}
+                  formatter={(v: number) => [`${v}/100`, "Nível"]}
+                />
+                <Bar dataKey="nivel" fill="#FFA500" radius={[0, 6, 6, 0]} background={{ fill: "#2F2F2F" }} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
+
 
         {/* Belts collection */}
         <div className="mt-6 rounded-xl border border-border bg-card p-6">

@@ -36,6 +36,7 @@ export function DojoHeader({ compact = false }: { compact?: boolean }) {
           {navItem("/", "Início")}
           {navItem("/dashboard", "Dashboard")}
           {navItem("/workspace", "Workspace")}
+          {navItem("/community", "Comunidade")}
         </nav>
 
         <div className="ml-auto flex items-center gap-5">

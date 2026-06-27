@@ -34,34 +34,56 @@ export default function Workspace() {
   const { state, submitChallenge } = useDojo();
   const hydrated = useHydrated();
   const [code, setCode] = useState(STARTER_CODE);
-  const [output, setOutput] = useState<string>("$ aguardando submissão...");
+  const [lines, setLines] = useState<string[]>(["$ dojo-cli pronto. Aguardando submissão..."]);
   const [running, setRunning] = useState(false);
+
+  const append = (line: string) =>
+    setLines((prev) => [...prev, line]);
+
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   const compileAndSubmit = async () => {
     setRunning(true);
-    setOutput("$ compilando ast...\n$ executando contra dojo-db (sandbox)...");
-    await new Promise((r) => setTimeout(r, 900));
-    const pass = code.toLowerCase().includes("select") && code.includes("FROM");
-    if (!pass) {
-      setOutput("✗ Falha: a query precisa de SELECT ... FROM ...\nKaizen: revise e tente de novo.");
+    setLines([]);
+    const valid = code.toLowerCase().includes("select") && code.toUpperCase().includes("FROM");
+
+    const steps: Array<[string, number]> = [
+      ["$ dojo-cli submit ./joins-agregacao.sql", 120],
+      ["» preparando sandbox dojo-db ............... ok", 320],
+      ["» lint sql (sqlfluff) ...................... ok", 280],
+      ["» parsing AST .............................. ok", 220],
+      ["» dry-run query plan ....................... ok", 340],
+      ["» rodando test_categoria_existe ............ ✓", 260],
+      ["» rodando test_filtro_completed ............ ✓", 240],
+      ["» rodando test_desconto_aplicado ........... ✓", 280],
+      ["» rodando test_top3_ordenacao .............. ✓", 260],
+      ["» benchmark: 42ms · 3 linhas retornadas ..... ok", 300],
+    ];
+
+    for (const [msg, delay] of steps) {
+      append(msg);
+      await wait(delay);
+    }
+
+    if (!valid) {
+      append("");
+      append("✗ FALHA: a query precisa de SELECT ... FROM ...");
+      append("Kaizen: revise a sintaxe e tente novamente.");
       toast.error("Desafio reprovado. Sem XP desta vez.");
       setRunning(false);
       return;
     }
+
     const result = submitChallenge("Top 3 categorias por receita", 120, 1.5);
-    setOutput(
-      [
-        "✓ Compilação OK",
-        "✓ 3 linhas retornadas",
-        "─────────────────────────────",
-        "category_name        net_revenue",
-        "Eletrônicos          R$ 184.230,55",
-        "Casa & Cozinha       R$  92.110,00",
-        "Esportes             R$  77.840,32",
-        "─────────────────────────────",
-        `+120 XP · +1.5h de código`,
-      ].join("\n"),
-    );
+    append("");
+    append("─────────────────────────────────────");
+    append("category_name        net_revenue");
+    append("Eletrônicos          R$ 184.230,55");
+    append("Casa & Cozinha       R$  92.110,00");
+    append("Esportes             R$  77.840,32");
+    append("─────────────────────────────────────");
+    append("✓ DESAFIO APROVADO · +120 XP · +1.5h de código");
+
     if (result.promoted) {
       celebratePromotion(result.newBelt.color);
       toast.success(`🥋 PROMOVIDO! Você agora é ${result.newBelt.name}`, { duration: 5000 });
@@ -71,6 +93,7 @@ export default function Workspace() {
     }
     setRunning(false);
   };
+
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -127,26 +150,55 @@ export default function Workspace() {
               <span className="ml-auto text-xs font-mono text-kaizen">{state.xp} XP</span>
             )}
           </div>
-          <div className="flex-1 grid grid-rows-[1fr_auto_220px] min-h-[520px]">
-            <textarea
-              spellCheck={false}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className="w-full h-full bg-[#0A0A0A] text-[#E5E5E5] font-mono text-sm p-4 resize-none outline-none leading-relaxed selection:bg-kaizen/30"
-            />
+          <div className="flex-1 grid grid-rows-[1fr_auto_240px] min-h-[520px]">
+            <div className="relative flex overflow-hidden">
+              <div
+                aria-hidden
+                className="select-none font-mono text-xs leading-relaxed text-muted-foreground/50 py-4 pl-3 pr-2 text-right border-r border-border/40 bg-black/40"
+              >
+                {code.split("\n").map((_, i) => (
+                  <div key={i}>{i + 1}</div>
+                ))}
+              </div>
+              <textarea
+                spellCheck={false}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="flex-1 bg-[#0A0A0A] text-[#E5E5E5] font-mono text-sm p-4 resize-none outline-none leading-relaxed selection:bg-kaizen/30 caret-kaizen"
+              />
+            </div>
             <div className="border-t border-border p-3 bg-black">
               <button
                 onClick={compileAndSubmit}
                 disabled={running}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-destructive px-6 py-3.5 font-display font-bold text-destructive-foreground uppercase tracking-[0.15em] text-sm shadow-[0_8px_30px_-8px_rgba(230,57,70,0.8)] hover:shadow-[0_12px_36px_-6px_rgba(230,57,70,0.95)] disabled:opacity-60 transition"
               >
-                {running ? "⏳ executando..." : "⚔ Compilar e submeter desafio"}
+                {running ? "⏳ Rodando testes automatizados..." : "⚔ Compilar e submeter desafio"}
               </button>
             </div>
-            <pre className="bg-black border-t border-border p-4 font-mono text-xs text-[#9EE493] overflow-auto whitespace-pre-wrap">
-{output}
-            </pre>
+            <div className="bg-black border-t border-border overflow-hidden flex flex-col">
+              <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border/60 bg-black/80">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#2ECC71] animate-pulse" />
+                <span className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">terminal · dojo-cli</span>
+              </div>
+              <pre className="flex-1 p-4 font-mono text-xs text-[#9EE493] overflow-auto whitespace-pre-wrap leading-relaxed">
+{lines.map((l, i) => {
+  const isFail = l.startsWith("✗");
+  const isOk = l.startsWith("✓") || l.endsWith("ok") || l.endsWith("✓");
+  return (
+    <div
+      key={i}
+      className={isFail ? "text-destructive" : isOk ? "text-[#9EE493]" : "text-[#C8E6C9]"}
+    >
+      {l || "\u00A0"}
+    </div>
+  );
+})}
+{running && <div className="text-kaizen animate-pulse">▌</div>}
+              </pre>
+            </div>
           </div>
+
         </section>
       </main>
     </div>
