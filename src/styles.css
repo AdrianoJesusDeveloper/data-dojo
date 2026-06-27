@@ -108,3 +108,24 @@
     linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px);
   background-size: 32px 32px;
 }
+
+@keyframes belt-promo {
+  0%   { transform: scale(1)   rotate(0deg); filter: drop-shadow(0 0 0 rgba(255,165,0,0)); }
+  20%  { transform: scale(1.25) rotate(-6deg); filter: drop-shadow(0 0 18px rgba(255,165,0,0.95)); }
+  40%  { transform: scale(1.15) rotate(6deg);  filter: drop-shadow(0 0 22px rgba(230,57,70,0.9)); }
+  60%  { transform: scale(1.25) rotate(-4deg); filter: drop-shadow(0 0 22px rgba(255,165,0,0.95)); }
+  80%  { transform: scale(1.1)  rotate(2deg);  filter: drop-shadow(0 0 14px rgba(255,165,0,0.6)); }
+  100% { transform: scale(1)    rotate(0deg);  filter: drop-shadow(0 0 0 rgba(255,165,0,0)); }
+}
+@keyframes belt-xp {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.12); filter: drop-shadow(0 0 12px rgba(255,165,0,0.8)); }
+  100% { transform: scale(1); }
+}
+@utility animate-belt-promo {
+  animation: belt-promo 2.2s ease-in-out;
+}
+@utility animate-belt-xp {
+  animation: belt-xp 0.7s ease-out;
+}
+

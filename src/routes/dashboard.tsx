@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DojoHeader } from "@/components/DojoHeader";
 import { BeltBadge, BeltProgress } from "@/components/BeltBadge";
+import { celebratePromotion, celebrateXp } from "@/lib/celebrate";
+import { toast, Toaster } from "sonner";
 import { useDojo, getCurrentBelt, BELTS, useHydrated } from "@/lib/dojo-store";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -48,6 +50,7 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen">
+      <Toaster position="top-right" theme="dark" richColors />
       <DojoHeader />
       <main className="mx-auto max-w-7xl px-4 py-10">
         <div className="flex flex-wrap items-end justify-between gap-6">
@@ -58,7 +61,16 @@ function Dashboard() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => fastForward(250)}
+              onClick={() => {
+                const r = fastForward(250);
+                if (r.promoted) {
+                  celebratePromotion(r.newBelt.color);
+                  toast.success(`🥋 PROMOVIDO! Você agora é ${r.newBelt.name}`, { duration: 5000 });
+                } else {
+                  celebrateXp();
+                  toast.success("+250 XP Kaizen!");
+                }
+              }}
               className="rounded-md border border-kaizen/40 bg-kaizen/10 text-kaizen px-4 py-2 text-sm font-semibold hover:bg-kaizen/20"
             >
               + 250 XP (demo)

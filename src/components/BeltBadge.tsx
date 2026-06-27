@@ -1,11 +1,38 @@
+import { useEffect, useState } from "react";
 import { BELTS, type Belt, getCurrentBelt, getNextBelt, beltProgress } from "@/lib/dojo-store";
 
 export function BeltBadge({ belt, size = "md" }: { belt: Belt; size?: "sm" | "md" | "lg" }) {
   const dims = size === "lg" ? "h-16 w-16 text-2xl" : size === "sm" ? "h-8 w-8 text-sm" : "h-12 w-12 text-lg";
+  const [flash, setFlash] = useState<null | "xp" | "promo">(null);
+
+  useEffect(() => {
+    const onXp = () => {
+      setFlash("xp");
+      window.setTimeout(() => setFlash(null), 700);
+    };
+    const onPromo = () => {
+      setFlash("promo");
+      window.setTimeout(() => setFlash(null), 2200);
+    };
+    window.addEventListener("dojo:xp", onXp);
+    window.addEventListener("dojo:promoted", onPromo);
+    return () => {
+      window.removeEventListener("dojo:xp", onXp);
+      window.removeEventListener("dojo:promoted", onPromo);
+    };
+  }, []);
+
+  const flashClass =
+    flash === "promo"
+      ? "animate-belt-promo ring-4 ring-kaizen ring-offset-2 ring-offset-background"
+      : flash === "xp"
+        ? "animate-belt-xp"
+        : "";
+
   return (
     <div className="inline-flex items-center gap-3">
       <div
-        className={`${dims} rounded-md flex items-center justify-center font-display font-bold border-2 border-black/40 shadow-[inset_0_-6px_0_rgba(0,0,0,0.35)]`}
+        className={`${dims} rounded-md flex items-center justify-center font-display font-bold border-2 border-black/40 shadow-[inset_0_-6px_0_rgba(0,0,0,0.35)] transition-all ${flashClass}`}
         style={{ background: belt.color, color: belt.id === "black" ? "#FFA500" : "#1C1C1C" }}
         aria-label={belt.name}
       >

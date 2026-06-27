@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DojoHeader } from "@/components/DojoHeader";
 import { useDojo, useHydrated } from "@/lib/dojo-store";
+import { celebratePromotion, celebrateXp } from "@/lib/celebrate";
 import { useState } from "react";
 import { toast, Toaster } from "sonner";
 
@@ -62,8 +63,10 @@ export default function Workspace() {
       ].join("\n"),
     );
     if (result.promoted) {
+      celebratePromotion(result.newBelt.color);
       toast.success(`🥋 PROMOVIDO! Você agora é ${result.newBelt.name}`, { duration: 5000 });
     } else {
+      celebrateXp();
       toast.success("Desafio aprovado! +120 XP");
     }
     setRunning(false);
