@@ -150,26 +150,55 @@ export default function Workspace() {
               <span className="ml-auto text-xs font-mono text-kaizen">{state.xp} XP</span>
             )}
           </div>
-          <div className="flex-1 grid grid-rows-[1fr_auto_220px] min-h-[520px]">
-            <textarea
-              spellCheck={false}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className="w-full h-full bg-[#0A0A0A] text-[#E5E5E5] font-mono text-sm p-4 resize-none outline-none leading-relaxed selection:bg-kaizen/30"
-            />
+          <div className="flex-1 grid grid-rows-[1fr_auto_240px] min-h-[520px]">
+            <div className="relative flex overflow-hidden">
+              <div
+                aria-hidden
+                className="select-none font-mono text-xs leading-relaxed text-muted-foreground/50 py-4 pl-3 pr-2 text-right border-r border-border/40 bg-black/40"
+              >
+                {code.split("\n").map((_, i) => (
+                  <div key={i}>{i + 1}</div>
+                ))}
+              </div>
+              <textarea
+                spellCheck={false}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="flex-1 bg-[#0A0A0A] text-[#E5E5E5] font-mono text-sm p-4 resize-none outline-none leading-relaxed selection:bg-kaizen/30 caret-kaizen"
+              />
+            </div>
             <div className="border-t border-border p-3 bg-black">
               <button
                 onClick={compileAndSubmit}
                 disabled={running}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-destructive px-6 py-3.5 font-display font-bold text-destructive-foreground uppercase tracking-[0.15em] text-sm shadow-[0_8px_30px_-8px_rgba(230,57,70,0.8)] hover:shadow-[0_12px_36px_-6px_rgba(230,57,70,0.95)] disabled:opacity-60 transition"
               >
-                {running ? "⏳ executando..." : "⚔ Compilar e submeter desafio"}
+                {running ? "⏳ Rodando testes automatizados..." : "⚔ Compilar e submeter desafio"}
               </button>
             </div>
-            <pre className="bg-black border-t border-border p-4 font-mono text-xs text-[#9EE493] overflow-auto whitespace-pre-wrap">
-{output}
-            </pre>
+            <div className="bg-black border-t border-border overflow-hidden flex flex-col">
+              <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border/60 bg-black/80">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#2ECC71] animate-pulse" />
+                <span className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">terminal · dojo-cli</span>
+              </div>
+              <pre className="flex-1 p-4 font-mono text-xs text-[#9EE493] overflow-auto whitespace-pre-wrap leading-relaxed">
+{lines.map((l, i) => {
+  const isFail = l.startsWith("✗");
+  const isOk = l.startsWith("✓") || l.endsWith("ok") || l.endsWith("✓");
+  return (
+    <div
+      key={i}
+      className={isFail ? "text-destructive" : isOk ? "text-[#9EE493]" : "text-[#C8E6C9]"}
+    >
+      {l || "\u00A0"}
+    </div>
+  );
+})}
+{running && <div className="text-kaizen animate-pulse">▌</div>}
+              </pre>
+            </div>
           </div>
+
         </section>
       </main>
     </div>
