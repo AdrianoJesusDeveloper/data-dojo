@@ -60,7 +60,16 @@ function Dashboard() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => fastForward(250)}
+              onClick={() => {
+                const r = fastForward(250);
+                if (r.promoted) {
+                  celebratePromotion(r.newBelt.color);
+                  toast.success(`🥋 PROMOVIDO! Você agora é ${r.newBelt.name}`, { duration: 5000 });
+                } else {
+                  celebrateXp();
+                  toast.success("+250 XP Kaizen!");
+                }
+              }}
               className="rounded-md border border-kaizen/40 bg-kaizen/10 text-kaizen px-4 py-2 text-sm font-semibold hover:bg-kaizen/20"
             >
               + 250 XP (demo)
