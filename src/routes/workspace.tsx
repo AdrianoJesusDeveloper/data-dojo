@@ -34,34 +34,56 @@ export default function Workspace() {
   const { state, submitChallenge } = useDojo();
   const hydrated = useHydrated();
   const [code, setCode] = useState(STARTER_CODE);
-  const [output, setOutput] = useState<string>("$ aguardando submissão...");
+  const [lines, setLines] = useState<string[]>(["$ dojo-cli pronto. Aguardando submissão..."]);
   const [running, setRunning] = useState(false);
+
+  const append = (line: string) =>
+    setLines((prev) => [...prev, line]);
+
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   const compileAndSubmit = async () => {
     setRunning(true);
-    setOutput("$ compilando ast...\n$ executando contra dojo-db (sandbox)...");
-    await new Promise((r) => setTimeout(r, 900));
-    const pass = code.toLowerCase().includes("select") && code.includes("FROM");
-    if (!pass) {
-      setOutput("✗ Falha: a query precisa de SELECT ... FROM ...\nKaizen: revise e tente de novo.");
+    setLines([]);
+    const valid = code.toLowerCase().includes("select") && code.toUpperCase().includes("FROM");
+
+    const steps: Array<[string, number]> = [
+      ["$ dojo-cli submit ./joins-agregacao.sql", 120],
+      ["» preparando sandbox dojo-db ............... ok", 320],
+      ["» lint sql (sqlfluff) ...................... ok", 280],
+      ["» parsing AST .............................. ok", 220],
+      ["» dry-run query plan ....................... ok", 340],
+      ["» rodando test_categoria_existe ............ ✓", 260],
+      ["» rodando test_filtro_completed ............ ✓", 240],
+      ["» rodando test_desconto_aplicado ........... ✓", 280],
+      ["» rodando test_top3_ordenacao .............. ✓", 260],
+      ["» benchmark: 42ms · 3 linhas retornadas ..... ok", 300],
+    ];
+
+    for (const [msg, delay] of steps) {
+      append(msg);
+      await wait(delay);
+    }
+
+    if (!valid) {
+      append("");
+      append("✗ FALHA: a query precisa de SELECT ... FROM ...");
+      append("Kaizen: revise a sintaxe e tente novamente.");
       toast.error("Desafio reprovado. Sem XP desta vez.");
       setRunning(false);
       return;
     }
+
     const result = submitChallenge("Top 3 categorias por receita", 120, 1.5);
-    setOutput(
-      [
-        "✓ Compilação OK",
-        "✓ 3 linhas retornadas",
-        "─────────────────────────────",
-        "category_name        net_revenue",
-        "Eletrônicos          R$ 184.230,55",
-        "Casa & Cozinha       R$  92.110,00",
-        "Esportes             R$  77.840,32",
-        "─────────────────────────────",
-        `+120 XP · +1.5h de código`,
-      ].join("\n"),
-    );
+    append("");
+    append("─────────────────────────────────────");
+    append("category_name        net_revenue");
+    append("Eletrônicos          R$ 184.230,55");
+    append("Casa & Cozinha       R$  92.110,00");
+    append("Esportes             R$  77.840,32");
+    append("─────────────────────────────────────");
+    append("✓ DESAFIO APROVADO · +120 XP · +1.5h de código");
+
     if (result.promoted) {
       celebratePromotion(result.newBelt.color);
       toast.success(`🥋 PROMOVIDO! Você agora é ${result.newBelt.name}`, { duration: 5000 });
@@ -71,6 +93,7 @@ export default function Workspace() {
     }
     setRunning(false);
   };
+
 
   return (
     <div className="min-h-screen flex flex-col">
