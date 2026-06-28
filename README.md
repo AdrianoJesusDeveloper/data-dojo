@@ -51,4 +51,4 @@ Certifique-se de ter o `Node.js` (ou `Bun`) instalado em sua máquina.
 ### Passo a Passo
 1. Clone o repositório:
    ```bash
-   git clone [https://github.com/AdrianoJesusDeveloper/data-dojo.git](https://github.com/AdrianoJesusDeveloper/data-dojo.git)
+   git clone https://github.com/AdrianoJesusDeveloper/data-dojo.git
