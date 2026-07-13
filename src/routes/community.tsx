@@ -143,8 +143,8 @@ function Community() {
       // (some environments/browsers may not implement it)
       // keep ids deterministic-enough for local UI usage
 
-      id =
-        (globalThis as any).crypto?.randomUUID?.() ?? `p_${Math.random().toString(36).slice(2, 9)}`;
+        const g = globalThis as unknown as { crypto?: { randomUUID?: () => string } };
+        id = g.crypto?.randomUUID?.() ?? `p_${Math.random().toString(36).slice(2, 9)}`;
     } catch (e) {
       id = `p_${Math.random().toString(36).slice(2, 9)}`;
     }
