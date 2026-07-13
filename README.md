@@ -393,6 +393,60 @@ flowchart TD
 - O workspace carrega o primeiro curso disponível e usa validação simples de SQL para aprovação de desafios.
 - O feed comunitário é alimentado por posts seed e permite curtidas locais.
 - A autenticação é baseada em token gravado no `localStorage`.
-=======
-   git clone https://github.com/AdrianoJesusDeveloper/data-dojo.git
->>>>>>> 1b99c3d1dbde7c0707c5a6ffa92511039b6cd842
+- A autenticação é baseada em token gravado no `localStorage`.
+
+---
+
+**.gitignore — documentação e boas práticas**
+
+Objetivo
+- Fornecer orientação clara sobre o propósito de `/.gitignore` e as categorias de arquivos que não devem ser versionadas.
+
+Por que manter um `.gitignore` bem escrito
+- Protege segredos e credenciais (ex.: arquivos `.env`).
+- Evita incluir dependências e artefatos binários que incham o repositório.
+- Reduz o risco de conflitos e commits acidentais de arquivos gerados localmente.
+
+Categorias recomendadas
+- Dependências e builds: `node_modules/`, `.output/`, `dist/`, `build/`
+- Ambientes e caches: `.venv/`, `venv/`, `__pycache__/`, `.pytest_cache/`
+- Dados locais e uploads: `db.sqlite3`, `media/`, `uploads/`
+- Arquivos sensíveis: `.env`, `.env.local`, `credentials.json`
+- Ferramentas/IDE: `.vscode/`, `.idea/`, `.DS_Store`, `Thumbs.db`
+- Logs e relatórios: `npm-debug.log`, `yarn-debug.log`, `coverage/`
+
+Trecho de exemplo (recomenda-se revisar para o seu contexto)
+
+```
+# Node / frontend
+node_modules/
+.output/
+
+# Python / Django
+.venv/
+venv/
+db.sqlite3
+media/
+
+# Ambiente local / Segredos
+.env
+
+# IDEs / OS
+.vscode/
+.DS_Store
+```
+
+Como remover um arquivo já comitado por engano
+1. Remova do índice, mantendo-o no disco:
+
+    git rm --cached path/to/file
+
+2. Commit e push:
+
+    git commit -m "chore: remover arquivo sensível do repositório"
+    git push
+
+Manutenção
+- Atualize o arquivo quando adicionar novas ferramentas/fluxos de build.
+- Use templates oficiais do GitHub como base: https://github.com/github/gitignore
+
