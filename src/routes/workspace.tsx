@@ -123,7 +123,9 @@ export default function Workspace() {
       }
 
       if (expectedKeywords.length > 0) {
-        return expectedKeywords.every((keyword) => normalizedAnswer.includes(keyword.toLowerCase()));
+        return expectedKeywords.every((keyword) =>
+          normalizedAnswer.includes(keyword.toLowerCase()),
+        );
       }
 
       return normalizedAnswer.includes("select") && normalizedAnswer.includes("from");

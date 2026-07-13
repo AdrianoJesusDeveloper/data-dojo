@@ -142,8 +142,9 @@ function Community() {
       // Use crypto.randomUUID when available, fallback otherwise
       // (some environments/browsers may not implement it)
       // keep ids deterministic-enough for local UI usage
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      id = (globalThis as any).crypto?.randomUUID?.() ?? `p_${Math.random().toString(36).slice(2, 9)}`;
+
+      id =
+        (globalThis as any).crypto?.randomUUID?.() ?? `p_${Math.random().toString(36).slice(2, 9)}`;
     } catch (e) {
       id = `p_${Math.random().toString(36).slice(2, 9)}`;
     }
