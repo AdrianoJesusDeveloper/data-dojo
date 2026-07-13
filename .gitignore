@@ -30,3 +30,24 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+.venv/
+venv/
+env/
+.env
+.env.*
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Project-specific
+apps/api/db.sqlite3
+apps/api/media/
+apps/api/lessons/files/

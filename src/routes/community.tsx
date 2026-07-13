@@ -8,7 +8,10 @@ export const Route = createFileRoute("/community")({
   head: () => ({
     meta: [
       { title: "Comunidade · Data Driven Dojô" },
-      { name: "description", content: "Feed dos samurais de dados. Conquistas, dúvidas e insights da comunidade Kaizen." },
+      {
+        name: "description",
+        content: "Feed dos samurais de dados. Conquistas, dúvidas e insights da comunidade Kaizen.",
+      },
     ],
   }),
   component: Community,
@@ -134,8 +137,19 @@ function Community() {
   const publish = () => {
     const text = draft.trim();
     if (!text) return;
+    let id = "";
+    try {
+      // Use crypto.randomUUID when available, fallback otherwise
+      // (some environments/browsers may not implement it)
+      // keep ids deterministic-enough for local UI usage
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      id = (globalThis as any).crypto?.randomUUID?.() ?? `p_${Math.random().toString(36).slice(2, 9)}`;
+    } catch (e) {
+      id = `p_${Math.random().toString(36).slice(2, 9)}`;
+    }
+
     const newPost: Post = {
-      id: crypto.randomUUID(),
+      id,
       author: state.studentName,
       handle: "@voce",
       beltId: myBelt.id,
@@ -144,23 +158,31 @@ function Community() {
       likes: 0,
       comments: 0,
     };
-    setPosts((p) => [newPost, ...p]);
-    setDraft("");
-    toast.success("Postagem enviada ao dojô 🥋");
+
+    try {
+      setPosts((p) => [newPost, ...p]);
+      setDraft("");
+      toast.success("Postagem enviada ao dojô 🥋");
+    } catch (err) {
+      console.error("Erro ao publicar post:", err);
+      toast.error("Não foi possível publicar o post localmente.");
+    }
   };
 
   const toggleLike = (id: string) => {
     setLiked((s) => {
       const n = new Set(s);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
+      const isLiked = n.has(id);
+      if (isLiked) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      setPosts((ps) =>
+        ps.map((p) => (p.id === id ? { ...p, likes: p.likes + (isLiked ? -1 : 1) } : p)),
+      );
       return n;
     });
-    setPosts((ps) =>
-      ps.map((p) =>
-        p.id === id ? { ...p, likes: p.likes + (liked.has(id) ? -1 : 1) } : p,
-      ),
-    );
   };
 
   return (
@@ -169,7 +191,9 @@ function Community() {
       <DojoHeader />
       <main className="mx-auto max-w-5xl px-4 py-10">
         <div>
-          <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Comunidade</div>
+          <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+            Comunidade
+          </div>
           <h1 className="font-display font-extrabold text-4xl mt-1">Salão dos Samurais</h1>
           <p className="text-muted-foreground mt-1">
             Conquistas, dúvidas e insights de quem trilha o caminho dos dados.
@@ -181,7 +205,10 @@ function Community() {
           <div className="flex items-start gap-3">
             <div
               className="h-10 w-10 rounded-md flex items-center justify-center font-display font-bold text-sm border-2 border-black/40 shrink-0"
-              style={{ background: myBelt.color, color: myBelt.id === "black" ? "#FFA500" : "#1C1C1C" }}
+              style={{
+                background: myBelt.color,
+                color: myBelt.id === "black" ? "#FFA500" : "#1C1C1C",
+              }}
             >
               {myBelt.kanji}
             </div>
@@ -190,7 +217,7 @@ function Community() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Compartilhe sua conquista, dúvida ou insight Kaizen..."
-                className="w-full bg-background border border-border rounded-lg p-3 text-sm resize-none outline-none focus:border-kaizen/60 transition min-h-[80px]"
+                className="w-full bg-background border border-border rounded-lg p-3 text-sm resize-none outline-none focus:border-kaizen/60 transition min-h-20"
               />
               <div className="flex items-center justify-between mt-2">
                 <div className="text-[11px] font-mono text-muted-foreground">
@@ -228,7 +255,10 @@ function Community() {
                 <header className="flex items-center gap-3">
                   <div
                     className="h-11 w-11 rounded-md flex items-center justify-center font-display font-bold border-2 border-black/40 shrink-0"
-                    style={{ background: b.color, color: p.beltId === "black" ? "#FFA500" : "#1C1C1C" }}
+                    style={{
+                      background: b.color,
+                      color: p.beltId === "black" ? "#FFA500" : "#1C1C1C",
+                    }}
                   >
                     {b.kanji}
                   </div>
@@ -238,7 +268,11 @@ function Community() {
                       <span className="text-xs font-mono text-muted-foreground">{p.handle}</span>
                       <span
                         className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border"
-                        style={{ color: b.color, borderColor: `${b.color}66`, background: `${b.color}10` }}
+                        style={{
+                          color: b.color,
+                          borderColor: `${b.color}66`,
+                          background: `${b.color}10`,
+                        }}
                       >
                         {b.name}
                       </span>
@@ -250,7 +284,10 @@ function Community() {
                 {p.tags && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {p.tags.map((t) => (
-                      <span key={t} className="text-[11px] font-mono text-[#4A9EFF] px-2 py-0.5 rounded bg-[#0057B8]/10 border border-[#0057B8]/40">
+                      <span
+                        key={t}
+                        className="text-[11px] font-mono text-[#4A9EFF] px-2 py-0.5 rounded bg-[#0057B8]/10 border border-[#0057B8]/40"
+                      >
                         {t}
                       </span>
                     ))}
@@ -271,7 +308,9 @@ function Community() {
                     <span className="text-base leading-none">💬</span>
                     <span className="font-mono">{p.comments}</span>
                   </button>
-                  <button className="ml-auto text-muted-foreground hover:text-kaizen">Compartilhar</button>
+                  <button className="ml-auto text-muted-foreground hover:text-kaizen">
+                    Compartilhar
+                  </button>
                 </footer>
               </article>
             );

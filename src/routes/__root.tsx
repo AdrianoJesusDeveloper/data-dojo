@@ -78,10 +78,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Data Driven Dojô — Treinamento Kaizen para profissionais de dados" },
-      { name: "description", content: "Plataforma gamificada de cursos para dados. Conquiste faixas, acumule Pontos Kaizen e trilhe o caminho da maestria." },
+      {
+        name: "description",
+        content:
+          "Plataforma gamificada de cursos para dados. Conquiste faixas, acumule Pontos Kaizen e trilhe o caminho da maestria.",
+      },
       { name: "theme-color", content: "#1C1C1C" },
       { property: "og:title", content: "Data Driven Dojô" },
-      { property: "og:description", content: "Disciplina samurai aplicada ao aprendizado de dados." },
+      {
+        property: "og:description",
+        content: "Disciplina samurai aplicada ao aprendizado de dados.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

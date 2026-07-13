@@ -1,54 +1,395 @@
 # Data Driven Dojô ⚔️📊
 
-Uma plataforma educacional gamificada de alta performance projetada para profissionais de dados. O ecossistema foi construído integrando conceitos avançados de desenvolvimento web a uma experiência de usuário (UX) focada em retenção, disciplina e consistência, inspirada na filosofia **Kaizen** de melhoria contínua.
+Uma plataforma gamificada para formação de profissionais de dados, construída com React, TypeScript, Vite e Django REST.
 
----
+## Visão Geral
 
-## 🎨 Design System & Identidade Visual
+O Data Driven Dojô combina gamificação, trilhas de aprendizado e um workspace interativo para acelerar a jornada de profissionais de dados. O sistema atual permite cadastrar cursos, módulos, aulas, vídeos e exercícios, além de oferecer um ambiente de desafio com editor SQL e feedback visual.
 
-A interface foi desenvolvida seguindo rigorosamente as diretrizes oficiais de branding documentadas no arquivo `tipogrfia e aplicações .docx`[cite: 1], priorizando um ambiente Dark Mode de alta concentração para desenvolvimento de código:
+## Tecnologias
 
-### 🔤 Tipografia Recomendada
-*   **Títulos e Logotipo:** `Montserrat Bold` ou `Exo 2 Bold` — Estética moderna, imponente e tecnológica.
-*   **Textos Corridos:** `Open Sans Regular` — Garantia de legibilidade máxima e neutralidade para descrições de aulas.
-*   **Elementos Técnicos e Códigos:** `Roboto Mono` — Remete diretamente ao ambiente de codificação, dados e outputs analíticos.
+- Frontend: React + TypeScript + Vite
+- Roteamento: TanStack Router
+- Estado e dados: TanStack React Query
+- Estilização: Tailwind CSS
+- Notificações: Sonner
+- Gráficos: Recharts
+- Backend: Django 6 + Django REST Framework
+- Autenticação: dj-rest-auth + token auth
+- Data store: PostgreSQL (opcional SQLite em dev)
+- Filas: Celery + Redis
 
-### 🎨 Paleta de Cores Oficial
-*   **Fundo Principal:** Grafite (`#1C1C1C`) — Reduz a fadiga visual durante longas sessões de estudo.
-*   **Suporte e Branding:** Azul Profundo (`#0057B8`) — Traz autoridade técnica e profundidade ao ecossistema.
-*   **Elementos de Impacto:** Laranja Ascendente (`#FFA500`) — Representa o crescimento e a evolução contínua do aluno em gráficos.
-*   **Call to Action (CTA):** Vermelho Samurai (`#E63946`) — Aplicado exclusivamente em pontos críticos de conversão e submissão.
+## Estrutura do Repositório
 
----
+- [src](src) — frontend React
+  - [src/routes](src/routes) — páginas do app
+  - [src/components](src/components) — componentes reutilizáveis
+  - [src/lib](src/lib) — estado do Dojô e helpers
+- [apps/api](apps/api) — backend Django
+  - [apps/api/core](apps/api/core) — modelos, serializers, views e rotas
+  - [apps/api/config](apps/api/config) — configuração do Django
+- [apps/api/requirements.txt](apps/api/requirements.txt) — dependências Python
+- [package.json](package.json) — dependências e scripts do frontend
 
-## 🎮 Mecânica de Gamificação (A Jornada do Samurai)
+## Funcionalidades Principais
 
-O aprendizado é estruturado através de um sistema de graduação por faixas marciais, impulsionando o engajamento do usuário:
+- Cadastro e login de usuários
+- Dashboard de progresso com gráficos de XP, horas e streak
+- Workspace de desafio com editor SQL simulado
+- Feed de comunidade com posts, curtidas e comentários falsos
+- Persistência local do estado do usuário no navegador
+- Integração com backend Django para cursos, módulos, aulas, vídeos e exercícios
+- Suporte a exercícios estruturados com enunciado, tipo, resposta esperada e critérios de avaliação
 
-1.  **Faixa Branca:** Fundamentos básicos de dados.
-2.  **Faixa Amarela:** Manipulação e tratamento de dados.
-3.  **Faixa Verde:** Análise exploratória avançada.
-4.  **Faixa Preta / Sensei:** Modelagem preditiva, Machine Learning e maestria analítica.
+## Arquitetura e Diagramas
 
-O progresso é computado em tempo real. Ao interagir com o terminal integrado e submeter desafios, a plataforma calcula os **Pontos Kaizen (XP)** e atualiza as métricas analíticas em gráficos interativos, disparando alertas de promoção automática de faixa.
+A documentação abaixo descreve a arquitetura atual do sistema com foco em estrutura, fluxo de dados, comportamento e modelagem.
 
----
+### 1. Diagrama estrutural / arquitetura de alto nível
 
-## 🛠️ Tecnologias Utilizadas
+```mermaid
+flowchart LR
+    Usuario[Usuário] --> Frontend[Frontend React + Vite]
+    Frontend --> API[Django REST API]
+    API --> BD[(Banco de Dados)]
+    API --> Media[Arquivos de mídia]
+    API --> Redis[(Redis)]
+    API --> Celery[Workers Celery]
+```
 
-*   **Frontend:** React 18, TypeScript, Vite.
-*   **Estilização:** Tailwind CSS (com Design System totalmente customizado).
-*   **Gráficos:** Recharts (renderizados utilizando a paleta Laranja Ascendente).
-*   **Persistência Local:** State management estruturado via `localStorage`.
+### 2. Diagrama de componentes
 
----
+```mermaid
+flowchart TB
+    subgraph Frontend
+        Router[Router TanStack]
+        Pages[Páginas do workspace e autenticação]
+        Store[Store do Dojô]
+        UI[Componentes UI]
+    end
 
-## 🚀 Como Executar o Projeto Localmente
+    subgraph Backend
+        Views[Views/API]
+        Models[Models Django]
+        Serializers[Serializers DRF]
+        Admin[Admin Django]
+    end
 
-### Pré-requisitos
-Certifique-se de ter o `Node.js` (ou `Bun`) instalado em sua máquina.
+    Router --> Pages
+    Pages --> Store
+    Pages --> UI
+    Pages --> Views
+    Views --> Serializers
+    Views --> Models
+    Admin --> Models
+```
 
-### Passo a Passo
-1. Clone o repositório:
+### 3. Diagrama de pacotes
+
+```mermaid
+flowchart TB
+    subgraph src
+        routes[Routes]
+        components[Components]
+        lib[Lib]
+    end
+
+    subgraph apps.api
+        core[Core App]
+        config[Config App]
+    end
+
+    core --> config
+    routes --> components
+    routes --> lib
+```
+
+### 4. Diagrama de classes
+
+```mermaid
+classDiagram
+    class User {
+        +id
+        +email
+        +username
+        +first_name
+        +last_name
+    }
+
+    class Course {
+        +id
+        +title
+        +description
+        +created_at
+    }
+
+    class Module {
+        +id
+        +title
+        +order
+    }
+
+    class Lesson {
+        +id
+        +title
+        +content_type
+        +file_upload
+        +video_url
+        +body
+        +order
+    }
+
+    class Exercise {
+        +id
+        +title
+        +statement
+        +answer_type
+        +expected_answer
+        +expected_keywords
+        +evaluation_mode
+        +points
+        +evaluate_answer(answer)
+    }
+
+    Course "1" --> "0..*" Module : possui
+    Module "1" --> "0..*" Lesson : contém
+    Lesson "1" --> "0..1" Exercise : possui
+```
+
+### 5. Diagrama de implantação
+
+```mermaid
+flowchart TB
+    Browser[Browser / Mobile] --> Vite[Vite Dev Server]
+    Vite --> Frontend[Frontend React]
+    Frontend --> API[API Django REST]
+    API --> Postgres[(PostgreSQL)]
+    API --> Redis[(Redis)]
+    API --> Media[(Arquivos de mídia)]
+    Celery[Celery Worker] --> Redis
+    Celery --> Postgres
+```
+
+### 6. Diagrama de objetos
+
+```mermaid
+flowchart LR
+    curso1[Curso: SQL para Dados]
+    modulo1[Módulo: Fundamentos]
+    aula1[Aula: Introdução ao SELECT]
+    aula2[Aula: Exercício SQL]
+
+    curso1 --> modulo1
+    modulo1 --> aula1
+    modulo1 --> aula2
+```
+
+### 7. Diagrama de casos de uso
+
+```mermaid
+flowchart TD
+    Usuario[Aluno] --> UC1[Entrar no sistema]
+    Usuario --> UC2[Visualizar cursos]
+    Usuario --> UC3[Assistir aula]
+    Usuario --> UC4[Enviar resposta do desafio]
+    Usuario --> UC5[Visualizar progresso]
+```
+
+### 8. Diagrama de sequência
+
+```mermaid
+sequenceDiagram
+    participant Aluno as Aluno
+    participant Front as Frontend
+    participant API as Django API
+    participant DB as Banco
+
+    Aluno->>Front: Acessa workspace
+    Front->>API: GET /api/courses/
+    API->>DB: Busca cursos, módulos e aulas
+    DB-->>API: Dados retornados
+    API-->>Front: JSON com conteúdo
+    Front-->>Aluno: Renderiza vídeo, aulas e editor
+```
+
+### 9. Diagrama de atividades
+
+```mermaid
+flowchart TD
+    A[Aluno abre o workspace] --> B[Frontend carrega curso]
+    B --> C[API retorna módulos e aulas]
+    C --> D[Usuário escolhe uma aula]
+    D --> E[Exibe vídeo ou texto do exercício]
+    E --> F[Usuário envia solução]
+    F --> G[Sistema valida resposta]
+    G --> H[Exibe feedback e XP]
+```
+
+### 10. Diagrama de máquina de estados
+
+```mermaid
+stateDiagram-v2
+    [*] --> Carregando
+    Carregando --> Pronto: dados carregados
+    Carregando --> Erro: falha de conexão
+    Pronto --> Assistindo: selecionar aula
+    Assistindo --> Respondendo: abrir desafio
+    Respondendo --> Validando: submeter resposta
+    Validando --> Pronto: resposta aceita
+    Validando --> Respondendo: resposta reprovada
+    Erro --> [*]
+```
+
+### 11. Diagrama de entidade-relacionamento (DER)
+
+```mermaid
+erDiagram
+    USER ||--o{ COURSE : cria
+    COURSE ||--o{ MODULE : possui
+    MODULE ||--o{ LESSON : contém
+    LESSON ||--o| EXERCISE : possui
+
+    USER {
+        int id
+        string email
+        string username
+    }
+
+    COURSE {
+        int id
+        string title
+        string description
+        datetime created_at
+    }
+
+    MODULE {
+        int id
+        int course_id
+        string title
+        int order
+    }
+
+    LESSON {
+        int id
+        int module_id
+        string title
+        string content_type
+        string file_upload
+        string video_url
+        text body
+        int order
+    }
+
+    EXERCISE {
+        int id
+        int lesson_id
+        string title
+        text statement
+        string answer_type
+        text expected_answer
+        json expected_keywords
+        string evaluation_mode
+        int points
+    }
+```
+
+### 12. Diagrama de fluxo de dados (DFD)
+
+```mermaid
+flowchart LR
+    Usuario[Aluno] -->|envia ação| Frontend[Frontend]
+    Frontend -->|requisição| API[API Django]
+    API -->|consulta| DB[(Banco de Dados)]
+    API -->|serve mídia| Storage[Arquivos de mídia]
+    API -->|retorna dados| Frontend
+    Frontend -->|apresenta feedback| Usuario
+```
+
+### 13. Visão de fluxo de conteúdo do curso
+
+```mermaid
+flowchart TD
+    Curso[Curso] --> Modulo1[Módulo 1]
+    Curso --> Modulo2[Módulo 2]
+    Modulo1 --> Aula1[Aula de vídeo]
+    Modulo1 --> Aula2[Exercício]
+    Modulo2 --> Aula3[Aula de apostila]
+    Modulo2 --> Aula4[Laboratório]
+```
+
+## Correções Aplicadas
+
+- Corrigido toggle de curtidas em [src/routes/community.tsx](src/routes/community.tsx), garantindo atualização correta de estado e contagem.
+- Ajustado `beforeLoad` em [src/routes/index.tsx](src/routes/index.tsx) para evitar acesso a `localStorage` durante SSR.
+- Adicionado `TokenAuthentication` nas configurações do Django para compatibilidade com `dj-rest-auth`.
+- Permitido CORS para `http://localhost:5173` e `http://127.0.0.1:5173` no backend.
+
+## Configuração Local
+
+### Frontend
+
+1. Instale dependências:
    ```bash
-   git clone [https://github.com/AdrianoJesusDeveloper/data-dojo.git](https://github.com/AdrianoJesusDeveloper/data-dojo.git)
+   npm install
+   ```
+2. Inicie o frontend:
+   ```bash
+   npm run dev
+   ```
+3. Abra em `http://localhost:5173`
+
+### Backend
+
+1. Acesse o backend:
+   ```bash
+   cd apps/api
+   ```
+2. Crie e ative um ambiente virtual:
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
+3. Instale dependências:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Execute migrações:
+   ```bash
+   python manage.py migrate
+   ```
+5. Inicie o servidor:
+   ```bash
+   python manage.py runserver
+   ```
+
+### Banco de Dados
+
+- O backend usa PostgreSQL por padrão com configuração em [apps/api/config/settings.py](apps/api/config/settings.py).
+- Para usar SQLite local, defina `DJANGO_USE_SQLITE=True` nas variáveis de ambiente.
+
+## Endpoints Principais
+
+- `GET /api/courses/`
+- `GET /api/modules/`
+- `GET /api/lessons/`
+- `POST /api/auth/login/`
+- `POST /api/auth/registration/`
+
+## Scripts Úteis
+
+- `npm run dev` — iniciar frontend em desenvolvimento
+- `npm run build` — gerar build de produção
+- `npm run preview` — visualizar build
+- `npm run lint` — executar ESLint
+
+## Uso
+
+1. Inicie o backend Django.
+2. Inicie o frontend Vite.
+3. Acesse `http://localhost:5173`.
+
+## Observações
+
+- O workspace carrega o primeiro curso disponível e usa validação simples de SQL para aprovação de desafios.
+- O feed comunitário é alimentado por posts seed e permite curtidas locais.
+- A autenticação é baseada em token gravado no `localStorage`.

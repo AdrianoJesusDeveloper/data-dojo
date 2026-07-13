@@ -31,8 +31,20 @@ export function celebratePromotion(beltColor: string) {
 
   // School-flag fire from the sides
   setTimeout(() => {
-    confetti({ particleCount: 80, angle: 60, spread: 70, origin: { x: 0, y: 0.8 }, colors: [beltColor, "#FFA500"] });
-    confetti({ particleCount: 80, angle: 120, spread: 70, origin: { x: 1, y: 0.8 }, colors: [beltColor, "#E63946"] });
+    confetti({
+      particleCount: 80,
+      angle: 60,
+      spread: 70,
+      origin: { x: 0, y: 0.8 },
+      colors: [beltColor, "#FFA500"],
+    });
+    confetti({
+      particleCount: 80,
+      angle: 120,
+      spread: 70,
+      origin: { x: 1, y: 0.8 },
+      colors: [beltColor, "#E63946"],
+    });
   }, 250);
 
   window.dispatchEvent(new CustomEvent("dojo:promoted", { detail: { color: beltColor } }));

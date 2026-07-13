@@ -1,12 +1,23 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { DojoHeader } from "@/components/DojoHeader";
 import { BELTS } from "@/lib/dojo-store";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    const isAuthenticated = !!window.localStorage.getItem("token");
+    if (!isAuthenticated) {
+      throw redirect({ to: "/login" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Data Driven Dojô — Inicie seu treinamento" },
-      { name: "description", content: "Disciplina samurai e filosofia Kaizen aplicadas ao aprendizado de dados. Conquiste faixas, evolua sem parar." },
+      {
+        name: "description",
+        content:
+          "Disciplina samurai e filosofia Kaizen aplicadas ao aprendizado de dados. Conquiste faixas, evolua sem parar.",
+      },
     ],
   }),
   component: Landing,
@@ -38,9 +49,10 @@ function Landing() {
               Forje sua <span className="text-destructive text-glow-samurai">disciplina</span>.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-              O <strong className="text-foreground">Data Driven Dojô</strong> é uma jornada gamificada de treinamento
-              para profissionais de dados. Conquiste <strong className="text-kaizen">Pontos Kaizen</strong>, evolua
-              entre faixas marciais e trilhe o caminho da maestria — um desafio por vez.
+              O <strong className="text-foreground">Data Driven Dojô</strong> é uma jornada
+              gamificada de treinamento para profissionais de dados. Conquiste{" "}
+              <strong className="text-kaizen">Pontos Kaizen</strong>, evolua entre faixas marciais e
+              trilhe o caminho da maestria — um desafio por vez.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-4">
@@ -76,7 +88,9 @@ function Landing() {
           <div className="relative">
             <div className="absolute -inset-4 bg-primary/20 blur-3xl rounded-full" />
             <div className="relative rounded-2xl border border-border bg-card/80 p-6 backdrop-blur">
-              <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">A Trilha do Guerreiro</div>
+              <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                A Trilha do Guerreiro
+              </div>
               <div className="mt-1 font-display font-bold text-2xl">Sistema de Graduação</div>
               <ul className="mt-6 space-y-3">
                 {BELTS.map((b, i) => (
@@ -86,7 +100,10 @@ function Landing() {
                   >
                     <div
                       className="h-12 w-12 rounded-md flex items-center justify-center font-display font-bold text-lg border-2 border-black/40"
-                      style={{ background: b.color, color: b.id === "black" ? "#FFA500" : "#1C1C1C" }}
+                      style={{
+                        background: b.color,
+                        color: b.id === "black" ? "#FFA500" : "#1C1C1C",
+                      }}
                     >
                       {b.kanji}
                     </div>
@@ -124,7 +141,10 @@ function Landing() {
               c: "bg-kaizen",
             },
           ].map((p) => (
-            <div key={p.t} className="rounded-xl border border-border bg-card p-6 hover:border-kaizen/50 transition-colors">
+            <div
+              key={p.t}
+              className="rounded-xl border border-border bg-card p-6 hover:border-kaizen/50 transition-colors"
+            >
               <div className={`h-1 w-12 rounded-full ${p.c}`} />
               <h3 className="mt-4 font-display font-bold text-xl">{p.t}</h3>
               <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{p.d}</p>

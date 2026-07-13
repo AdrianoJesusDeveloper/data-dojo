@@ -2,62 +2,137 @@ import { createFileRoute } from "@tanstack/react-router";
 import { DojoHeader } from "@/components/DojoHeader";
 import { useDojo, useHydrated } from "@/lib/dojo-store";
 import { celebratePromotion, celebrateXp } from "@/lib/celebrate";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
 
 export const Route = createFileRoute("/workspace")({
   head: () => ({
     meta: [
       { title: "Workspace de Treinamento · Data Driven Dojô" },
-      { name: "description", content: "Player de aula + IDE integrada. Compile e submeta seu desafio para ganhar XP." },
+      {
+        name: "description",
+        content: "Player de aula + IDE integrada. Compile e submeta seu desafio para ganhar XP.",
+      },
     ],
   }),
   component: Workspace,
 });
 
-const STARTER_CODE = `-- Desafio: Top 3 categorias por receita líquida
--- Faixa Amarela · 120 XP
+// Tipagens para bater com o models.py e serializers.py do Django
+interface Exercise {
+  id: number;
+  lesson: number;
+  title: string;
+  statement: string;
+  answer_type: string;
+  expected_answer: string;
+  expected_keywords: string[];
+  evaluation_mode: string;
+  points: number;
+}
 
-SELECT
-  c.category_name,
-  SUM(o.quantity * o.unit_price * (1 - o.discount)) AS net_revenue
-FROM orders o
-JOIN products p ON p.id = o.product_id
-JOIN categories c ON c.id = p.category_id
-WHERE o.status = 'completed'
-GROUP BY c.category_name
-ORDER BY net_revenue DESC
-LIMIT 3;
-`;
+interface Lesson {
+  id: number;
+  title: string;
+  content_type: string;
+  file_upload: string | null;
+  video_url: string | null;
+  body: string;
+  order: number;
+  exercise: Exercise | null;
+}
+
+interface Module {
+  id: number;
+  title: string;
+  order: number;
+  lessons: Lesson[];
+}
+
+interface Course {
+  id: number;
+  title: string;
+  description: string;
+  modules: Module[];
+}
 
 export default function Workspace() {
   const { state, submitChallenge } = useDojo();
   const hydrated = useHydrated();
-  const [code, setCode] = useState(STARTER_CODE);
+
+  // Estados para gerenciar os dados vindos do Django
+  const [course, setCourse] = useState<Course | null>(null);
+  const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Estados da IDE e terminal
+  const [code, setCode] = useState("");
   const [lines, setLines] = useState<string[]>(["$ dojo-cli pronto. Aguardando submissão..."]);
   const [running, setRunning] = useState(false);
 
-  const append = (line: string) =>
-    setLines((prev) => [...prev, line]);
+  // Buscar dados da API do Django ao carregar a página
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/api/courses/")
+      .then((res) => res.json())
+      .then((data: Course[]) => {
+        if (data.length > 0) {
+          // Pega o primeiro curso disponível (Sua Matemática para Ciência de Dados)
+          const activeCourse = data[0];
+          setCourse(activeCourse);
 
+          // Seleciona automaticamente a primeira lição do primeiro módulo
+          if (activeCourse.modules?.[0]?.lessons?.[0]) {
+            const firstLesson = activeCourse.modules[0].lessons[0];
+            setCurrentLesson(firstLesson);
+            if (firstLesson.body) setCode(firstLesson.body);
+          }
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Erro ao buscar dados do Django:", err);
+        toast.error("Não foi possível conectar ao servidor backend.");
+        setLoading(false);
+      });
+  }, []);
+
+  const append = (line: string) => setLines((prev) => [...prev, line]);
   const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   const compileAndSubmit = async () => {
+    if (!currentLesson) return;
     setRunning(true);
     setLines([]);
-    const valid = code.toLowerCase().includes("select") && code.toUpperCase().includes("FROM");
+
+    const exercise = currentLesson.exercise;
+    const expectedKeywords = exercise?.expected_keywords ?? [];
+    const expectedAnswer = exercise?.expected_answer ?? "";
+    const evaluationMode = exercise?.evaluation_mode ?? "keywords";
+    const points = exercise?.points ?? 120;
+
+    const normalizedAnswer = code.replace(/\s+/g, " ").trim().toLowerCase();
+    const normalizedExpected = expectedAnswer.replace(/\s+/g, " ").trim().toLowerCase();
+
+    const valid = (() => {
+      if (evaluationMode === "exact") {
+        return normalizedAnswer === normalizedExpected;
+      }
+
+      if (evaluationMode === "contains") {
+        return normalizedExpected.length > 0 && normalizedAnswer.includes(normalizedExpected);
+      }
+
+      if (expectedKeywords.length > 0) {
+        return expectedKeywords.every((keyword) => normalizedAnswer.includes(keyword.toLowerCase()));
+      }
+
+      return normalizedAnswer.includes("select") && normalizedAnswer.includes("from");
+    })();
 
     const steps: Array<[string, number]> = [
-      ["$ dojo-cli submit ./joins-agregacao.sql", 120],
+      ["$ dojo-cli submit ./desafio-dinamico.sql", 120],
       ["» preparando sandbox dojo-db ............... ok", 320],
-      ["» lint sql (sqlfluff) ...................... ok", 280],
-      ["» parsing AST .............................. ok", 220],
-      ["» dry-run query plan ....................... ok", 340],
-      ["» rodando test_categoria_existe ............ ✓", 260],
-      ["» rodando test_filtro_completed ............ ✓", 240],
-      ["» rodando test_desconto_aplicado ........... ✓", 280],
-      ["» rodando test_top3_ordenacao .............. ✓", 260],
-      ["» benchmark: 42ms · 3 linhas retornadas ..... ok", 300],
+      ["» rodando testes da lição .................. ok", 300],
     ];
 
     for (const [msg, delay] of steps) {
@@ -66,34 +141,32 @@ export default function Workspace() {
     }
 
     if (!valid) {
-      append("");
-      append("✗ FALHA: a query precisa de SELECT ... FROM ...");
-      append("Kaizen: revise a sintaxe e tente novamente.");
-      toast.error("Desafio reprovado. Sem XP desta vez.");
+      append("\n✗ FALHA: a resposta não atingiu os critérios de avaliação do exercício.");
+      toast.error("Desafio reprovado.");
       setRunning(false);
       return;
     }
 
-    const result = submitChallenge("Top 3 categorias por receita", 120, 1.5);
-    append("");
-    append("─────────────────────────────────────");
-    append("category_name        net_revenue");
-    append("Eletrônicos          R$ 184.230,55");
-    append("Casa & Cozinha       R$  92.110,00");
-    append("Esportes             R$  77.840,32");
-    append("─────────────────────────────────────");
-    append("✓ DESAFIO APROVADO · +120 XP · +1.5h de código");
+    const result = submitChallenge(currentLesson.title, points, 1.5);
+    append(`\n✓ DESAFIO APROVADO · +${points} XP`);
 
     if (result.promoted) {
       celebratePromotion(result.newBelt.color);
       toast.success(`🥋 PROMOVIDO! Você agora é ${result.newBelt.name}`, { duration: 5000 });
     } else {
       celebrateXp();
-      toast.success("Desafio aprovado! +120 XP");
+      toast.success(`Desafio aprovado! +${points} XP`);
     }
     setRunning(false);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-kaizen font-mono">
+        ⏳ Carregando ecossistema do Dojô...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -101,56 +174,106 @@ export default function Workspace() {
       <DojoHeader />
 
       <main className="flex-1 mx-auto max-w-[1600px] w-full px-4 py-6 grid lg:grid-cols-2 gap-4">
-        {/* LEFT — Video + instructions */}
+        {/* LEFT — Player de Vídeo Dinâmico + Detalhes */}
         <section className="rounded-xl border border-border bg-card overflow-hidden flex flex-col">
-          <div className="aspect-video relative bg-black flex items-center justify-center bg-grid-dojo">
-            <div className="absolute inset-0" style={{ background: "radial-gradient(circle at center, rgba(0,87,184,0.35), transparent 70%)" }} />
-            <button className="relative z-10 h-20 w-20 rounded-full bg-destructive flex items-center justify-center text-3xl text-destructive-foreground shadow-[0_0_50px_rgba(230,57,70,0.6)] hover:scale-105 transition">
-              ▶
-            </button>
-            <div className="absolute bottom-0 inset-x-0 p-4 flex items-center gap-3 bg-gradient-to-t from-black/80 to-transparent">
-              <span className="text-[10px] uppercase tracking-widest text-kaizen font-semibold">Aula 04 · Faixa Amarela</span>
-              <span className="text-xs text-muted-foreground ml-auto font-mono">18:42</span>
-            </div>
+          <div className="aspect-video relative bg-black flex items-center justify-center">
+            {currentLesson?.file_upload ? (
+              // Se houver upload de arquivo .mp4, renderiza o player nativo do HTML5
+              <video
+                src={currentLesson.file_upload}
+                controls
+                className="w-full h-full object-contain"
+              />
+            ) : currentLesson?.video_url ? (
+              // Se for apenas uma URL externa (YouTube/Vimeo)
+              <iframe
+                src={currentLesson.video_url}
+                className="w-full h-full border-0"
+                allowFullScreen
+              />
+            ) : (
+              <div className="text-muted-foreground text-sm font-mono">
+                Nenhum vídeo anexado a esta lição.
+              </div>
+            )}
           </div>
+
           <div className="p-6 overflow-y-auto">
-            <div className="text-xs uppercase tracking-widest text-muted-foreground">Lição em andamento</div>
-            <h1 className="font-display font-bold text-2xl mt-1">Agregações de receita com JOINs</h1>
-            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              Neste treino você irá compor uma query analítica usando <code className="text-kaizen">SUM</code>,
-              <code className="text-kaizen"> GROUP BY</code> e múltiplos <code className="text-kaizen">JOIN</code> para
-              calcular receita líquida por categoria. A disciplina está nos detalhes — não esqueça do desconto.
-            </p>
-            <div className="mt-5 rounded-lg border border-border bg-background p-4">
-              <div className="font-display font-semibold text-sm mb-2">⛩ Missão</div>
-              <ol className="text-sm space-y-1.5 list-decimal list-inside text-muted-foreground marker:text-kaizen">
-                <li>Selecione apenas pedidos <code className="text-foreground">completed</code></li>
-                <li>Calcule a receita líquida considerando o desconto</li>
-                <li>Retorne o Top 3 ordenado de forma decrescente</li>
-              </ol>
+            <div className="text-xs uppercase tracking-widest text-muted-foreground">
+              Curso: {course?.title || "Sem curso selecionado"}
             </div>
-            <div className="mt-5 flex items-center gap-4 text-xs">
-              <Badge color="#FFA500">+120 XP</Badge>
-              <Badge color="#0057B8">+1.5h código</Badge>
-              <Badge color="#E63946">Dificuldade média</Badge>
+            <h1 className="font-display font-bold text-2xl mt-1">
+              {currentLesson ? currentLesson.title : "Nenhuma lição encontrada"}
+            </h1>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              {course?.description}
+            </p>
+
+            {currentLesson?.exercise && (
+              <div className="mt-4 rounded-lg border border-border bg-background/70 p-4">
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-kaizen">
+                  Exercício · {currentLesson.exercise.answer_type}
+                </div>
+                <div className="mt-2 text-sm font-semibold text-foreground">
+                  {currentLesson.exercise.title}
+                </div>
+                <div className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                  {currentLesson.exercise.statement}
+                </div>
+                {currentLesson.exercise.expected_keywords.length > 0 && (
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    Critérios: {currentLesson.exercise.expected_keywords.join(", ")}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Menu de navegação interna de módulos e lições */}
+            <div className="mt-6 border-t border-border pt-4">
+              <div className="font-display font-semibold text-sm mb-3">🗂 Estrutura do Curso</div>
+              {course?.modules?.map((mod) => (
+                <div key={mod.id} className="mb-4">
+                  <div className="text-xs font-bold text-kaizen uppercase mb-1">{mod.title}</div>
+                  <div className="space-y-1">
+                    {mod.lessons?.map((les) => (
+                      <button
+                        key={les.id}
+                        onClick={() => {
+                          setCurrentLesson(les);
+                          if (les.body) setCode(les.body);
+                        }}
+                        className={`w-full text-left text-sm px-3 py-2 rounded transition ${
+                          currentLesson?.id === les.id
+                            ? "bg-destructive text-destructive-foreground font-semibold"
+                            : "bg-background hover:bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {les.content_type === "VIDEO" ? "▶ " : "📄 "} {les.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         {/* RIGHT — IDE */}
-        <section className="rounded-xl border border-border bg-[#0A0A0A] flex flex-col overflow-hidden">
+        <section className="rounded-xl border border-border bg-belt-black flex flex-col overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-black">
             <div className="flex gap-1.5">
               <span className="h-3 w-3 rounded-full bg-destructive" />
               <span className="h-3 w-3 rounded-full bg-kaizen" />
-              <span className="h-3 w-3 rounded-full bg-[#2ECC71]" />
+              <span className="h-3 w-3 rounded-full bg-belt-green" />
             </div>
-            <span className="ml-3 text-xs font-mono text-muted-foreground">~/dojo/desafios/joins-agregacao.sql</span>
+            <span className="ml-3 text-xs font-mono text-muted-foreground">
+              ~/dojo/desafios/workspace.sql
+            </span>
             {hydrated && (
               <span className="ml-auto text-xs font-mono text-kaizen">{state.xp} XP</span>
             )}
           </div>
-          <div className="flex-1 grid grid-rows-[1fr_auto_240px] min-h-[520px]">
+          <div className="flex-1 grid grid-rows-[1fr_auto_240px] min-h-130">
             <div className="relative flex overflow-hidden">
               <div
                 aria-hidden
@@ -164,54 +287,33 @@ export default function Workspace() {
                 spellCheck={false}
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                className="flex-1 bg-[#0A0A0A] text-[#E5E5E5] font-mono text-sm p-4 resize-none outline-none leading-relaxed selection:bg-kaizen/30 caret-kaizen"
+                className="flex-1 bg-belt-black text-belt-white font-mono text-sm p-4 resize-none outline-none leading-relaxed"
               />
             </div>
             <div className="border-t border-border p-3 bg-black">
               <button
                 onClick={compileAndSubmit}
                 disabled={running}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-destructive px-6 py-3.5 font-display font-bold text-destructive-foreground uppercase tracking-[0.15em] text-sm shadow-[0_8px_30px_-8px_rgba(230,57,70,0.8)] hover:shadow-[0_12px_36px_-6px_rgba(230,57,70,0.95)] disabled:opacity-60 transition"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-destructive px-6 py-3.5 font-display font-bold text-destructive-foreground uppercase tracking-[0.15em] text-sm transition"
               >
-                {running ? "⏳ Rodando testes automatizados..." : "⚔ Compilar e submeter desafio"}
+                {running ? "⏳ Analisando..." : "⚔ Compilar e submeter desafio"}
               </button>
             </div>
             <div className="bg-black border-t border-border overflow-hidden flex flex-col">
-              <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border/60 bg-black/80">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#2ECC71] animate-pulse" />
-                <span className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">terminal · dojo-cli</span>
-              </div>
               <pre className="flex-1 p-4 font-mono text-xs text-[#9EE493] overflow-auto whitespace-pre-wrap leading-relaxed">
-{lines.map((l, i) => {
-  const isFail = l.startsWith("✗");
-  const isOk = l.startsWith("✓") || l.endsWith("ok") || l.endsWith("✓");
-  return (
-    <div
-      key={i}
-      className={isFail ? "text-destructive" : isOk ? "text-[#9EE493]" : "text-[#C8E6C9]"}
-    >
-      {l || "\u00A0"}
-    </div>
-  );
-})}
-{running && <div className="text-kaizen animate-pulse">▌</div>}
+                {lines.map((l, i) => (
+                  <div
+                    key={i}
+                    className={l.startsWith("✗") ? "text-destructive" : "text-[#9EE493]"}
+                  >
+                    {l || "\u00A0"}
+                  </div>
+                ))}
               </pre>
             </div>
           </div>
-
         </section>
       </main>
     </div>
-  );
-}
-
-function Badge({ color, children }: { color: string; children: React.ReactNode }) {
-  return (
-    <span
-      className="rounded-full px-2.5 py-1 font-semibold border"
-      style={{ color, borderColor: `${color}55`, background: `${color}14` }}
-    >
-      {children}
-    </span>
   );
 }

@@ -12,10 +12,38 @@ export interface Belt {
 }
 
 export const BELTS: Belt[] = [
-  { id: "white", name: "Faixa Branca", minXp: 0, color: "#E5E5E5", kanji: "初", motto: "O início da jornada Kaizen." },
-  { id: "yellow", name: "Faixa Amarela", minXp: 500, color: "#F4D03F", kanji: "光", motto: "A primeira luz do entendimento." },
-  { id: "green", name: "Faixa Verde", minXp: 1500, color: "#2ECC71", kanji: "成", motto: "O crescimento constante do dado." },
-  { id: "black", name: "Faixa Preta", minXp: 3500, color: "#0A0A0A", kanji: "道", motto: "O Caminho. Maestria absoluta." },
+  {
+    id: "white",
+    name: "Faixa Branca",
+    minXp: 0,
+    color: "#E5E5E5",
+    kanji: "初",
+    motto: "O início da jornada Kaizen.",
+  },
+  {
+    id: "yellow",
+    name: "Faixa Amarela",
+    minXp: 500,
+    color: "#F4D03F",
+    kanji: "光",
+    motto: "A primeira luz do entendimento.",
+  },
+  {
+    id: "green",
+    name: "Faixa Verde",
+    minXp: 1500,
+    color: "#2ECC71",
+    kanji: "成",
+    motto: "O crescimento constante do dado.",
+  },
+  {
+    id: "black",
+    name: "Faixa Preta",
+    minXp: 3500,
+    color: "#0A0A0A",
+    kanji: "道",
+    motto: "O Caminho. Maestria absoluta.",
+  },
 ];
 
 export interface ChallengeLog {

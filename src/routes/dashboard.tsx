@@ -5,7 +5,14 @@ import { celebratePromotion, celebrateXp } from "@/lib/celebrate";
 import { toast, Toaster } from "sonner";
 import { useDojo, getCurrentBelt, BELTS, useHydrated } from "@/lib/dojo-store";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
 } from "recharts";
 import { useMemo } from "react";
@@ -14,7 +21,10 @@ export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
       { title: "Dashboard do Aluno · Data Driven Dojô" },
-      { name: "description", content: "Acompanhe seu XP, horas treinadas, evolução de faixas e progresso Kaizen." },
+      {
+        name: "description",
+        content: "Acompanhe seu XP, horas treinadas, evolução de faixas e progresso Kaizen.",
+      },
     ],
   }),
   component: Dashboard,
@@ -73,12 +83,13 @@ function Dashboard() {
     ];
   }, [state.xp]);
 
-
   if (!hydrated) {
     return (
       <div className="min-h-screen">
         <DojoHeader />
-        <div className="mx-auto max-w-7xl px-4 py-10 text-muted-foreground">Carregando dashboard…</div>
+        <div className="mx-auto max-w-7xl px-4 py-10 text-muted-foreground">
+          Carregando dashboard…
+        </div>
       </div>
     );
   }
@@ -90,7 +101,9 @@ function Dashboard() {
       <main className="mx-auto max-w-7xl px-4 py-10">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
-            <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Dashboard do Aluno</div>
+            <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+              Dashboard do Aluno
+            </div>
             <h1 className="font-display font-extrabold text-4xl mt-1">Olá, {state.studentName}</h1>
             <p className="text-muted-foreground mt-1">Seu caminho Kaizen em números.</p>
           </div>
@@ -125,8 +138,12 @@ function Dashboard() {
           <KpiCard label="Horas de Código" value={`${state.hours.toFixed(1)}h`} accent="#0057B8" />
           <KpiCard label="Sequência" value={`${state.streak} dias`} accent="#E63946" />
           <div className="rounded-xl border border-border bg-card p-5">
-            <div className="text-xs uppercase tracking-widest text-muted-foreground">Faixa Atual</div>
-            <div className="mt-3"><BeltBadge belt={belt} /></div>
+            <div className="text-xs uppercase tracking-widest text-muted-foreground">
+              Faixa Atual
+            </div>
+            <div className="mt-3">
+              <BeltBadge belt={belt} />
+            </div>
           </div>
         </div>
 
@@ -154,10 +171,20 @@ function Dashboard() {
                 <XAxis dataKey="date" stroke="#9CA3AF" fontSize={11} />
                 <YAxis stroke="#9CA3AF" fontSize={11} />
                 <Tooltip
-                  contentStyle={{ background: "#1C1C1C", border: "1px solid #2F2F2F", borderRadius: 8 }}
+                  contentStyle={{
+                    background: "#1C1C1C",
+                    border: "1px solid #2F2F2F",
+                    borderRadius: 8,
+                  }}
                   labelStyle={{ color: "#E5E5E5" }}
                 />
-                <Area type="monotone" dataKey="cumulative" stroke="#FFA500" strokeWidth={2.5} fill="url(#xpGrad)" />
+                <Area
+                  type="monotone"
+                  dataKey="cumulative"
+                  stroke="#FFA500"
+                  strokeWidth={2.5}
+                  fill="url(#xpGrad)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -169,7 +196,11 @@ function Dashboard() {
                 <XAxis dataKey="date" stroke="#9CA3AF" fontSize={11} />
                 <YAxis stroke="#9CA3AF" fontSize={11} />
                 <Tooltip
-                  contentStyle={{ background: "#1C1C1C", border: "1px solid #2F2F2F", borderRadius: 8 }}
+                  contentStyle={{
+                    background: "#1C1C1C",
+                    border: "1px solid #2F2F2F",
+                    borderRadius: 8,
+                  }}
                 />
                 <Bar dataKey="hours" fill="#FFA500" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -192,31 +223,53 @@ function Dashboard() {
                 <XAxis dataKey="label" stroke="#9CA3AF" fontSize={11} />
                 <YAxis stroke="#9CA3AF" fontSize={11} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ background: "#1C1C1C", border: "1px solid #2F2F2F", borderRadius: 8 }}
+                  contentStyle={{
+                    background: "#1C1C1C",
+                    border: "1px solid #2F2F2F",
+                    borderRadius: 8,
+                  }}
                   labelStyle={{ color: "#E5E5E5" }}
                   formatter={(v: number) => [`${v} XP`, "Kaizen"]}
                 />
-                <Area type="monotone" dataKey="xp" stroke="#FFA500" strokeWidth={2.5} fill="url(#weekGrad)" />
+                <Area
+                  type="monotone"
+                  dataKey="xp"
+                  stroke="#FFA500"
+                  strokeWidth={2.5}
+                  fill="url(#weekGrad)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
 
           <ChartCard title="Domínio de Habilidades">
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={skillsData} layout="vertical" margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+              <BarChart
+                data={skillsData}
+                layout="vertical"
+                margin={{ top: 10, right: 20, left: 10, bottom: 0 }}
+              >
                 <CartesianGrid stroke="#2F2F2F" strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" domain={[0, 100]} stroke="#9CA3AF" fontSize={11} />
                 <YAxis type="category" dataKey="skill" stroke="#9CA3AF" fontSize={12} width={90} />
                 <Tooltip
-                  contentStyle={{ background: "#1C1C1C", border: "1px solid #2F2F2F", borderRadius: 8 }}
+                  contentStyle={{
+                    background: "#1C1C1C",
+                    border: "1px solid #2F2F2F",
+                    borderRadius: 8,
+                  }}
                   formatter={(v: number) => [`${v}/100`, "Nível"]}
                 />
-                <Bar dataKey="nivel" fill="#FFA500" radius={[0, 6, 6, 0]} background={{ fill: "#2F2F2F" }} />
+                <Bar
+                  dataKey="nivel"
+                  fill="#FFA500"
+                  radius={[0, 6, 6, 0]}
+                  background={{ fill: "#2F2F2F" }}
+                />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
         </div>
-
 
         {/* Belts collection */}
         <div className="mt-6 rounded-xl border border-border bg-card p-6">
@@ -228,19 +281,26 @@ function Dashboard() {
                 <div
                   key={b.id}
                   className={`rounded-lg border p-4 transition ${
-                    earned ? "border-kaizen/50 bg-background" : "border-border bg-background/40 opacity-50"
+                    earned
+                      ? "border-kaizen/50 bg-background"
+                      : "border-border bg-background/40 opacity-50"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
                       className="h-12 w-12 rounded-md flex items-center justify-center font-display font-bold border-2 border-black/40"
-                      style={{ background: b.color, color: b.id === "black" ? "#FFA500" : "#1C1C1C" }}
+                      style={{
+                        background: b.color,
+                        color: b.id === "black" ? "#FFA500" : "#1C1C1C",
+                      }}
                     >
                       {b.kanji}
                     </div>
                     <div>
                       <div className="font-display font-semibold text-sm">{b.name}</div>
-                      <div className="text-[11px] font-mono text-muted-foreground">{b.minXp} XP</div>
+                      <div className="text-[11px] font-mono text-muted-foreground">
+                        {b.minXp} XP
+                      </div>
                     </div>
                   </div>
                   <div className="mt-2 text-[11px] text-muted-foreground">
@@ -258,7 +318,12 @@ function Dashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                <tr><th className="py-2">Data</th><th>Desafio</th><th className="text-right">Horas</th><th className="text-right">XP</th></tr>
+                <tr>
+                  <th className="py-2">Data</th>
+                  <th>Desafio</th>
+                  <th className="text-right">Horas</th>
+                  <th className="text-right">XP</th>
+                </tr>
               </thead>
               <tbody>
                 {[...state.history].reverse().map((h) => (
@@ -285,7 +350,9 @@ function KpiCard({ label, value, accent }: { label: string; value: string; accen
     <div className="relative rounded-xl border border-border bg-card p-5 overflow-hidden">
       <div className="absolute top-0 left-0 h-1 w-full" style={{ background: accent }} />
       <div className="text-xs uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className="mt-2 font-display font-extrabold text-3xl" style={{ color: accent }}>{value}</div>
+      <div className="mt-2 font-display font-extrabold text-3xl" style={{ color: accent }}>
+        {value}
+      </div>
     </div>
   );
 }

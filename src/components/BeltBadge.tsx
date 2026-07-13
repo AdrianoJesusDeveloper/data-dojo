@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { BELTS, type Belt, getCurrentBelt, getNextBelt, beltProgress } from "@/lib/dojo-store";
 
 export function BeltBadge({ belt, size = "md" }: { belt: Belt; size?: "sm" | "md" | "lg" }) {
-  const dims = size === "lg" ? "h-16 w-16 text-2xl" : size === "sm" ? "h-8 w-8 text-sm" : "h-12 w-12 text-lg";
+  const dims =
+    size === "lg" ? "h-16 w-16 text-2xl" : size === "sm" ? "h-8 w-8 text-sm" : "h-12 w-12 text-lg";
   const [flash, setFlash] = useState<null | "xp" | "promo">(null);
 
   useEffect(() => {
