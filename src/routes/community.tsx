@@ -30,6 +30,8 @@ interface Post {
   pinned?: boolean;
 }
 
+export default Community
+
 const SEED_POSTS: Post[] = [
   {
     id: "p1",
