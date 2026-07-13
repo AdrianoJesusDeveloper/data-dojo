@@ -51,3 +51,8 @@ htmlcov/
 apps/api/db.sqlite3
 apps/api/media/
 apps/api/lessons/files/
+
+# Lovable / IA tool artifacts
+.lovable/
+.lovable.*
+AGENTS.md
