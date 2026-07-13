@@ -330,12 +330,12 @@ flowchart TD
 
 1. Instale dependências:
    ```bash
-   npm install
-   ```
+    npm install
+    ```
 2. Inicie o frontend:
-   ```bash
-   npm run dev
-   ```
+    ```bash
+    npm run dev
+    ```
 3. Abra em `http://localhost:5173`
 
 ### Backend
@@ -393,3 +393,6 @@ flowchart TD
 - O workspace carrega o primeiro curso disponível e usa validação simples de SQL para aprovação de desafios.
 - O feed comunitário é alimentado por posts seed e permite curtidas locais.
 - A autenticação é baseada em token gravado no `localStorage`.
+=======
+   git clone https://github.com/AdrianoJesusDeveloper/data-dojo.git
+>>>>>>> 1b99c3d1dbde7c0707c5a6ffa92511039b6cd842
