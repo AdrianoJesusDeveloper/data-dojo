@@ -29,9 +29,10 @@ class Command(BaseCommand):
 
         lesson, created_lesson = Lesson.objects.get_or_create(
             module=module,
-            title="Exercício 1: selecionar nomes de clientes",
+            title="Vídeo 1: introdução ao SELECT",
             defaults={
-                "content_type": "LAB",
+                "content_type": "VIDEO",
+                "video_url": "https://www.youtube.com/embed/dQw4w9WgXcQ",
                 "body": "Escreva uma consulta SQL que retorne os nomes dos clientes.",
                 "order": 1,
             },

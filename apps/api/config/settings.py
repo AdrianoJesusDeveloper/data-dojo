@@ -15,6 +15,9 @@ ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,
 AUTH_USER_MODEL = 'core.User'
 SITE_ID = int(os.getenv('DJANGO_SITE_ID', 1))
 
+# Development convenience: use SQLite locally unless POSTGRES is explicitly enabled.
+USE_SQLITE = os.getenv('DJANGO_USE_SQLITE', 'true').lower() in ('1', 'true', 'yes')
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -88,7 +91,7 @@ DATABASES = {
     }
 }
 
-if os.getenv('DJANGO_USE_SQLITE', 'false').lower() in ('1', 'true', 'yes'):
+if USE_SQLITE:
     DATABASES['default'] = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommunityRouteImport } from './routes/community'
@@ -24,6 +25,11 @@ const WorkspaceRoute = WorkspaceRouteImport.update({
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/workspace': typeof WorkspaceRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/workspace': typeof WorkspaceRoute
 }
@@ -69,21 +77,36 @@ export interface FileRoutesById {
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/community' | '/dashboard' | '/login' | '/register' | '/workspace'
+    | '/'
+    | '/community'
+    | '/dashboard'
+    | '/login'
+    | '/profile'
+    | '/register'
+    | '/workspace'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/community' | '/dashboard' | '/login' | '/register' | '/workspace'
+  to:
+    | '/'
+    | '/community'
+    | '/dashboard'
+    | '/login'
+    | '/profile'
+    | '/register'
+    | '/workspace'
   id:
     | '__root__'
     | '/'
     | '/community'
     | '/dashboard'
     | '/login'
+    | '/profile'
     | '/register'
     | '/workspace'
   fileRoutesById: FileRoutesById
@@ -93,6 +116,7 @@ export interface RootRouteChildren {
   CommunityRoute: typeof CommunityRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
+  ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
   WorkspaceRoute: typeof WorkspaceRoute
 }
@@ -111,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -149,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   CommunityRoute: CommunityRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
+  ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
   WorkspaceRoute: WorkspaceRoute,
 }

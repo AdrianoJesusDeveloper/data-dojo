@@ -76,13 +76,19 @@ export default function Workspace() {
       .then((res) => res.json())
       .then((data: Course[]) => {
         if (data.length > 0) {
-          // Pega o primeiro curso disponível (Sua Matemática para Ciência de Dados)
           const activeCourse = data[0];
           setCourse(activeCourse);
 
-          // Seleciona automaticamente a primeira lição do primeiro módulo
-          if (activeCourse.modules?.[0]?.lessons?.[0]) {
-            const firstLesson = activeCourse.modules[0].lessons[0];
+          // Seleciona automaticamente a primeira lição de vídeo disponível,
+          // ou a primeira lição do primeiro módulo se não houver vídeo.
+          const firstVideoLesson = activeCourse.modules
+            ?.flatMap((mod) => mod.lessons)
+            .find((les) => les.content_type === "VIDEO");
+
+          const firstLesson =
+            firstVideoLesson || activeCourse.modules?.[0]?.lessons?.[0] || null;
+
+          if (firstLesson) {
             setCurrentLesson(firstLesson);
             if (firstLesson.body) setCode(firstLesson.body);
           }

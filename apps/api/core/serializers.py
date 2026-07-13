@@ -1,8 +1,68 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 
-from .models import Course, Module, Lesson, Exercise
+from .models import Course, Module, Lesson, Exercise, ForumTopic, ForumComment, Certificate
+
+User = get_user_model()
+
+# =====================================================================
+# NOVO: SERIALIZER DE USUÁRIO (PERFIL, FOTO E XP)
+# =====================================================================
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "profile_picture", "xp_points"]
+        read_only_fields = ["id", "xp_points"]
 
 
+# =====================================================================
+# NOVOS: SERIALIZERS DA COMUNIDADE (FÓRUM E FOTOS DE CÓDIGO)
+# =====================================================================
+class ForumCommentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = ForumComment
+        fields = ["id", "topic", "user", "content", "code_screenshot", "created_at"]
+        read_only_fields = ["id", "user", "created_at"]
+
+
+class ForumTopicSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    # Inclui a contagem de comentários automaticamente na listagem
+    comments_count = serializers.IntegerField(source="comments.count", read_only=True)
+
+    class Meta:
+        model = ForumTopic
+        fields = ["id", "user", "title", "content", "code_screenshot", "comments_count", "created_at"]
+        read_only_fields = ["id", "user", "created_at"]
+
+
+class ForumTopicDetailSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    # Traz a lista completa de comentários quando o aluno abrir o tópico
+    comments = ForumCommentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ForumTopic
+        fields = ["id", "user", "title", "content", "code_screenshot", "comments", "created_at"]
+
+
+# =====================================================================
+# NOVO: SERIALIZER DE CERTIFICADOS
+# =====================================================================
+class CertificateSerializer(serializers.ModelSerializer):
+    course_title = serializers.CharField(source="course.title", read_only=True)
+
+    class Meta:
+        model = Certificate
+        fields = ["id", "course", "course_title", "issued_at", "verification_code"]
+        read_only_fields = ["id", "issued_at", "verification_code"]
+
+
+# =====================================================================
+# SERIALIZERS JÁ EXISTENTES DA PLATAFORMA
+# =====================================================================
 class ExerciseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exercise

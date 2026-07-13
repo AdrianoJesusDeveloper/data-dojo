@@ -1,13 +1,17 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from . import views
 
-from .views import CourseViewSet, ModuleViewSet, LessonViewSet
-
+# O Router cria automaticamente as rotas de GET (listagem) e POST (criação) para o ViewSet
 router = DefaultRouter()
-router.register(r"courses", CourseViewSet, basename="course")
-router.register(r"modules", ModuleViewSet, basename="module")
-router.register(r"lessons", LessonViewSet, basename="lesson")
+router.register(r'community/posts', views.ForumTopicViewSet, basename='forumtopic')
+router.register(r'community/comments', views.ForumCommentViewSet, basename='forumcomment')
+router.register(r'certificates', views.CertificateViewSet, basename='certificate')
 
 urlpatterns = [
-    path("", include(router.urls)),
+    # Inclui todas as rotas registradas acima
+    path('', include(router.urls)),
+    
+    # Rota separada para a atualização de perfil do samurai
+    path('user/profile/', views.UserProfileUpdateView.as_view(), name='user-profile'),
 ]

@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  redirect,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -73,6 +74,22 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
+    // Verifica se o token existe no localStorage do navegador
+    const isAuthenticated = !!window.localStorage.getItem("token");
+
+    // Permite livre acesso apenas para a página de login ou registro
+    const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
+
+    // Se não estiver autenticado e tentar acessar uma área restrita, redireciona imediatamente
+    if (!isAuthenticated && !isAuthPage) {
+      throw redirect({
+        to: "/login",
+      });
+    }
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },

@@ -51,7 +51,7 @@ export function DojoHeader({ compact = false }: { compact?: boolean }) {
           {/* Botão de Logout integrado na navegação estilizado de forma discreta */}
           <button
             onClick={handleLogout}
-            className="px-3 py-1.5 rounded-md text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors ml-2"
+            className="px-3 py-1.5 rounded-md text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors ml-2 cursor-pointer"
           >
             Sair 🚪
           </button>
@@ -63,7 +63,15 @@ export function DojoHeader({ compact = false }: { compact?: boolean }) {
               <BeltProgress xp={state.xp} />
             </div>
           )}
-          {hydrated && <BeltBadge belt={belt} size={compact ? "sm" : "md"} />}
+          {hydrated && (
+            <Link 
+              to="/profile" 
+              className="transition-transform hover:scale-105 active:scale-95 focus:outline-none"
+              title="Ver meu perfil Kaizen"
+            >
+              <BeltBadge belt={belt} size={compact ? "sm" : "md"} />
+            </Link>
+          )}
         </div>
       </div>
     </header>

@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNavigate, createFileRoute, Link, redirect } from "@tanstack/react-router";
 
+// Importações corretas baseadas na estrutura do seu app
+import bgTech from "../assets/plano_de_fundo_tecnologico.png";
+import logoOficial from "../assets/logooicial.png"; 
+
 export const Route = createFileRoute("/login")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
@@ -42,10 +46,7 @@ export function Login() {
         throw new Error(Array.isArray(errorMsg) ? errorMsg[0] : errorMsg);
       }
 
-      // Salva o token de sessão obtido do Django
       localStorage.setItem("token", data.key);
-
-      // Envia o usuário autenticado para a Home protegida
       navigate({ to: "/" });
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -63,20 +64,49 @@ export function Login() {
         justifyContent: "center",
         alignItems: "center",
         height: "100vh",
-        backgroundColor: "#0A0A0A",
+        width: "100vw",
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.65)), url(${bgTech})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
         color: "#fff",
         fontFamily: "sans-serif",
+        position: "relative",
       }}
     >
+      {/* Logo Oficial */}
+      <div
+        style={{
+          position: "absolute",
+          top: "24px",
+          left: "24px",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <img
+          src={logoOficial}
+          alt="Data Driven Dojo Logo"
+          style={{
+            height: "60px",
+            width: "auto",
+            borderRadius: "8px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          }}
+        />
+      </div>
+
+      {/* Formulário de Login */}
       <form
         onSubmit={handleLogin}
         style={{
-          width: "340px",
+          width: "360px",
           padding: "40px",
-          background: "#111",
-          borderRadius: "8px",
-          border: "1px solid #222",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+          background: "rgba(17, 17, 17, 0.85)",
+          backdropFilter: "blur(8px)",
+          borderRadius: "12px",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
         }}
       >
         <h2
@@ -85,10 +115,12 @@ export function Login() {
             textAlign: "center",
             color: "#fff",
             textTransform: "uppercase",
-            letterSpacing: "1px",
+            letterSpacing: "1.5px",
+            fontSize: "22px",
+            fontWeight: "bold",
           }}
         >
-          Data Driven Dojo
+          Área do Aluno
         </h2>
 
         {error && (
@@ -98,14 +130,17 @@ export function Login() {
               fontSize: "14px",
               marginBottom: "16px",
               textAlign: "center",
+              background: "rgba(255, 77, 77, 0.1)",
+              padding: "8px",
+              borderRadius: "4px",
             }}
           >
             {error}
           </p>
         )}
 
-        <div style={{ marginBottom: "16px" }}>
-          <label style={{ display: "block", marginBottom: "6px", fontSize: "14px", color: "#aaa" }}>
+        <div style={{ display: "block", marginBottom: "18px" }}>
+          <label style={{ display: "block", marginBottom: "6px", fontSize: "14px", color: "#ccc" }}>
             Usuário ou E-mail
           </label>
           <input
@@ -117,17 +152,17 @@ export function Login() {
             style={{
               width: "100%",
               padding: "12px",
-              background: "#1A1A1A",
-              border: "1px solid #333",
-              borderRadius: "4px",
+              background: "rgba(26, 26, 26, 0.8)",
+              border: "1px solid #444",
+              borderRadius: "6px",
               color: "#fff",
               outline: "none",
             }}
           />
         </div>
 
-        <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", marginBottom: "6px", fontSize: "14px", color: "#aaa" }}>
+        <div style={{ marginBottom: "28px" }}>
+          <label style={{ display: "block", marginBottom: "6px", fontSize: "14px", color: "#ccc" }}>
             Senha
           </label>
           <input
@@ -139,9 +174,9 @@ export function Login() {
             style={{
               width: "100%",
               padding: "12px",
-              background: "#1A1A1A",
-              border: "1px solid #333",
-              borderRadius: "4px",
+              background: "rgba(26, 26, 26, 0.8)",
+              border: "1px solid #444",
+              borderRadius: "6px",
               color: "#fff",
               outline: "none",
             }}
@@ -153,23 +188,27 @@ export function Login() {
           style={{
             width: "100%",
             padding: "14px",
-            background: "#E50914",
+            background: "#0066cc",
             border: "none",
-            borderRadius: "4px",
+            borderRadius: "6px",
             color: "#fff",
             fontWeight: "bold",
             fontSize: "16px",
             cursor: "pointer",
+            letterSpacing: "0.5px",
+            transition: "background 0.2s",
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#0052a3")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#0066cc")}
         >
           ENTRAR NO DOJO
         </button>
 
-        <p style={{ textAlign: "center", fontSize: "14px", color: "#aaa", marginTop: "16px" }}>
+        <p style={{ textAlign: "center", fontSize: "14px", color: "#bbb", marginTop: "20px" }}>
           Novo por aqui?{" "}
           <Link
             to="/register"
-            style={{ color: "#E50914", textDecoration: "none", fontWeight: "bold" }}
+            style={{ color: "#0066cc", textDecoration: "none", fontWeight: "bold" }}
           >
             Crie uma conta
           </Link>

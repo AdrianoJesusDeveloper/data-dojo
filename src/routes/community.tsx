@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DojoHeader } from "@/components/DojoHeader";
 import { BELTS, useDojo, getCurrentBelt, useHydrated } from "@/lib/dojo-store";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast, Toaster } from "sonner";
 
 export const Route = createFileRoute("/community")({
@@ -17,201 +17,213 @@ export const Route = createFileRoute("/community")({
   component: Community,
 });
 
-interface Post {
-  id: string;
-  author: string;
-  handle: string;
-  beltId: "white" | "yellow" | "green" | "black";
-  timeAgo: string;
+interface Comment {
+  id: number;
+  student_name?: string;
+  user?: { username: string } | string;
   content: string;
-  tags?: string[];
-  likes: number;
-  comments: number;
-  pinned?: boolean;
+  created_at: string;
 }
 
-export default Community
+interface Post {
+  id: number;
+  user?: {
+    id: number;
+    username: string;
+  };
+  student_name: string;
+  student_username: string;
+  student_belt: string;
+  content: string;
+  created_at: string;
+  likes_count: number;
+  comments_count: number;
+  is_owner?: boolean;
+  comments?: Comment[];
+}
 
-const SEED_POSTS: Post[] = [
-  {
-    id: "p1",
-    author: "Sensei Hiroshi",
-    handle: "@hiroshi.sql",
-    beltId: "black",
-    timeAgo: "12 min",
-    content:
-      "Lembrete Kaizen do dia: uma CTE bem nomeada vale mais que 200 linhas de subquery. Refatorem, releiam, respirem. 改善",
-    tags: ["#sql", "#kaizen"],
-    likes: 142,
-    comments: 23,
-    pinned: true,
-  },
-  {
-    id: "p2",
-    author: "Mariana Tanaka",
-    handle: "@mari.dados",
-    beltId: "green",
-    timeAgo: "1 h",
-    content:
-      "Acabei de passar no desafio 'Top 3 categorias por receita' em 18 min ⚔️ A dica foi tratar o desconto ANTES de agregar. +120 XP no bolso!",
-    tags: ["#desafio", "#aprovado"],
-    likes: 87,
-    comments: 14,
-  },
-  {
-    id: "p3",
-    author: "Lucas Kenji",
-    handle: "@kenji.py",
-    beltId: "yellow",
-    timeAgo: "3 h",
-    content:
-      "Alguém mais sentiu que o módulo de Janelas (window functions) é onde o pulo do gato acontece? Comecei a usar ROW_NUMBER em produção e dobrou a clareza dos meus pipelines.",
-    likes: 54,
-    comments: 9,
-  },
-  {
-    id: "p4",
-    author: "Camila Sato",
-    handle: "@cami.bi",
-    beltId: "green",
-    timeAgo: "5 h",
-    content:
-      "Promovida hoje para Faixa Verde! 🥋 1.500 XP em 6 semanas estudando 1h por dia. A constância vence o talento. Obrigada Dojô! 🙏",
-    tags: ["#promocao", "#kaizen"],
-    likes: 231,
-    comments: 41,
-  },
-  {
-    id: "p5",
-    author: "Pedro Ueda",
-    handle: "@ueda.dbt",
-    beltId: "black",
-    timeAgo: "8 h",
-    content:
-      "Dúvida pra quem trabalha com dbt: vocês versionam os snapshots junto com os models ou em pastas separadas? Estou tentando reorganizar nosso repo.",
-    tags: ["#dbt", "#duvida"],
-    likes: 33,
-    comments: 27,
-  },
-  {
-    id: "p6",
-    author: "Aprendiz Iniciante",
-    handle: "@novo.aluno",
-    beltId: "white",
-    timeAgo: "1 d",
-    content:
-      "Começando hoje o caminho 🥋 Qual a melhor ordem pra seguir as trilhas? SQL → Python → Modelagem ou tudo em paralelo?",
-    likes: 19,
-    comments: 12,
-  },
-  {
-    id: "p7",
-    author: "Renata Yoshida",
-    handle: "@re.analytics",
-    beltId: "green",
-    timeAgo: "1 d",
-    content:
-      "Compartilhando: usei o template de modelagem dimensional do Dojô em um projeto real e o time gostou tanto que virou padrão. O caminho é estudar e aplicar no mesmo dia.",
-    tags: ["#modelagem", "#aplicado"],
-    likes: 76,
-    comments: 11,
-  },
-];
+function beltStyle(beltName: string) {
+  const normalized = (beltName || "Faixa Branca").toLowerCase().replace("faixa ", "");
+  let mappedId: "white" | "yellow" | "green" | "black" = "white";
+  
+  if (normalized.includes("amarela")) mappedId = "yellow";
+  else if (normalized.includes("verde")) mappedId = "green";
+  else if (normalized.includes("preta")) mappedId = "black";
 
-function beltStyle(id: Post["beltId"]) {
-  const b = BELTS.find((x) => x.id === id)!;
-  return { color: b.color, name: b.name, kanji: b.kanji };
+  const b = BELTS.find((x) => x.id === mappedId)!;
+  return { color: b.color, name: b.name, kanji: b.kanji, id: b.id };
 }
 
 function Community() {
   const { state } = useDojo();
   const hydrated = useHydrated();
   const myBelt = getCurrentBelt(state.xp);
-  const [posts, setPosts] = useState<Post[]>(SEED_POSTS);
+  
+  const [posts, setPosts] = useState<Post[]>([]);
   const [draft, setDraft] = useState("");
-  const [liked, setLiked] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
 
-  const sorted = useMemo(
-    () => [...posts].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)),
-    [posts],
-  );
+  // Estados de controle de interações
+  const [activeCommentPostId, setActiveCommentPostId] = useState<number | null>(null);
+  const [commentText, setCommentText] = useState("");
+  const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
 
-  const publish = () => {
+  const fetchPosts = () => {
+    fetch("http://127.0.0.1:8000/api/community/posts/", {
+      headers: {
+        Authorization: `Token ${localStorage.getItem("token")}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setPosts(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar o salão dos samurais:", err);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const publish = async () => {
     const text = draft.trim();
     if (!text) return;
-    let id = "";
-    try {
-      // Use crypto.randomUUID when available, fallback otherwise
-      // (some environments/browsers may not implement it)
-      // keep ids deterministic-enough for local UI usage
-
-      const g = globalThis as unknown as { crypto?: { randomUUID?: () => string } };
-      id = g.crypto?.randomUUID?.() ?? `p_${Math.random().toString(36).slice(2, 9)}`;
-    } catch (e) {
-      id = `p_${Math.random().toString(36).slice(2, 9)}`;
-    }
-
-    const newPost: Post = {
-      id,
-      author: state.studentName,
-      handle: "@voce",
-      beltId: myBelt.id,
-      timeAgo: "agora",
-      content: text,
-      likes: 0,
-      comments: 0,
-    };
 
     try {
-      setPosts((p) => [newPost, ...p]);
-      setDraft("");
-      toast.success("Postagem enviada ao dojô 🥋");
+      const formData = new FormData();
+      formData.append("content", text);
+      formData.append("title", "Post da Comunidade");
+
+      const response = await fetch("http://127.0.0.1:8000/api/community/posts/", {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${localStorage.getItem("token")}`,
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        setDraft("");
+        toast.success("Postagem enviada ao dojô 🥋");
+        fetchPosts();
+      } else {
+        toast.error("Erro ao publicar sua mensagem no painel.");
+      }
     } catch (err) {
       console.error("Erro ao publicar post:", err);
-      toast.error("Não foi possível publicar o post localmente.");
     }
   };
 
-  const toggleLike = (id: string) => {
-    setLiked((s) => {
-      const n = new Set(s);
-      const isLiked = n.has(id);
-      if (isLiked) {
-        n.delete(id);
-      } else {
-        n.add(id);
+  const handleLike = async (postId: number) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/community/posts/${postId}/like/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (response.ok) {
+        const resData = await response.json();
+        setPosts(posts.map(p => p.id === postId ? { ...p, likes_count: resData.likes_count } : p));
       }
-      setPosts((ps) =>
-        ps.map((p) => (p.id === id ? { ...p, likes: p.likes + (isLiked ? -1 : 1) } : p)),
-      );
-      return n;
-    });
+    } catch (err) {
+      console.error("Erro ao curtir postagem:", err);
+    }
+  };
+
+  const handleSendComment = async (postId: number) => {
+    const text = commentText.trim();
+    if (!text) return;
+
+    try {
+      const formData = new FormData();
+      formData.append("forum_topic", postId.toString());
+      formData.append("content", text);
+
+      const response = await fetch("http://127.0.0.1:8000/api/community/comments/", {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${localStorage.getItem("token")}`,
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        setCommentText("");
+        toast.success("Resposta publicada!");
+        fetchPosts();
+      }
+    } catch (err) {
+      console.error("Erro ao comentar:", err);
+    }
+  };
+
+  const handleSaveEdit = async (postId: number) => {
+    if (!editText.trim()) return;
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/community/posts/${postId}/`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Token ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ content: editText }),
+      });
+
+      if (response.ok) {
+        toast.success("Postagem atualizada!");
+        setEditingPostId(null);
+        fetchPosts();
+      }
+    } catch (err) {
+      console.error("Erro ao editar postagem:", err);
+    }
+  };
+
+  const handleDeletePost = async (postId: number) => {
+    if (!confirm("Deseja apagar definitivamente esta postagem?")) return;
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/community/posts/${postId}/`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Token ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (response.ok || response.status === 204) {
+        toast.success("Postagem removida do mural.");
+        setPosts(posts.filter(p => p.id !== postId));
+      }
+    } catch (err) {
+      console.error("Erro ao deletar postagem:", err);
+    }
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background text-foreground">
       <Toaster position="top-right" theme="dark" richColors />
       <DojoHeader />
       <main className="mx-auto max-w-5xl px-4 py-10">
         <div>
-          <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            Comunidade
-          </div>
+          <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Comunidade</div>
           <h1 className="font-display font-extrabold text-4xl mt-1">Salão dos Samurais</h1>
-          <p className="text-muted-foreground mt-1">
-            Conquistas, dúvidas e insights de quem trilha o caminho dos dados.
-          </p>
+          <p className="text-muted-foreground mt-1">Conquistas, dúvidas e insights de quem trilha o caminho dos dados.</p>
         </div>
 
-        {/* Composer */}
+        {/* Compositor */}
         <div className="mt-8 rounded-xl border border-border bg-card p-5">
           <div className="flex items-start gap-3">
             <div
               className="h-10 w-10 rounded-md flex items-center justify-center font-display font-bold text-sm border-2 border-black/40 shrink-0"
-              style={{
-                background: myBelt.color,
-                color: myBelt.id === "black" ? "#FFA500" : "#1C1C1C",
-              }}
+              style={{ background: myBelt.color, color: myBelt.id === "black" ? "#FFA500" : "#1C1C1C" }}
             >
               {myBelt.kanji}
             </div>
@@ -220,7 +232,7 @@ function Community() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Compartilhe sua conquista, dúvida ou insight Kaizen..."
-                className="w-full bg-background border border-border rounded-lg p-3 text-sm resize-none outline-none focus:border-kaizen/60 transition min-h-20"
+                className="w-full bg-background border border-border rounded-lg p-3 text-sm resize-none outline-none focus:border-kaizen/60 transition min-h-20 text-white"
               />
               <div className="flex items-center justify-between mt-2">
                 <div className="text-[11px] font-mono text-muted-foreground">
@@ -238,88 +250,137 @@ function Community() {
           </div>
         </div>
 
-        {/* Feed */}
+        {/* Feed de Postagens */}
         <div className="mt-6 space-y-4">
-          {sorted.map((p) => {
-            const b = beltStyle(p.beltId);
-            const isLiked = liked.has(p.id);
-            return (
-              <article
-                key={p.id}
-                className={`rounded-xl border bg-card p-5 transition hover:border-kaizen/40 ${
-                  p.pinned ? "border-kaizen/50" : "border-border"
-                }`}
-              >
-                {p.pinned && (
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-kaizen mb-3 font-semibold">
-                    ⛩ Fixado pelo Sensei
-                  </div>
-                )}
-                <header className="flex items-center gap-3">
-                  <div
-                    className="h-11 w-11 rounded-md flex items-center justify-center font-display font-bold border-2 border-black/40 shrink-0"
-                    style={{
-                      background: b.color,
-                      color: p.beltId === "black" ? "#FFA500" : "#1C1C1C",
-                    }}
-                  >
-                    {b.kanji}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-display font-semibold">{p.author}</span>
-                      <span className="text-xs font-mono text-muted-foreground">{p.handle}</span>
-                      <span
-                        className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border"
-                        style={{
-                          color: b.color,
-                          borderColor: `${b.color}66`,
-                          background: `${b.color}10`,
-                        }}
-                      >
-                        {b.name}
-                      </span>
+          {loading ? (
+            <p className="text-sm text-muted-foreground font-mono">Buscando rolos de pergaminho do servidor...</p>
+          ) : posts.length === 0 ? (
+            <p className="text-sm text-muted-foreground font-mono">O salão está silencioso. Seja o primeiro a quebrar o silêncio!</p>
+          ) : (
+            posts.map((p) => {
+              const b = beltStyle(p.student_belt || "Faixa Branca");
+              const authorName = p.student_name || p.user?.username || "Samurai";
+              
+              return (
+                <article key={p.id} className="rounded-xl border border-border bg-card p-5 relative group transition hover:border-kaizen/20">
+                  
+                  {/* Botões do Dono (Apenas aparecem se is_owner for True) */}
+                  {p.is_owner && (
+                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity font-mono text-xs">
+                      <button onClick={() => { setEditingPostId(p.id); setEditText(p.content); }} className="text-muted-foreground hover:text-kaizen transition">[editar]</button>
+                      <button onClick={() => handleDeletePost(p.id)} className="text-muted-foreground hover:text-destructive transition">[apagar]</button>
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">há {p.timeAgo}</div>
-                  </div>
-                </header>
-                <p className="mt-3 text-sm leading-relaxed">{p.content}</p>
-                {p.tags && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {p.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="text-[11px] font-mono text-[#4A9EFF] px-2 py-0.5 rounded bg-[#0057B8]/10 border border-[#0057B8]/40"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                  )}
 
-                <footer className="mt-4 flex items-center gap-5 text-xs">
-                  <button
-                    onClick={() => toggleLike(p.id)}
-                    className={`flex items-center gap-1.5 transition ${
-                      isLiked ? "text-destructive" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <span className="text-base leading-none">{isLiked ? "♥" : "♡"}</span>
-                    <span className="font-mono">{p.likes}</span>
-                  </button>
-                  <button className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground">
-                    <span className="text-base leading-none">💬</span>
-                    <span className="font-mono">{p.comments}</span>
-                  </button>
-                  <button className="ml-auto text-muted-foreground hover:text-kaizen">
-                    Compartilhar
-                  </button>
-                </footer>
-              </article>
-            );
-          })}
+                  <header className="flex items-center gap-3">
+                    <div
+                      className="h-11 w-11 rounded-md flex items-center justify-center font-display font-bold border-2 border-black/40 shrink-0"
+                      style={{ background: b.color, color: b.id === "black" ? "#FFA500" : "#1C1C1C" }}
+                    >
+                      {b.kanji}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-display font-semibold text-white">{authorName}</span>
+                        {p.student_username && <span className="text-xs font-mono text-muted-foreground">@{p.student_username}</span>}
+                        <span
+                          className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border"
+                          style={{ color: b.color, borderColor: `${b.color}66`, background: `${b.color}10` }}
+                        >
+                          {b.name}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        {new Date(p.created_at).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </div>
+                  </header>
+
+                  {/* Conteúdo / Modo de Edição Ativo */}
+                  {editingPostId === p.id ? (
+                    <div className="mt-3 space-y-2">
+                      <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="w-full bg-background border border-border rounded-md p-2 text-sm text-white focus:border-kaizen outline-none"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => setEditingPostId(null)} className="text-xs px-3 py-1 bg-background border border-border rounded text-white">Cancelar</button>
+                        <button onClick={() => handleSaveEdit(p.id)} className="text-xs px-3 py-1 bg-kaizen text-black font-bold rounded">Salvar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm leading-relaxed text-gray-200 whitespace-pre-wrap">{p.content}</p>
+                  )}
+
+                  {/* Rodapé Interativo com Botões Reais */}
+                  <footer className="mt-4 flex items-center gap-5 text-xs text-muted-foreground border-t border-border/20 pt-3">
+                    <button onClick={() => handleLike(p.id)} className="flex items-center gap-1.5 hover:text-destructive text-muted-foreground transition">
+                      <span className="text-base leading-none">❤️</span>
+                      <span className="font-mono">{p.likes_count}</span>
+                    </button>
+                    <button 
+                      onClick={() => setActiveCommentPostId(activeCommentPostId === p.id ? null : p.id)} 
+                      className="flex items-center gap-1.5 hover:text-white text-muted-foreground transition"
+                    >
+                      <span className="text-base leading-none">💬</span>
+                      <span className="font-mono">{p.comments_count}</span>
+                    </button>
+                  </footer>
+
+                  {/* Seção Expandida de Respostas (Gaveta) */}
+                  {activeCommentPostId === p.id && (
+                    <div className="mt-4 border-t border-border/40 pt-4 space-y-3">
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {p.comments && p.comments.length > 0 ? (
+                          p.comments.map((c) => {
+                            const commentAuthor = c.student_name || (typeof c.user === 'object' ? c.user?.username : c.user) || "Samurai";
+                            return (
+                              <div key={c.id} className="text-xs bg-background/40 rounded-lg p-2.5 border border-border/40">
+                                <span className="font-bold text-kaizen block mb-0.5">{commentAuthor}</span>
+                                <p className="text-gray-300">{c.content}</p>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground font-mono">Nenhuma resposta ainda. Seja o primeiro!</p>
+                        )}
+                      </div>
+                      
+                      {/* Formulário de Resposta */}
+                      <div className="flex gap-2 pt-2">
+                        <input
+                          type="text"
+                          placeholder="Digite sua resposta e pressione Enter..."
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSendComment(p.id)}
+                          className="flex-1 bg-background border border-border rounded px-3 py-1.5 text-xs text-white outline-none focus:border-kaizen/60"
+                        />
+                        <button 
+                          onClick={() => handleSendComment(p.id)} 
+                          disabled={!commentText.trim()} 
+                          className="bg-destructive text-white px-4 py-1 rounded text-xs font-bold font-display uppercase tracking-wider disabled:opacity-40"
+                        >
+                          Responder
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                </article>
+              );
+            })
+          )}
         </div>
       </main>
     </div>
   );
 }
+
+export default Community;
