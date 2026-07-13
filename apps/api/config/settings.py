@@ -82,7 +82,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'dojo_db',
         'USER': 'postgres',
-        'PASSWORD': '020521',
+        'PASSWORD': '',
         'HOST':'localhost',
         'PORT':'5433',
     }
