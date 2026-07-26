@@ -152,6 +152,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:8080",
+    "https://data-dojo-nar3.vercel.app",  # Seu domínio exato no Vercel
     "https://*.vercel.app",  # Todos os subdomínios do Vercel
     "https://*.onrender.com",  # Todos os subdomínios do Render
 ]
@@ -183,10 +184,16 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # ============================================
-# ARQUIVOS ESTÁTICOS E MÍDIA
+# ARQUIVOS ESTÁTICOS E MÍDIA - CORRIGIDO ✅
 # ============================================
-STATIC_URL = '/static/'
+STATIC_URL = '/static/'  # ✅ ADICIONADO
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Se você tiver arquivos estáticos próprios (não do Django Admin)
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 
