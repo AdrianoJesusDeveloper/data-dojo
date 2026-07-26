@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import dj_database_url
 
 # Definição do caminho base
-BASE_DIR = Path(__file__).resolve().parent.parent  # Isso é /opt/render/project/src/apps/api
+BASE_DIR = Path(__file__).resolve().parent.parent
 ROOT_DIR = BASE_DIR.parent
 
 # Carregar .env
@@ -19,13 +19,17 @@ if not SECRET_KEY:
 
 DEBUG = os.getenv('DEBUG', 'False').lower() in ('1', 'true', 'yes')
 
-# Hosts permitidos - Render + domínios customizados
+# ============================================
+# HOSTS PERMITIDOS - SUPORTA AMBOS PROJETOS
+# ============================================
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
     '.onrender.com',  # Permite todos os subdomínios do Render
     '.vercel.app',    # Permite todos os subdomínios do Vercel
-    os.getenv('DOMAIN', ''),  # Domínio customizado
+    'data-dojo-nine.vercel.app',    # Projeto 1
+    'data-dojo-nar3.vercel.app',   # Projeto 2
+    os.getenv('DOMAIN', ''),
 ]
 # Remove valores vazios
 ALLOWED_HOSTS = [host for host in ALLOWED_HOSTS if host]
@@ -75,19 +79,16 @@ MIDDLEWARE = [
 # ============================================
 # BANCO DE DADOS
 # ============================================
-# Usa DATABASE_URL do Render ou variáveis individuais
 DATABASE_URL = os.getenv('DATABASE_URL')
 if DATABASE_URL:
-    # Usa a URL completa do banco (Render fornece automaticamente)
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
             conn_max_age=600,
-            ssl_require=True  # Render exige SSL
+            ssl_require=True
         )
     }
 else:
-    # Fallback para variáveis individuais
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -97,7 +98,7 @@ else:
             'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5432'),
             'OPTIONS': {
-                'sslmode': 'require',  # Força SSL
+                'sslmode': 'require',
             }
         }
     }
@@ -115,7 +116,7 @@ AUTHENTICATION_BACKENDS = [
 
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
-ACCOUNT_EMAIL_VERIFICATION = 'none'  # Simplificado para produção
+ACCOUNT_EMAIL_VERIFICATION = 'none'
 
 # ============================================
 # REST FRAMEWORK
@@ -137,24 +138,38 @@ REST_FRAMEWORK = {
         'user': '1000/day',
     },
     'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',  # Remove Browsable API em produção
+        'rest_framework.renderers.JSONRenderer',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
 }
 
 # ============================================
-# CORS
+# CORS - SUPORTA AMBOS PROJETOS DO VERCEL
 # ============================================
 CORS_ALLOWED_ORIGINS = [
+    # Desenvolvimento local
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:8080",
-    "https://data-dojo-nar3.vercel.app",  # Seu domínio exato no Vercel
-    "https://*.vercel.app",  # Todos os subdomínios do Vercel
-    "https://*.onrender.com",  # Todos os subdomínios do Render
+    
+    # 🔥 PROJETOS DO VERCEL - AMBOS!
+    "https://data-dojo-nine.vercel.app",    # Projeto 1
+    "https://data-dojo-nar3.vercel.app",   # Projeto 2
+    
+    # Permite qualquer subdomínio do Vercel
+    "https://*.vercel.app",
+    
+    # Permite qualquer subdomínio do Render
+    "https://*.onrender.com",
+]
+
+# 🔥 REGEX PARA CAPTURAR TODOS OS SUBDOMÍNIOS
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",   # Qualquer subdomínio do Vercel
+    r"^https://.*\.onrender\.com$",  # Qualquer subdomínio do Render
 ]
 
 # Adiciona domínios customizados via variável de ambiente
@@ -186,9 +201,13 @@ CORS_ALLOW_HEADERS = [
 # ============================================
 # ARQUIVOS ESTÁTICOS E MÍDIA - CORRIGIDO ✅
 # ============================================
-STATIC_URL = '/static/'  # ✅ ADICIONADO
-STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'staticfiles')
-# Se você tiver arquivos estáticos próprios (não do Django Admin)
+STATIC_URL = '/static/'
+
+# 🔥 CORRIGIDO: Usando caminho absoluto para evitar problemas
+STATIC_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'staticfiles')
+# Isso vai para: /opt/render/project/src/apps/staticfiles
+
+# Se tiver arquivos estáticos próprios
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
@@ -199,8 +218,13 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 # WhiteNoise para arquivos estáticos
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# 🔥 CONFIGURAÇÃO EXTRA DO WHITENOISE
+WHITENOISE_ROOT = STATIC_ROOT
+WHITENOISE_MANIFEST_STRICT = False
+WHITENOISE_USE_FINDERS = True
+
 # ============================================
-# CACHE (Opcional - melhora performance)
+# CACHE
 # ============================================
 CACHES = {
     'default': {
@@ -223,12 +247,11 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutos
+CELERY_TASK_TIME_LIMIT = 30 * 60
 
 # ============================================
-# EMAIL (para produção)
+# EMAIL
 # ============================================
-# Usando SendGrid (Recomendado para Render) ou outro serviço
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.sendgrid.net')
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'apikey')
@@ -240,10 +263,9 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@dojo.com')
 # ============================================
 # SEGURANÇA ADICIONAL
 # ============================================
-# Força HTTPS
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = True
-SECURE_HSTS_SECONDS = 31536000  # 1 ano
+SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_BROWSER_XSS_FILTER = True
@@ -309,7 +331,7 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ============================================
-# DRF-YASG (para documentação API - Opcional)
+# DRF-YASG
 # ============================================
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {
@@ -324,5 +346,4 @@ SWAGGER_SETTINGS = {
 # ============================================
 # AMBIENTE
 # ============================================
-# Identifica o ambiente de produção
 ENVIRONMENT = 'production'
