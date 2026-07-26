@@ -83,9 +83,9 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',    
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -143,15 +143,13 @@ REST_FRAMEWORK = {
 }
 
 # Configuração de CORS
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://data-dojo-nar3-or0xfo8in-adrianojesusdevelopers-projects.vercel.app",
+CCORS_ALLOWED_ORIGINS = [
+    "https://data-dojo-nar3.vercel.app",  # domínio principal
+    "https://data-dojo-nar3-git-main-adrianojesusdevelopers-projects.vercel.app",  # preview
+    "https://data-dojo-nar3-2ez5w65vu-adrianojesusdevelopers-projects.vercel.app", # outro preview
 ]
+
+
 
 CORS_ALLOW_CREDENTIALS = True
 
