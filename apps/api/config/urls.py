@@ -6,7 +6,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     #redireciona para o frontend 
-    path('', RedirectView.as_view(url='https://data-dojo-nar3-lda8e7x88-adrianojesusdevelopers-projects.vercel.app/LOGIN', permanent=False)),
+    path('', RedirectView.as_view(url='https://data-dojo-nar3-lda8e7x88-adrianojesusdevelopers-projects.vercel.app/LOGINgit', permanent=False)),
     # Painel Administrativo    
     path('admin/', admin.site.urls),
     
