@@ -18,7 +18,7 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     ".onrender.com",
-    "data-dojo-nar3-or0xfo8in-adrianojesusdevelopers-projects.vercel.app"
+    "data-dojo-nar3-or0xfo8in-adrianojesusdevelopers-projects.vercel.app",
 ]
 
 AUTH_USER_MODEL = 'core.User'
@@ -83,6 +83,7 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    "api.middleware.OriginLogMiddleware",  # log de origem
     'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',    
@@ -143,16 +144,19 @@ REST_FRAMEWORK = {
 }
 
 # Configuração de CORS
-CCORS_ALLOWED_ORIGINS = [
+CORS_ALLOWED_ORIGINS = [
     "https://data-dojo-nar3.vercel.app",  # domínio principal
-    "https://data-dojo-nar3-git-main-adrianojesusdevelopers-projects.vercel.app",  # preview
-    "https://data-dojo-nar3-2ez5w65vu-adrianojesusdevelopers-projects.vercel.app", # outro preview
+    "https://data-dojo.onrender.com",     # backend principal
 ]
 
-
+# Aceitar automaticamente qualquer domínio *.vercel.app
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Permitir todos os domínios se variável de ambiente estiver ativada
 if os.getenv('CORS_ALLOW_ALL_ORIGINS', 'false').lower() in ('1', 'true', 'yes'):
     CORS_ALLOW_ALL_ORIGINS = True
 
@@ -165,3 +169,18 @@ CELERY_RESULT_SERIALIZER = 'json'
 
 # Email (console para desenvolvimento)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Logging para garantir que os logs apareçam no Render
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+}
