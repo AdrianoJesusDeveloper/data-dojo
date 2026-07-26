@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, createFileRoute, Link, redirect } from "@tanstack/react-router";
 
-// Importações corretas baseadas na estrutura do seu app
 import bgTech from "../assets/plano_de_fundo_tecnologico.png";
 import logoOficial from "../assets/logooicial.png"; 
 
@@ -16,7 +15,7 @@ export const Route = createFileRoute("/login")({
   component: Login,
 });
 
-export function Login() {
+function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -74,7 +73,6 @@ export function Login() {
         position: "relative",
       }}
     >
-      {/* Logo Oficial */}
       <div
         style={{
           position: "absolute",
@@ -96,7 +94,6 @@ export function Login() {
         />
       </div>
 
-      {/* Formulário de Login */}
       <form
         onSubmit={handleLogin}
         style={{

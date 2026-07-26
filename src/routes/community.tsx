@@ -63,7 +63,6 @@ function Community() {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Estados de controle de interações
   const [activeCommentPostId, setActiveCommentPostId] = useState<number | null>(null);
   const [commentText, setCommentText] = useState("");
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
@@ -143,7 +142,7 @@ function Community() {
 
     try {
       const formData = new FormData();
-      formData.append("forum_topic", postId.toString());
+      formData.append("topic", postId.toString()); 
       formData.append("content", text);
 
       const response = await fetch("http://127.0.0.1:8000/api/community/comments/", {
@@ -218,7 +217,6 @@ function Community() {
           <p className="text-muted-foreground mt-1">Conquistas, dúvidas e insights de quem trilha o caminho dos dados.</p>
         </div>
 
-        {/* Compositor */}
         <div className="mt-8 rounded-xl border border-border bg-card p-5">
           <div className="flex items-start gap-3">
             <div
@@ -232,7 +230,7 @@ function Community() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Compartilhe sua conquista, dúvida ou insight Kaizen..."
-                className="w-full bg-background border border-border rounded-lg p-3 text-sm resize-none outline-none focus:border-kaizen/60 transition min-h-20 text-white"
+                className="w-full bg-background border border-border rounded-lg p-3 text-sm resize-none outline-none focus:border-kaizen/60 transition min-h-80px text-white"
               />
               <div className="flex items-center justify-between mt-2">
                 <div className="text-[11px] font-mono text-muted-foreground">
@@ -250,7 +248,6 @@ function Community() {
           </div>
         </div>
 
-        {/* Feed de Postagens */}
         <div className="mt-6 space-y-4">
           {loading ? (
             <p className="text-sm text-muted-foreground font-mono">Buscando rolos de pergaminho do servidor...</p>
@@ -264,7 +261,6 @@ function Community() {
               return (
                 <article key={p.id} className="rounded-xl border border-border bg-card p-5 relative group transition hover:border-kaizen/20">
                   
-                  {/* Botões do Dono (Apenas aparecem se is_owner for True) */}
                   {p.is_owner && (
                     <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity font-mono text-xs">
                       <button onClick={() => { setEditingPostId(p.id); setEditText(p.content); }} className="text-muted-foreground hover:text-kaizen transition">[editar]</button>
@@ -301,7 +297,6 @@ function Community() {
                     </div>
                   </header>
 
-                  {/* Conteúdo / Modo de Edição Ativo */}
                   {editingPostId === p.id ? (
                     <div className="mt-3 space-y-2">
                       <textarea
@@ -318,7 +313,6 @@ function Community() {
                     <p className="mt-3 text-sm leading-relaxed text-gray-200 whitespace-pre-wrap">{p.content}</p>
                   )}
 
-                  {/* Rodapé Interativo com Botões Reais */}
                   <footer className="mt-4 flex items-center gap-5 text-xs text-muted-foreground border-t border-border/20 pt-3">
                     <button onClick={() => handleLike(p.id)} className="flex items-center gap-1.5 hover:text-destructive text-muted-foreground transition">
                       <span className="text-base leading-none">❤️</span>
@@ -333,7 +327,6 @@ function Community() {
                     </button>
                   </footer>
 
-                  {/* Seção Expandida de Respostas (Gaveta) */}
                   {activeCommentPostId === p.id && (
                     <div className="mt-4 border-t border-border/40 pt-4 space-y-3">
                       <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -352,7 +345,6 @@ function Community() {
                         )}
                       </div>
                       
-                      {/* Formulário de Resposta */}
                       <div className="flex gap-2 pt-2">
                         <input
                           type="text"
@@ -382,5 +374,3 @@ function Community() {
     </div>
   );
 }
-
-export default Community;

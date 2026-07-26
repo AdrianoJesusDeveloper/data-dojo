@@ -24,7 +24,7 @@ class ForumTopicViewSet(viewsets.ModelViewSet):
     Suporta JSON, upload de mídias e sistema de curtidas.
     """
     queryset = ForumTopic.objects.prefetch_related('user', 'comments__user').order_by('-created_at')
-    parser_classes = [JSONParser, MultiPartParser, FormParser] # Adicionado JSONParser para suportar o React
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
@@ -36,7 +36,6 @@ class ForumTopicViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        """Sobrescreve a listagem para injetar as propriedades que o frontend precisa"""
         queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
         
@@ -48,9 +47,7 @@ class ForumTopicViewSet(viewsets.ModelViewSet):
         return Response(self._inject_custom_fields(serializer.data, request.user))
 
     def _inject_custom_fields(self, data, user):
-        """Injeta dinamicamente se o usuário logado é dono e garante o array de comentários"""
         for post in data:
-            # Captura com segurança os dados do usuário se for um dicionário aninhado
             user_data = post.get('user', {})
             
             if isinstance(user_data, dict):
@@ -60,43 +57,26 @@ class ForumTopicViewSet(viewsets.ModelViewSet):
                 user_id = post.get('user_id')
                 user_username = post.get('user')
 
-            # Validação real se o samurai logado é o autor da postagem
             post['is_owner'] = user_id == user.id or user_username == user.username
             
             if 'comments' not in post:
-                # Garante que a chave exista para evitar erros de undefined no frontend
                 post['comments'] = post.get('forumcomment_set', [])
         return data
 
-    # ❤️ ROTA CUSTOMIZADA: /api/community/posts/{id}/like/
     @action(detail=True, methods=['post'])
     def like(self, request, pk=None):
         topic = self.get_object()
-        
-        if hasattr(topic, 'likes'):
-            if request.user in topic.likes.all():
-                topic.likes.remove(request.user)
-                message = "Curtida removida"
-            else:
-                topic.likes.add(request.user)
-                message = "Post curtido"
-            
-            if hasattr(topic, 'likes_count'):
-                topic.likes_count = topic.likes.count()
-                topic.save()
-        else:
-            if hasattr(topic, 'likes_count'):
-                topic.likes_count += 1
-                topic.save()
-            message = "Post curtido"
+        user = request.user
 
-        return Response({
-            'status': message, 
-            'likes_count': getattr(topic, 'likes_count', 0)
-        }, status=status.HTTP_200_OK)
+        if user in topic.likes.all():
+            topic.likes.remove(user)
+        else:
+            topic.likes.add(user)
+
+        serializer = self.get_serializer(topic)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
-        """Garante que samurais só possam apagar suas próprias publicações"""
         instance = self.get_object()
         if instance.user != request.user:
             return Response(
@@ -118,12 +98,13 @@ class ForumCommentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         comment = serializer.save(user=self.request.user)
+        topic = comment.topic
         
-        # Sincroniza o contador de comentários do post pai se o campo existir
-        topic = comment.forum_topic
         if hasattr(topic, 'comments_count'):
-            topic.comments_count = topic.comments.count()
-            topic.save()
+            comments_set = getattr(topic, 'comments', getattr(topic, 'forumcomment_set', None))
+            if comments_set is not None:
+                topic.comments_count = comments_set.count()
+                topic.save()
 
 
 # =====================================================================
@@ -138,15 +119,21 @@ class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # =====================================================================
-# NOVA VIEW: PERFIL DE USUÁRIO (ATUALIZAÇÃO DE FOTO DE PERFIL)
+# NOVA VIEW: PERFIL DE USUÁRIO (ATUALIZAÇÃO DE FOTO DE PERFIL) - CORRIGIDO
 # =====================================================================
 class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_object(self):
         return self.request.user
+
+    def get_serializer_context(self):
+        """ Passa a requisição para o Serializer gerar URLs de mídia absolutas """
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
 
 
 # =====================================================================

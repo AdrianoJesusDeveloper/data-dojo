@@ -4,9 +4,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Definição do caminho base (ajustado para a estrutura apps/api/config)
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 ROOT_DIR = BASE_DIR.parent
-# load_dotenv(ROOT_DIR / '.env')
+
+# CORREÇÃO AQUI: Como o .env está na pasta 'api', apontamos direto usando BASE_DIR
+load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key')
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('1', 'true', 'yes')
@@ -15,8 +17,8 @@ ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,
 AUTH_USER_MODEL = 'core.User'
 SITE_ID = int(os.getenv('DJANGO_SITE_ID', 1))
 
-# Development convenience: use SQLite locally unless POSTGRES is explicitly enabled.
-USE_SQLITE = os.getenv('DJANGO_USE_SQLITE', 'true').lower() in ('1', 'true', 'yes')
+# PostgreSQL is the default database. Set DJANGO_USE_SQLITE=true only for a local SQLite fallback.
+USE_SQLITE = os.getenv('DJANGO_USE_SQLITE', 'false').lower() in ('1', 'true', 'yes')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -42,8 +44,8 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 
 # ALTERAÇÃO: Mudado de 'optional' para 'none' para não travar o fluxo localmente
 ACCOUNT_EMAIL_VERIFICATION = 'none'
@@ -83,11 +85,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'dojo_db',
-        'USER': 'postgres',
-        'PASSWORD': '',
-        'HOST':'localhost',
-        'PORT':'5433',
+        'NAME': os.getenv('DB_NAME', 'dojo_db'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),  # Mantido oculto por segurança
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5433'),
     }
 }
 
@@ -110,7 +112,7 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR /'api' / 'media'
+MEDIA_ROOT = BASE_DIR / 'api' / 'media'
 STATIC_ROOT = BASE_DIR /'api'/ 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -128,6 +130,8 @@ REST_FRAMEWORK = {
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
     "http://localhost:8081",
     "http://127.0.0.1:8081",
     "http://localhost:8080",

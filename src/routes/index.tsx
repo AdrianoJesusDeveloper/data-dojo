@@ -154,7 +154,7 @@ function Landing() {
       </section>
 
       <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-        <span className="font-mono">$ echo "kaizen --forever"</span> · Data Driven Dojô © 2026
+        <span className="font-mono"></span> Data Driven Dojô © 2026
       </footer>
     </div>
   );

@@ -1,7 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createLazyFileRoute } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
 
-export const Route = createFileRoute('/profile')({
+export const Route = createLazyFileRoute('/profile')({
   component: ProfileComponent,
 });
 

@@ -106,10 +106,11 @@ class Exercise(models.Model):
 class ForumTopic(models.Model):
     """Modelo para as perguntas enviadas pelos alunos na Comunidade"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='forum_topics')
-    title = models.CharField(max_length=250)
+    title = models.CharField(max_length=251)
     content = models.TextField(help_text="Texto explicativo da dúvida")
-    # Campo para permitir upload de fotos de erro ou prints de códigos
     code_screenshot = models.ImageField(upload_to='forum/screenshots/', blank=True, null=True)
+    # Relacionamento de curtidas Many-to-Many com o modelo User
+    likes = models.ManyToManyField(User, related_name='liked_forum_topics', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -121,7 +122,6 @@ class ForumComment(models.Model):
     topic = models.ForeignKey(ForumTopic, on_delete=models.CASCADE, related_name='comments')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
-    # Permite imagem também nas respostas
     code_screenshot = models.ImageField(upload_to='forum/screenshots/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -6,13 +6,25 @@ from .models import Course, Module, Lesson, Exercise, ForumTopic, ForumComment, 
 User = get_user_model()
 
 # =====================================================================
-# NOVO: SERIALIZER DE USUÁRIO (PERFIL, FOTO E XP)
+# NOVO: SERIALIZER DE USUÁRIO (PERFIL, FOTO E XP) - CORRIGIDO
 # =====================================================================
 class UserSerializer(serializers.ModelSerializer):
+    # Cria uma chave extra "studentName" apontando para o username para garantir compatibilidade com o frontend
+    studentName = serializers.CharField(source="username", read_only=True)
+
     class Meta:
         model = User
-        fields = ["id", "username", "email", "profile_picture", "xp_points"]
+        fields = ["id", "username", "studentName", "email", "profile_picture", "xp_points"]
         read_only_fields = ["id", "xp_points"]
+
+    def to_representation(self, instance):
+        """ Garante o envio do link absoluto completo mesmo sendo um campo editável """
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        
+        if instance.profile_picture and request is not None:
+            ret['profile_picture'] = request.build_absolute_uri(instance.profile_picture.url)
+        return ret
 
 
 # =====================================================================
@@ -29,23 +41,44 @@ class ForumCommentSerializer(serializers.ModelSerializer):
 
 class ForumTopicSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    # Inclui a contagem de comentários automaticamente na listagem
+    comments = ForumCommentSerializer(many=True, read_only=True)
     comments_count = serializers.IntegerField(source="comments.count", read_only=True)
+    
+    # Fornece a lista de IDs de quem curtiu (essencial para o frontend verificar o estado do botão)
+    likes = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    # Mantém o contador dinâmico estruturado
+    likes_count = serializers.SerializerMethodField()
 
     class Meta:
         model = ForumTopic
-        fields = ["id", "user", "title", "content", "code_screenshot", "comments_count", "created_at"]
-        read_only_fields = ["id", "user", "created_at"]
+        fields = [
+            "id", 
+            "user", 
+            "title", 
+            "content", 
+            "code_screenshot", 
+            "likes",          
+            "likes_count", 
+            "comments_count", 
+            "comments",
+            "created_at"
+        ]
+        read_only_fields = ["id", "user", "likes", "created_at"]
+
+    def get_likes_count(self, obj):
+        return obj.likes.count()
 
 
 class ForumTopicDetailSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    # Traz a lista completa de comentários quando o aluno abrir o tópico
     comments = ForumCommentSerializer(many=True, read_only=True)
+    likes = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    likes_count = serializers.IntegerField(source="likes.count", read_only=True)
 
     class Meta:
         model = ForumTopic
-        fields = ["id", "user", "title", "content", "code_screenshot", "comments", "created_at"]
+        fields = ["id", "user", "title", "content", "code_screenshot", "comments", "likes", "likes_count", "created_at"]
+        read_only_fields = ["id", "user", "likes", "created_at"]
 
 
 # =====================================================================

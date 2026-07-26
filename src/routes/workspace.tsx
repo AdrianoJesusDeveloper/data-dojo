@@ -18,7 +18,6 @@ export const Route = createFileRoute("/workspace")({
   component: Workspace,
 });
 
-// Tipagens para bater com o models.py e serializers.py do Django
 interface Exercise {
   id: number;
   lesson: number;
@@ -56,21 +55,18 @@ interface Course {
   modules: Module[];
 }
 
-export default function Workspace() {
+function Workspace() {
   const { state, submitChallenge } = useDojo();
   const hydrated = useHydrated();
 
-  // Estados para gerenciar os dados vindos do Django
   const [course, setCourse] = useState<Course | null>(null);
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Estados da IDE e terminal
   const [code, setCode] = useState("");
   const [lines, setLines] = useState<string[]>(["$ dojo-cli pronto. Aguardando submissão..."]);
   const [running, setRunning] = useState(false);
 
-  // Buscar dados da API do Django ao carregar a página
   useEffect(() => {
     fetch("http://127.0.0.1:8000/api/courses/")
       .then((res) => res.json())
@@ -79,8 +75,6 @@ export default function Workspace() {
           const activeCourse = data[0];
           setCourse(activeCourse);
 
-          // Seleciona automaticamente a primeira lição de vídeo disponível,
-          // ou a primeira lição do primeiro módulo se não houver vídeo.
           const firstVideoLesson = activeCourse.modules
             ?.flatMap((mod) => mod.lessons)
             .find((les) => les.content_type === "VIDEO");
@@ -123,17 +117,14 @@ export default function Workspace() {
       if (evaluationMode === "exact") {
         return normalizedAnswer === normalizedExpected;
       }
-
       if (evaluationMode === "contains") {
         return normalizedExpected.length > 0 && normalizedAnswer.includes(normalizedExpected);
       }
-
       if (expectedKeywords.length > 0) {
         return expectedKeywords.every((keyword) =>
           normalizedAnswer.includes(keyword.toLowerCase()),
         );
       }
-
       return normalizedAnswer.includes("select") && normalizedAnswer.includes("from");
     })();
 
@@ -182,18 +173,15 @@ export default function Workspace() {
       <DojoHeader />
 
       <main className="flex-1 mx-auto max-w-[1600px] w-full px-4 py-6 grid lg:grid-cols-2 gap-4">
-        {/* LEFT — Player de Vídeo Dinâmico + Detalhes */}
         <section className="rounded-xl border border-border bg-card overflow-hidden flex flex-col">
           <div className="aspect-video relative bg-black flex items-center justify-center">
             {currentLesson?.file_upload ? (
-              // Se houver upload de arquivo .mp4, renderiza o player nativo do HTML5
               <video
                 src={currentLesson.file_upload}
                 controls
                 className="w-full h-full object-contain"
               />
             ) : currentLesson?.video_url ? (
-              // Se for apenas uma URL externa (YouTube/Vimeo)
               <iframe
                 src={currentLesson.video_url}
                 className="w-full h-full border-0"
@@ -236,7 +224,6 @@ export default function Workspace() {
               </div>
             )}
 
-            {/* Menu de navegação interna de módulos e lições */}
             <div className="mt-6 border-t border-border pt-4">
               <div className="font-display font-semibold text-sm mb-3">🗂 Estrutura do Curso</div>
               {course?.modules?.map((mod) => (
@@ -266,7 +253,6 @@ export default function Workspace() {
           </div>
         </section>
 
-        {/* RIGHT — IDE */}
         <section className="rounded-xl border border-border bg-belt-black flex flex-col overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-black">
             <div className="flex gap-1.5">

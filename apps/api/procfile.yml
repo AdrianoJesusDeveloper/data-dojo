@@ -1,0 +1,2 @@
+Build Command: pip install -r apps/api/requirements.txt
+Start Command: sh apps/api/render_start.sh
