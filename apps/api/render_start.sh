@@ -2,7 +2,7 @@
 
 echo "🚀 Iniciando deploy no Render..."
 
-export DJANGO_SETTINGS_MODULE=settings_prod
+export DJANGO_SETTINGS_MODULE=apps.api.settings_prod
 
 echo "🗄 Aplicando migrações..."
 python manage.py migrate --noinput
@@ -12,4 +12,4 @@ python manage.py collectstatic --noinput
 
 echo "🔥 Iniciando servidor..."
 
-exec gunicorn apps.api.wsgi:application --bind 0.0.0.0:$PORT
+exec gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
