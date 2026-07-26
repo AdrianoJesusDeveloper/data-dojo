@@ -1,10 +1,15 @@
 #!/bin/bash
 
-# Aplicar migrações
-python manage.py migrate
+echo "🚀 Iniciando deploy no Render..."
 
-# Coletar arquivos estáticos
+# Coletar arquivos estáticos com o caminho correto
+echo "📦 Coletando arquivos estáticos..."
 python manage.py collectstatic --noinput
 
-# Executar o servidor com Gunicorn
-gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+# Aplicar migrações
+echo "🗄️ Aplicando migrações..."
+python manage.py migrate --noinput
+
+# Iniciar o servidor
+echo "🔥 Iniciando servidor..."
+gunicorn config.wsgi:application

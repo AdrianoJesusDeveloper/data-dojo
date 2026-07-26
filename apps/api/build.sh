@@ -1,18 +1,19 @@
-# apps/api/build.sh
 #!/bin/bash
 
-echo "🚀 Iniciando build do Data Driven Dojô Backend..."
+echo "🚀 Build iniciado..."
 
 # Instalar dependências
-echo "📦 Instalando dependências..."
 pip install -r requirements.txt
 
-# Coletar arquivos estáticos
-echo "📁 Coletando arquivos estáticos..."
+# Criar diretório para estáticos
+mkdir -p staticfiles
+
+# Coletar estáticos
+echo "📦 Coletando arquivos estáticos..."
 python manage.py collectstatic --noinput
 
-# Executar migrações
-echo "🗄️  Executando migrações..."
-python manage.py migrate --noinput
+# Verificar se os arquivos foram copiados
+echo "📁 Arquivos em staticfiles:"
+ls -la staticfiles/
 
-echo "✅ Build concluído com sucesso!"
+echo "✅ Build concluído!"

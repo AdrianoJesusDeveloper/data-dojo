@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import dj_database_url
 
 # Definição do caminho base
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent  # Isso é /opt/render/project/src/apps/api
 ROOT_DIR = BASE_DIR.parent
 
 # Carregar .env
@@ -187,7 +187,7 @@ CORS_ALLOW_HEADERS = [
 # ARQUIVOS ESTÁTICOS E MÍDIA - CORRIGIDO ✅
 # ============================================
 STATIC_URL = '/static/'  # ✅ ADICIONADO
-STATIC_ROOT = os.path.join(os.path.dirname(os.path.dirname(BASE_DIR)), 'staticfiles')
+STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'staticfiles')
 # Se você tiver arquivos estáticos próprios (não do Django Admin)
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
