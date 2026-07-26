@@ -3,24 +3,55 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
-# Definição do caminho base (ajustado para a estrutura apps/api/config)
+# Definição do caminho base
 BASE_DIR = Path(__file__).resolve().parent.parent
 ROOT_DIR = BASE_DIR.parent
 
-# Carrega o arquivo .env se existir na pasta 'api'
+# Carrega variáveis de ambiente
 load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key')
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
-# Hosts permitidos (suporta localhost e subdomínios do Render em produção)
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,.onrender.com').split(',') if host.strip()]
+# Hosts permitidos (localhost + Render + Vercel)
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    ".onrender.com",
+    "data-dojo-nar3-or0xfo8in-adrianojesusdevelopers-projects.vercel.app"
+]
 
 AUTH_USER_MODEL = 'core.User'
 SITE_ID = int(os.getenv('DJANGO_SITE_ID', 1))
 
-# Banco de dados: Prioriza a variável do Render (DATABASE_URL), depois as variáveis individuais ou SQLite local
+# Banco de dados
 USE_SQLITE = os.getenv('DJANGO_USE_SQLITE', 'false').lower() in ('1', 'true', 'yes')
+
+DATABASES = {
+    'default': dj_database_url.config(
+        default=os.getenv('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=True,
+    )
+}
+
+if not os.getenv('DATABASE_URL'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'dojo_db'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD'),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5433'),
+        }
+    }
+
+if USE_SQLITE:
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -31,7 +62,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sites',
     'corsheaders',
-    'rest_framework',    
+    'rest_framework',
     'allauth',
     'allauth.account',
     'rest_framework.authtoken',
@@ -48,7 +79,6 @@ AUTHENTICATION_BACKENDS = [
 
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
-
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 
 MIDDLEWARE = [
@@ -83,36 +113,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Configuração robusta de banco de dados para Render e Local
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL'),
-        conn_max_age=600,
-        ssl_require=True,
-        
-    )
-}
-
-# Fallback caso a DATABASE_URL não esteja definida no ambiente local
-if not os.getenv('DATABASE_URL'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME', 'dojo_db'),
-            'USER': os.getenv('DB_USER', 'postgres'),
-            
-            'PASSWORD': os.getenv('DB_PASSWORD'),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '5433'),
-        }
-    }
-
-if USE_SQLITE:
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -124,6 +124,7 @@ LANGUAGE_CODE = 'pt-br'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
+
 STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'api' / 'media'
@@ -141,30 +142,28 @@ REST_FRAMEWORK = {
     ],
 }
 
-# Origens permitidas para requisições do frontend (incluindo Vercel)
+# Configuração de CORS
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:8081",
-    "http://127.0.0.1:8081",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://data-dojo-nar3-44djqexf2-adrianojesusdevelopers-projects.vercel.app", # Seu link real do Vercel
-],
+    "https://data-dojo-nar3-or0xfo8in-adrianojesusdevelopers-projects.vercel.app",
 ]
-
-# Permite capturar origens dinamicamente se necessário, ou adicione o domínio da Vercel acima
-if os.getenv('CORS_ALLOW_ALL_ORIGINS', 'false').lower() in ('1', 'true', 'yes'):
-    CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 
+if os.getenv('CORS_ALLOW_ALL_ORIGINS', 'false').lower() in ('1', 'true', 'yes'):
+    CORS_ALLOW_ALL_ORIGINS = True
+
+# Celery
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 
+# Email (console para desenvolvimento)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
