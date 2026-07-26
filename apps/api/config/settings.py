@@ -100,6 +100,7 @@ if not os.getenv('DATABASE_URL'):
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.getenv('DB_NAME', 'dojo_db'),
             'USER': os.getenv('DB_USER', 'postgres'),
+            
             'PASSWORD': os.getenv('DB_PASSWORD'),
             'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5433'),
@@ -150,7 +151,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8080",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    # "https://seu-frontend.vercel.app", # Substitua pela URL real da Vercel quando fizer o deploy
+    "https://data-dojo-nar3-44djqexf2-adrianojesusdevelopers-projects.vercel.app", # Seu link real do Vercel
+],
 ]
 
 # Permite capturar origens dinamicamente se necessário, ou adicione o domínio da Vercel acima
