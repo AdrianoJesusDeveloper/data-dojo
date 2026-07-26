@@ -171,7 +171,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.vercel\.app$",   # Qualquer subdomínio do Vercel
     r"^https://.*\.onrender\.com$",  # Qualquer subdomínio do Render
 ]
-
+CORS_ALLOW_ALL_ORIGINS = True  # 🔥 PERMITE TODAS AS ORIGENS (para teste)
 # Adiciona domínios customizados via variável de ambiente
 CUSTOM_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '')
 if CUSTOM_ORIGINS:
@@ -208,9 +208,9 @@ STATIC_ROOT = '/opt/render/project/src/apps/api/api/staticfiles'
 # Isso vai para: /opt/render/project/src/apps/api/api/staticfiles
 
 # Se tiver arquivos estáticos próprios
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
+#STATICFILES_DIRS = [
+    #os.path.join(BASE_DIR, 'static'),
+#]
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
