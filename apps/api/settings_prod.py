@@ -25,13 +25,12 @@ DEBUG = os.getenv('DEBUG', 'False').lower() in ('1', 'true', 'yes')
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    '.onrender.com',  # Permite todos os subdomínios do Render
-    '.vercel.app',    # Permite todos os subdomínios do Vercel
-    'data-dojo-nine.vercel.app',    # Projeto 1
-    'data-dojo-nar3.vercel.app',   # Projeto 2
+    '.onrender.com',
+    '.vercel.app',
+    'data-dojo-nine.vercel.app',
+    'data-dojo-nar3.vercel.app',
     os.getenv('DOMAIN', ''),
 ]
-# Remove valores vazios
 ALLOWED_HOSTS = [host for host in ALLOWED_HOSTS if host]
 
 # ============================================
@@ -64,9 +63,9 @@ INSTALLED_APPS = [
 # MIDDLEWARE E SEGURANÇA
 # ============================================
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Deve ser o primeiro
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Para arquivos estáticos
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # ✅ POSIÇÃO CORRETA
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -148,7 +147,6 @@ REST_FRAMEWORK = {
 # CORS - SUPORTA AMBOS PROJETOS DO VERCEL
 # ============================================
 CORS_ALLOWED_ORIGINS = [
-    # Desenvolvimento local
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5173",
@@ -156,23 +154,18 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     
     # 🔥 PROJETOS DO VERCEL - AMBOS!
-    "https://data-dojo-nine.vercel.app",    # Projeto 1
-    "https://data-dojo-nar3.vercel.app",   # Projeto 2
+    "https://data-dojo-nine.vercel.app",
+    "https://data-dojo-nar3.vercel.app",
     
-    # Permite qualquer subdomínio do Vercel
     "https://*.vercel.app",
-    
-    # Permite qualquer subdomínio do Render
     "https://*.onrender.com",
 ]
 
-# 🔥 REGEX PARA CAPTURAR TODOS OS SUBDOMÍNIOS
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.vercel\.app$",   # Qualquer subdomínio do Vercel
-    r"^https://.*\.onrender\.com$",  # Qualquer subdomínio do Render
+    r"^https://.*\.vercel\.app$",
+    r"^https://.*\.onrender\.com$",
 ]
 
-# Adiciona domínios customizados via variável de ambiente
 CUSTOM_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '')
 if CUSTOM_ORIGINS:
     CORS_ALLOWED_ORIGINS.extend([origin.strip() for origin in CUSTOM_ORIGINS.split(',')])
@@ -203,9 +196,11 @@ CORS_ALLOW_HEADERS = [
 # ============================================
 STATIC_URL = '/static/'
 
-# 🔥 CORRIGIDO: Usando caminho absoluto para evitar problemas
-STATIC_ROOT = '/opt/render/project/src/apps/api/api/staticfiles'
-# Isso vai para: /opt/render/project/src/apps/staticfiles
+# 🎯 CONFIGURAÇÃO INTELIGENTE: Detecta se está no Render
+if os.getenv('RENDER'):  # Render define esta variável automaticamente
+    STATIC_ROOT = '/opt/render/project/src/apps/api/api/staticfiles'
+else:
+    STATIC_ROOT = os.path.join(BASE_DIR, 'api', 'staticfiles')
 
 # Se tiver arquivos estáticos próprios
 STATICFILES_DIRS = [
@@ -217,11 +212,10 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 
 # WhiteNoise para arquivos estáticos
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-# 🔥 CONFIGURAÇÃO EXTRA DO WHITENOISE
 WHITENOISE_ROOT = STATIC_ROOT
-WHITENOISE_MANIFEST_STRICT = False
 WHITENOISE_USE_FINDERS = True
+WHITENOISE_MANIFEST_STRICT = False
+WHITENOISE_AUTOREFRESH = True
 
 # ============================================
 # CACHE
