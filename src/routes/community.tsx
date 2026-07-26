@@ -69,7 +69,7 @@ function Community() {
   const [editText, setEditText] = useState("");
 
   const fetchPosts = () => {
-    fetch("http://127.0.0.1:8000/api/community/posts/", {
+    fetch("http:https://data-dojo.onrender.com/api/api/community/posts/", {
       headers: {
         Authorization: `Token ${localStorage.getItem("token")}`,
       },
@@ -98,7 +98,7 @@ function Community() {
       formData.append("content", text);
       formData.append("title", "Post da Comunidade");
 
-      const response = await fetch("http://127.0.0.1:8000/api/community/posts/", {
+      const response = await fetch("https://data-dojo.onrender.com/api/community/posts/", {
         method: "POST",
         headers: {
           Authorization: `Token ${localStorage.getItem("token")}`,
@@ -120,7 +120,7 @@ function Community() {
 
   const handleLike = async (postId: number) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/community/posts/${postId}/like/`, {
+      const response = await fetch(`https://data-dojo.onrender.com/api/community/posts/${postId}/like/`, {
         method: "POST",
         headers: {
           Authorization: `Token ${localStorage.getItem("token")}`,
@@ -145,7 +145,7 @@ function Community() {
       formData.append("topic", postId.toString()); 
       formData.append("content", text);
 
-      const response = await fetch("http://127.0.0.1:8000/api/community/comments/", {
+      const response = await fetch("https://data-dojo.onrender.com/api/community/comments/", {
         method: "POST",
         headers: {
           Authorization: `Token ${localStorage.getItem("token")}`,
@@ -167,7 +167,7 @@ function Community() {
     if (!editText.trim()) return;
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/community/posts/${postId}/`, {
+      const response = await fetch(`https://data-dojo.onrender.com/api/api/community/posts/${postId}/`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -190,7 +190,7 @@ function Community() {
     if (!confirm("Deseja apagar definitivamente esta postagem?")) return;
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/community/posts/${postId}/`, {
+      const response = await fetch(`hapi/community/posts/${postId}/`, {
         method: "DELETE",
         headers: {
           Authorization: `Token ${localStorage.getItem("token")}`,

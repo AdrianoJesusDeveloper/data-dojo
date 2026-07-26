@@ -68,7 +68,7 @@ function Workspace() {
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/courses/")
+    fetch("http:https://data-dojo.onrender.com/api//api/courses/")
       .then((res) => res.json())
       .then((data: Course[]) => {
         if (data.length > 0) {

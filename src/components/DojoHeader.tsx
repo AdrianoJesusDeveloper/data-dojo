@@ -48,7 +48,7 @@ export function DojoHeader({ compact = false }: { compact?: boolean }) {
     if (rawPic.startsWith("http") || rawPic.startsWith("blob:") || rawPic.startsWith("data:")) {
       profilePic = rawPic;
     } else {
-      profilePic = `http://127.0.0.1:8000/media/${rawPic.replace(/^\/?(media\/)?/, "")}`;
+      profilePic = `https://data-dojo.onrender.com/api/media/${rawPic.replace(/^\/?(media\/)?/, "")}`;
     }
   }
 

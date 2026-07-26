@@ -13,7 +13,7 @@ function ProfileComponent() {
 
   // Busca os dados atuais do aluno ao carregar a página
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/user/profile/', {
+    fetch('https://data-dojo.onrender.com/api/user/profile/', {
       headers: {
         'Authorization': `Token ${localStorage.getItem('token')}`, // Ajuste conforme seu sistema de login
       }
@@ -45,7 +45,7 @@ function ProfileComponent() {
 
     try {
       setLoading(true);
-      const response = await fetch('http://127.0.0.1:8000/api/user/profile/', {
+      const response = await fetch('https://data-dojo.onrender.com/api/user/profile/', {
         method: 'PATCH',
         headers: {
           'Authorization': `Token ${localStorage.getItem('token')}`,
