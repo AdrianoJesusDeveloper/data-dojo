@@ -21,3 +21,9 @@ urlpatterns = [
 # Libera arquivos de mídia e uploads no ambiente de desenvolvimento
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    
+    
+    
+    # 🔥 SERVE ARQUIVOS ESTÁTICOS MESMO EM PRODUÇÃO
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
