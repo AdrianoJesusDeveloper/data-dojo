@@ -25,13 +25,12 @@ DEBUG = os.getenv('DEBUG', 'False').lower() in ('1', 'true', 'yes')
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    '.onrender.com',  # Permite todos os subdomínios do Render
-    '.vercel.app',    # Permite todos os subdomínios do Vercel
-    'data-dojo-nine.vercel.app',    # Projeto 1
-    'data-dojo-nar3.vercel.app',   # Projeto 2
+    '.onrender.com',
+    '.vercel.app',
+    'data-dojo-nine.vercel.app',
+    'data-dojo-nar3.vercel.app',
     os.getenv('DOMAIN', ''),
 ]
-# Remove valores vazios
 ALLOWED_HOSTS = [host for host in ALLOWED_HOSTS if host]
 
 # ============================================
@@ -64,9 +63,8 @@ INSTALLED_APPS = [
 # MIDDLEWARE E SEGURANÇA
 # ============================================
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Deve ser o primeiro
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    #'whitenoise.middleware.WhiteNoiseMiddleware',  # Para arquivos estáticos
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -74,6 +72,25 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+]
+
+# ============================================
+# TEMPLATES - CORRIGIDO ✅
+# ============================================
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
 ]
 
 # ============================================
@@ -148,31 +165,25 @@ REST_FRAMEWORK = {
 # CORS - SUPORTA AMBOS PROJETOS DO VERCEL
 # ============================================
 CORS_ALLOWED_ORIGINS = [
-    # Desenvolvimento local
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:8080",
     
-    # 🔥 PROJETOS DO VERCEL - AMBOS!
-    "https://data-dojo-nine.vercel.app",    # Projeto 1
-    "https://data-dojo-nar3.vercel.app",   # Projeto 2
-    
-    # Permite qualquer subdomínio do Vercel
+    "https://data-dojo-nine.vercel.app",
+    "https://data-dojo-nar3.vercel.app",
     "https://*.vercel.app",
-    
-    # Permite qualquer subdomínio do Render
     "https://*.onrender.com",
 ]
 
-# 🔥 REGEX PARA CAPTURAR TODOS OS SUBDOMÍNIOS
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.vercel\.app$",   # Qualquer subdomínio do Vercel
-    r"^https://.*\.onrender\.com$",  # Qualquer subdomínio do Render
+    r"^https://.*\.vercel\.app$",
+    r"^https://.*\.onrender\.com$",
 ]
+
 CORS_ALLOW_ALL_ORIGINS = True  # 🔥 PERMITE TODAS AS ORIGENS (para teste)
-# Adiciona domínios customizados via variável de ambiente
+
 CUSTOM_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '')
 if CUSTOM_ORIGINS:
     CORS_ALLOWED_ORIGINS.extend([origin.strip() for origin in CUSTOM_ORIGINS.split(',')])
@@ -199,30 +210,20 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # ============================================
-# ARQUIVOS ESTÁTICOS E MÍDIA - CORRIGIDO ✅
+# ARQUIVOS ESTÁTICOS E MÍDIA
 # ============================================
 STATIC_URL = '/static/'
-
-# 🔥 CORRIGIDO: Usando caminho absoluto para evitar problemas
 STATIC_ROOT = '/opt/render/project/src/apps/api/api/staticfiles'
-# Isso vai para: /opt/render/project/src/apps/api/api/staticfiles
 
-# Se tiver arquivos estáticos próprios
-#STATICFILES_DIRS = [
-    #os.path.join(BASE_DIR, 'static'),
-#]
+# STATICFILES_DIRS = [
+#     os.path.join(BASE_DIR, 'static'),
+# ]
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 
-# 🔥 USAR STORAGE PADRÃO DO DJANGO (NÃO WHITENOISE)
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
-# 🔥 CONFIGURAÇÃO EXTRA DO WHITENOISE
-#WHITENOISE_ROOT = STATIC_ROOT
-#WHITENOISE_USE_FINDERS = True
-#WHITENOISE_MANIFEST_STRICT = False
-#WHITENOISE_AUTOREFRESH = True
 # ============================================
 # CACHE
 # ============================================

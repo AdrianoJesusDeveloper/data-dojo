@@ -2,23 +2,20 @@
 
 echo "🚀 Iniciando deploy no Render..."
 
-# 🔥 ADICIONA O DIRETÓRIO APPS AO PYTHONPATH
-export PYTHONPATH="${PYTHONPATH}:/opt/render/project/src/apps"
+# 🔥 VAI DIRETAMENTE PARA A PASTA DA API USANDO CAMINHO ABSOLUTO
+cd /opt/render/project/src/apps/api
 
-# 🔥 FORÇA O SETTINGS_PROD
-export DJANGO_SETTINGS_MODULE=api.settings_prod
+# 🔥 FORÇA O USO DO settings_prod.py
+export DJANGO_SETTINGS_MODULE=settings_prod
 
-# Entrar na pasta do Django
-cd apps/api
-
-# Coletar estáticos
+# Coletar arquivos estáticos
 echo "📦 Coletando arquivos estáticos..."
-python manage.py collectstatic --noinput --settings=settings_prod
+python manage.py collectstatic --noinput
 
-# Migrações
+# Aplicar migrações
 echo "🗄️ Aplicando migrações..."
-python manage.py migrate --noinput --settings=settings_prod
+python manage.py migrate --noinput
 
-# Iniciar servidor
+# 🔥 INICIAR O SERVIDOR (SEM --settings)
 echo "🔥 Iniciando servidor..."
 gunicorn config.wsgi:application --bind 0.0.0.0:10000
