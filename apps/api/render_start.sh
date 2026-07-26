@@ -2,6 +2,9 @@
 
 echo "🚀 Iniciando deploy no Render..."
 
+# 🔥 FORÇA O SETTINGS_PROD
+export DJANGO_SETTINGS_MODULE=apps.api.settings_prod
+
 # Entrar na pasta do Django
 cd apps/api
 
@@ -13,15 +16,6 @@ python manage.py collectstatic --noinput --settings=settings_prod
 echo "🗄️ Aplicando migrações..."
 python manage.py migrate --noinput --settings=settings_prod
 
-# 🔥 VARIÁVEIS DE AMBIENTE PARA FORÇAR WHITENOISE
-export WHITENOISE_USE_FINDERS=1
-export WHITENOISE_MANIFEST_STRICT=0
-export WHITENOISE_AUTOREFRESH=1
-
-# 🔥 INICIAR SERVIDOR COM CONFIGURAÇÃO EXPLÍCITA
+# Iniciar servidor
 echo "🔥 Iniciando servidor..."
-gunicorn config.wsgi:application \
-    --settings=settings_prod \
-    --env WHITENOISE_USE_FINDERS=1 \
-    --env WHITENOISE_MANIFEST_STRICT=0 \
-    --bind 0.0.0.0:10000
+gunicorn config.wsgi:application --bind 0.0.0.0:10000
