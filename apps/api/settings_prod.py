@@ -4,9 +4,8 @@ from dotenv import load_dotenv
 import dj_database_url
 
 # Definição do caminho base
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent
 ROOT_DIR = BASE_DIR.parent
-
 # Carregar .env
 load_dotenv(BASE_DIR / '.env')
 
@@ -65,6 +64,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -213,11 +213,11 @@ CORS_ALLOW_HEADERS = [
 # ARQUIVOS ESTÁTICOS E MÍDIA
 # ============================================
 STATIC_URL = '/static/'
-STATIC_ROOT = '/opt/render/project/src/apps/api/api/staticfiles'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# STATICFILES_DIRS = [
-#     os.path.join(BASE_DIR, 'static'),
-# ]
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
