@@ -187,8 +187,7 @@ CORS_ALLOW_HEADERS = [
 # ARQUIVOS ESTÁTICOS E MÍDIA - CORRIGIDO ✅
 # ============================================
 STATIC_URL = '/static/'  # ✅ ADICIONADO
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
+STATIC_ROOT = os.path.join(os.path.dirname(os.path.dirname(BASE_DIR)), 'staticfiles')
 # Se você tiver arquivos estáticos próprios (não do Django Admin)
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
