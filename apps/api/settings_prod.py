@@ -204,7 +204,7 @@ CORS_ALLOW_HEADERS = [
 STATIC_URL = '/static/'
 
 # 🔥 CORRIGIDO: Usando caminho absoluto para evitar problemas
-STATIC_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'staticfiles')
+STATIC_ROOT = '/opt/render/project/src/staticfiles'
 # Isso vai para: /opt/render/project/src/apps/staticfiles
 
 # Se tiver arquivos estáticos próprios
