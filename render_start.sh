@@ -2,8 +2,11 @@
 
 echo "🚀 Iniciando deploy no Render..."
 
-# 🔥 FORÇAR O SETTINGS_PROD
-export DJANGO_SETTINGS_MODULE=apps.api.settings_prod
+# 🔥 ADICIONA O DIRETÓRIO APPS AO PYTHONPATH
+export PYTHONPATH="${PYTHONPATH}:/opt/render/project/src/apps"
+
+# 🔥 FORÇA O SETTINGS_PROD
+export DJANGO_SETTINGS_MODULE=api.settings_prod
 
 # Entrar na pasta do Django
 cd apps/api
