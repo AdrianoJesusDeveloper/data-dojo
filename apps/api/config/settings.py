@@ -83,7 +83,7 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
-    "api.middleware.OriginLogMiddleware",  # log de origem
+    "middleware.OriginLogMiddleware",  # log de origem
     'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',    
