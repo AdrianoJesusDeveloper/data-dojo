@@ -1,17 +1,20 @@
+import { api } from "@/lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { DojoHeader } from "@/components/DojoHeader";
 import { useDojo, useHydrated } from "@/lib/dojo-store";
 import { celebratePromotion, celebrateXp } from "@/lib/celebrate";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast, Toaster } from "sonner";
 
 export const Route = createFileRoute("/workspace")({
   head: () => ({
     meta: [
-      { title: "Workspace de Treinamento · Data Driven Dojô" },
+      {
+        title: "Workspace de Treinamento · Data Driven Dojô",
+      },
       {
         name: "description",
-        content: "Player de aula + IDE integrada. Compile e submeta seu desafio para ganhar XP.",
+        content: "Player de aula + IDE integrada.",
       },
     ],
   }),
@@ -55,6 +58,13 @@ interface Course {
   modules: Module[];
 }
 
+interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
 function Workspace() {
   const { state, submitChallenge } = useDojo();
   const hydrated = useHydrated();
@@ -62,45 +72,64 @@ function Workspace() {
   const [course, setCourse] = useState<Course | null>(null);
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
-
   const [code, setCode] = useState("");
-  const [lines, setLines] = useState<string[]>(["$ dojo-cli pronto. Aguardando submissão..."]);
+  const [lines, setLines] = useState<string[]>([
+    "$ dojo-cli pronto. Aguardando submissão...",
+  ]);
   const [running, setRunning] = useState(false);
 
+  /* Busca cursos no Django API Render considerando paginação DRF */
   useEffect(() => {
-    fetch("http:https://data-dojo.onrender.com/api//api/courses/")
-      .then((res) => res.json())
-      .then((data: Course[]) => {
-        if (data.length > 0) {
+    api
+      .get<PaginatedResponse<Course> | Course[]>("/courses/")
+      .then((response) => {
+        const responseData = response.data;
+        const data = Array.isArray(responseData)
+          ? responseData
+          : responseData.results;
+
+        if (data && data.length > 0) {
           const activeCourse = data[0];
           setCourse(activeCourse);
 
           const firstVideoLesson = activeCourse.modules
-            ?.flatMap((mod) => mod.lessons)
-            .find((les) => les.content_type === "VIDEO");
+            ?.flatMap((module) => module.lessons)
+            .find((lesson) => lesson.content_type === "VIDEO");
 
           const firstLesson =
-            firstVideoLesson || activeCourse.modules?.[0]?.lessons?.[0] || null;
+            firstVideoLesson ??
+            activeCourse.modules?.[0]?.lessons?.[0] ??
+            null;
 
           if (firstLesson) {
             setCurrentLesson(firstLesson);
-            if (firstLesson.body) setCode(firstLesson.body);
+            if (firstLesson.body) {
+              setCode(firstLesson.body);
+            }
           }
         }
+
         setLoading(false);
       })
-      .catch((err) => {
-        console.error("Erro ao buscar dados do Django:", err);
-        toast.error("Não foi possível conectar ao servidor backend.");
+      .catch((error) => {
+        console.error("Erro API Django:", error);
+        toast.error("Falha ao conectar ao backend.");
         setLoading(false);
       });
   }, []);
 
-  const append = (line: string) => setLines((prev) => [...prev, line]);
-  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const append = (line: string) => {
+    setLines((previous) => [...previous, line]);
+  };
+
+  const wait = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
 
   const compileAndSubmit = async () => {
-    if (!currentLesson) return;
+    if (!currentLesson) {
+      return;
+    }
+
     setRunning(true);
     setLines([]);
 
@@ -110,52 +139,75 @@ function Workspace() {
     const evaluationMode = exercise?.evaluation_mode ?? "keywords";
     const points = exercise?.points ?? 120;
 
-    const normalizedAnswer = code.replace(/\s+/g, " ").trim().toLowerCase();
-    const normalizedExpected = expectedAnswer.replace(/\s+/g, " ").trim().toLowerCase();
+    const normalizedAnswer = code
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
+    const normalizedExpected = expectedAnswer
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
 
     const valid = (() => {
       if (evaluationMode === "exact") {
         return normalizedAnswer === normalizedExpected;
       }
+
       if (evaluationMode === "contains") {
-        return normalizedExpected.length > 0 && normalizedAnswer.includes(normalizedExpected);
-      }
-      if (expectedKeywords.length > 0) {
-        return expectedKeywords.every((keyword) =>
-          normalizedAnswer.includes(keyword.toLowerCase()),
+        return (
+          normalizedExpected.length > 0 &&
+          normalizedAnswer.includes(normalizedExpected)
         );
       }
-      return normalizedAnswer.includes("select") && normalizedAnswer.includes("from");
+
+      if (expectedKeywords.length > 0) {
+        return expectedKeywords.every((keyword) =>
+          normalizedAnswer.includes(keyword.toLowerCase())
+        );
+      }
+
+      return (
+        normalizedAnswer.includes("select") &&
+        normalizedAnswer.includes("from")
+      );
     })();
 
-    const steps: Array<[string, number]> = [
+    const steps = [
       ["$ dojo-cli submit ./desafio-dinamico.sql", 120],
       ["» preparando sandbox dojo-db ............... ok", 320],
       ["» rodando testes da lição .................. ok", 300],
-    ];
+    ] as const;
 
-    for (const [msg, delay] of steps) {
-      append(msg);
+    for (const [message, delay] of steps) {
+      append(message);
       await wait(delay);
     }
 
     if (!valid) {
-      append("\n✗ FALHA: a resposta não atingiu os critérios de avaliação do exercício.");
+      append("✗ FALHA: a resposta não atingiu os critérios de avaliação.");
       toast.error("Desafio reprovado.");
       setRunning(false);
       return;
     }
 
     const result = submitChallenge(currentLesson.title, points, 1.5);
-    append(`\n✓ DESAFIO APROVADO · +${points} XP`);
+
+    append(`✓ DESAFIO APROVADO · +${points} XP`);
 
     if (result.promoted) {
       celebratePromotion(result.newBelt.color);
-      toast.success(`🥋 PROMOVIDO! Você agora é ${result.newBelt.name}`, { duration: 5000 });
+      toast.success(
+        `🥋 PROMOVIDO! Você agora é ${result.newBelt.name}`,
+        {
+          duration: 5000,
+        }
+      );
     } else {
       celebrateXp();
       toast.success(`Desafio aprovado! +${points} XP`);
     }
+
     setRunning(false);
   };
 
@@ -173,19 +225,15 @@ function Workspace() {
       <DojoHeader />
 
       <main className="flex-1 mx-auto max-w-[1600px] w-full px-4 py-6 grid lg:grid-cols-2 gap-4">
+        {/* Seção Esquerda: Vídeo, Detalhes e Estrutura */}
         <section className="rounded-xl border border-border bg-card overflow-hidden flex flex-col">
           <div className="aspect-video relative bg-black flex items-center justify-center">
-            {currentLesson?.file_upload ? (
+            {currentLesson?.file_upload || currentLesson?.video_url ? (
               <video
-                src={currentLesson.file_upload}
+                src={currentLesson.file_upload || currentLesson.video_url || ""}
                 controls
+                preload="metadata"
                 className="w-full h-full object-contain"
-              />
-            ) : currentLesson?.video_url ? (
-              <iframe
-                src={currentLesson.video_url}
-                className="w-full h-full border-0"
-                allowFullScreen
               />
             ) : (
               <div className="text-muted-foreground text-sm font-mono">
@@ -198,9 +246,11 @@ function Workspace() {
             <div className="text-xs uppercase tracking-widest text-muted-foreground">
               Curso: {course?.title || "Sem curso selecionado"}
             </div>
+
             <h1 className="font-display font-bold text-2xl mt-1">
               {currentLesson ? currentLesson.title : "Nenhuma lição encontrada"}
             </h1>
+
             <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
               {course?.description}
             </p>
@@ -210,12 +260,15 @@ function Workspace() {
                 <div className="text-xs font-bold uppercase tracking-[0.2em] text-kaizen">
                   Exercício · {currentLesson.exercise.answer_type}
                 </div>
-                <div className="mt-2 text-sm font-semibold text-foreground">
+
+                <div className="mt-2 text-sm font-semibold">
                   {currentLesson.exercise.title}
                 </div>
+
                 <div className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
                   {currentLesson.exercise.statement}
                 </div>
+
                 {currentLesson.exercise.expected_keywords.length > 0 && (
                   <div className="mt-3 text-xs text-muted-foreground">
                     Critérios: {currentLesson.exercise.expected_keywords.join(", ")}
@@ -225,25 +278,34 @@ function Workspace() {
             )}
 
             <div className="mt-6 border-t border-border pt-4">
-              <div className="font-display font-semibold text-sm mb-3">🗂 Estrutura do Curso</div>
-              {course?.modules?.map((mod) => (
-                <div key={mod.id} className="mb-4">
-                  <div className="text-xs font-bold text-kaizen uppercase mb-1">{mod.title}</div>
+              <div className="font-display font-semibold text-sm mb-3">
+                🗂 Estrutura do Curso
+              </div>
+
+              {course?.modules?.map((module) => (
+                <div key={module.id} className="mb-4">
+                  <div className="text-xs font-bold text-kaizen uppercase mb-1">
+                    {module.title}
+                  </div>
+
                   <div className="space-y-1">
-                    {mod.lessons?.map((les) => (
+                    {module.lessons?.map((lesson) => (
                       <button
-                        key={les.id}
+                        key={lesson.id}
                         onClick={() => {
-                          setCurrentLesson(les);
-                          if (les.body) setCode(les.body);
+                          setCurrentLesson(lesson);
+                          if (lesson.body) {
+                            setCode(lesson.body);
+                          }
                         }}
                         className={`w-full text-left text-sm px-3 py-2 rounded transition ${
-                          currentLesson?.id === les.id
+                          currentLesson?.id === lesson.id
                             ? "bg-destructive text-destructive-foreground font-semibold"
                             : "bg-background hover:bg-muted text-muted-foreground"
                         }`}
                       >
-                        {les.content_type === "VIDEO" ? "▶ " : "📄 "} {les.title}
+                        {lesson.content_type === "VIDEO" ? "▶ " : "📄 "}
+                        {lesson.title}
                       </button>
                     ))}
                   </div>
@@ -253,6 +315,7 @@ function Workspace() {
           </div>
         </section>
 
+        {/* Seção Direita: IDE, Botão de Execução e Terminal */}
         <section className="rounded-xl border border-border bg-belt-black flex flex-col overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-black">
             <div className="flex gap-1.5">
@@ -260,48 +323,48 @@ function Workspace() {
               <span className="h-3 w-3 rounded-full bg-kaizen" />
               <span className="h-3 w-3 rounded-full bg-belt-green" />
             </div>
+
             <span className="ml-3 text-xs font-mono text-muted-foreground">
               ~/dojo/desafios/workspace.sql
             </span>
+
             {hydrated && (
-              <span className="ml-auto text-xs font-mono text-kaizen">{state.xp} XP</span>
+              <span className="ml-auto text-xs font-mono text-kaizen">
+                {state.xp} XP
+              </span>
             )}
           </div>
-          <div className="flex-1 grid grid-rows-[1fr_auto_240px] min-h-130">
+
+          <div className="flex-1 grid grid-rows-[1fr_auto_240px]">
             <div className="relative flex overflow-hidden">
-              <div
-                aria-hidden
-                className="select-none font-mono text-xs leading-relaxed text-muted-foreground/50 py-4 pl-3 pr-2 text-right border-r border-border/40 bg-black/40"
-              >
-                {code.split("\n").map((_, i) => (
-                  <div key={i}>{i + 1}</div>
+              <div className="select-none font-mono text-xs leading-relaxed text-muted-foreground/50 py-4 pl-3 pr-2 text-right border-r border-border/40 bg-black/40">
+                {code.split("\n").map((_, index) => (
+                  <div key={index}>{index + 1}</div>
                 ))}
               </div>
+
               <textarea
                 spellCheck={false}
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(event) => setCode(event.target.value)}
                 className="flex-1 bg-belt-black text-belt-white font-mono text-sm p-4 resize-none outline-none leading-relaxed"
               />
             </div>
+
             <div className="border-t border-border p-3 bg-black">
               <button
                 onClick={compileAndSubmit}
                 disabled={running}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-destructive px-6 py-3.5 font-display font-bold text-destructive-foreground uppercase tracking-[0.15em] text-sm transition"
+                className="w-full rounded-md bg-destructive px-6 py-3.5 font-display font-bold text-destructive-foreground uppercase tracking-[0.15em] text-sm"
               >
                 {running ? "⏳ Analisando..." : "⚔ Compilar e submeter desafio"}
               </button>
             </div>
-            <div className="bg-black border-t border-border overflow-hidden flex flex-col">
-              <pre className="flex-1 p-4 font-mono text-xs text-[#9EE493] overflow-auto whitespace-pre-wrap leading-relaxed">
-                {lines.map((l, i) => (
-                  <div
-                    key={i}
-                    className={l.startsWith("✗") ? "text-destructive" : "text-[#9EE493]"}
-                  >
-                    {l || "\u00A0"}
-                  </div>
+
+            <div className="bg-black border-t border-border overflow-hidden">
+              <pre className="h-full p-4 font-mono text-xs text-[#9EE493] overflow-auto whitespace-pre-wrap">
+                {lines.map((line, index) => (
+                  <div key={index}>{line || "\u00A0"}</div>
                 ))}
               </pre>
             </div>
