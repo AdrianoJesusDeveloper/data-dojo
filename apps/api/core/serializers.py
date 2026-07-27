@@ -129,6 +129,36 @@ class LessonSerializer(serializers.ModelSerializer):
             "exercise",
         ]
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+
+        request = self.context.get("request")
+
+        if instance.file_upload:
+            if request:
+                ret["file_upload"] = request.build_absolute_uri(
+                    instance.file_upload.url
+                )
+
+        return ret
+    exercise = ExerciseSerializer(read_only=True)
+    
+    
+
+    class Meta:
+        model = Lesson
+        fields = [
+            "id",
+            "module",
+            "title",
+            "content_type",
+            "file_upload",
+            "video_url",
+            "body",
+            "order",
+            "exercise",
+        ]
+    
 
 class ModuleSerializer(serializers.ModelSerializer):
     lessons = LessonSerializer(many=True, read_only=True)
