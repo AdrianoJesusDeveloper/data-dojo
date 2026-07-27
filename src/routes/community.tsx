@@ -69,18 +69,23 @@ function Community() {
   const [editText, setEditText] = useState("");
 
   const fetchPosts = () => {
+    const token = localStorage.getItem("token");
+
     fetch("https://data-dojo.onrender.com/api/community/posts/", {
       headers: {
-        Authorization: `Token ${localStorage.getItem("token")}`,
+        Authorization: `Token ${token}`,
       },
     })
       .then((res) => res.json())
       .then((data) => {
-        setPosts(data);
+        // Garante que a listagem de posts seja sempre um array seguro
+        const postsList = Array.isArray(data) ? data : (data.results || []);
+        setPosts(postsList);
         setLoading(false);
       })
       .catch((err) => {
         console.error("Erro ao carregar o salão dos samurais:", err);
+        setPosts([]);
         setLoading(false);
       });
   };
@@ -141,22 +146,24 @@ function Community() {
     if (!text) return;
 
     try {
-      const formData = new FormData();
-      formData.append("topic", postId.toString()); 
-      formData.append("content", text);
-
       const response = await fetch("https://data-dojo.onrender.com/api/community/comments/", {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Token ${localStorage.getItem("token")}`,
         },
-        body: formData,
+        body: JSON.stringify({
+          topic: postId,
+          content: text,
+        }),
       });
 
       if (response.ok) {
         setCommentText("");
         toast.success("Resposta publicada!");
         fetchPosts();
+      } else {
+        toast.error("Erro ao publicar comentário.");
       }
     } catch (err) {
       console.error("Erro ao comentar:", err);
