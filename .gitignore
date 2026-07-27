@@ -56,3 +56,9 @@ apps/api/lessons/files/
 .lovable/
 .lovable.*
 AGENTS.md
+# Arquivos de análise local
+estrutura.txt
+estrutura_api.txt
+estrutura_components.txt
+estrutura_lib.txt
+estrutura_routes.txt
