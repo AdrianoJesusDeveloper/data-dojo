@@ -69,7 +69,7 @@ function Community() {
   const [editText, setEditText] = useState("");
 
   const fetchPosts = () => {
-    fetch("http:https://data-dojo.onrender.com/api/api/community/posts/", {
+    fetch("https://data-dojo.onrender.com/api/community/posts/", {
       headers: {
         Authorization: `Token ${localStorage.getItem("token")}`,
       },
@@ -167,7 +167,7 @@ function Community() {
     if (!editText.trim()) return;
 
     try {
-      const response = await fetch(`https://data-dojo.onrender.com/api/api/community/posts/${postId}/`, {
+      const response = await fetch(`https://data-dojo.onrender.com/api/community/posts/${postId}/`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -190,7 +190,7 @@ function Community() {
     if (!confirm("Deseja apagar definitivamente esta postagem?")) return;
 
     try {
-      const response = await fetch(`hapi/community/posts/${postId}/`, {
+      const response = await fetch(`https://data-dojo.onrender.com/api/community/posts/${postId}/`, {
         method: "DELETE",
         headers: {
           Authorization: `Token ${localStorage.getItem("token")}`,
