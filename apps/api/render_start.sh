@@ -2,7 +2,7 @@
 
 echo "🚀 Iniciando deploy no Render..."
 
-export DJANGO_SETTINGS_MODULE=apps.api.settings_prod
+export DJANGO_SETTINGS_MODULE=settings_prod
 
 echo "🗄 Aplicando migrações..."
 python manage.py migrate --noinput
