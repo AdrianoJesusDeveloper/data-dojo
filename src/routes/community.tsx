@@ -20,9 +20,12 @@ export const Route = createFileRoute("/community")({
 interface Comment {
   id: number;
   student_name?: string;
-  user?: { username: string } | string;
+  user?: { id: number; username: string } | string;
   content: string;
   created_at: string;
+  parent?: number | null;
+  replies?: Comment[];
+  is_owner?: boolean;
 }
 
 interface Post {
@@ -63,10 +66,17 @@ function Community() {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // Estados para controle de modais, respostas e edições
   const [activeCommentPostId, setActiveCommentPostId] = useState<number | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState("");
+
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
+
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editCommentText, setEditCommentText] = useState("");
 
   const fetchPosts = () => {
     const token = localStorage.getItem("token");
@@ -78,9 +88,15 @@ function Community() {
     })
       .then((res) => res.json())
       .then((data) => {
-        // Garante que a listagem de posts seja sempre um array seguro
-        const postsList = Array.isArray(data) ? data : (data.results || []);
-        setPosts(postsList);
+        const rawPosts = Array.isArray(data) ? data : (data.results || []);
+        
+        // Assegura que os comentários e respostas sejam sempre arrays seguros
+        const safePosts = rawPosts.map((post: any) => ({
+          ...post,
+          comments: Array.isArray(post.comments) ? post.comments : (post.comments?.results || [])
+        }));
+
+        setPosts(safePosts);
         setLoading(false);
       })
       .catch((err) => {
@@ -141,6 +157,7 @@ function Community() {
     }
   };
 
+  // Enviar comentário principal
   const handleSendComment = async (postId: number) => {
     const text = commentText.trim();
     if (!text) return;
@@ -170,6 +187,39 @@ function Community() {
     }
   };
 
+  // Enviar resposta a um comentário específico (sub-comentário)
+  const handleSendReply = async (postId: number, parentCommentId: number) => {
+    const text = replyText.trim();
+    if (!text) return;
+
+    try {
+      const response = await fetch("https://data-dojo.onrender.com/api/community/comments/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Token ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          topic: postId,
+          parent: parentCommentId,
+          content: text,
+        }),
+      });
+
+      if (response.ok) {
+        setReplyText("");
+        setReplyingToCommentId(null);
+        toast.success("Tréplica enviada!");
+        fetchPosts();
+      } else {
+        toast.error("Erro ao responder comentário.");
+      }
+    } catch (err) {
+      console.error("Erro ao responder:", err);
+    }
+  };
+
+  // Salvar edição de post
   const handleSaveEdit = async (postId: number) => {
     if (!editText.trim()) return;
 
@@ -190,6 +240,32 @@ function Community() {
       }
     } catch (err) {
       console.error("Erro ao editar postagem:", err);
+    }
+  };
+
+  // Salvar edição de comentário
+  const handleSaveCommentEdit = async (commentId: number) => {
+    if (!editCommentText.trim()) return;
+
+    try {
+      const response = await fetch(`https://data-dojo.onrender.com/api/community/comments/${commentId}/`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Token ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ content: editCommentText }),
+      });
+
+      if (response.ok) {
+        toast.success("Comentário atualizado!");
+        setEditingCommentId(null);
+        fetchPosts();
+      } else {
+        toast.error("Erro ao editar comentário.");
+      }
+    } catch (err) {
+      console.error("Erro ao editar comentário:", err);
     }
   };
 
@@ -334,16 +410,82 @@ function Community() {
                     </button>
                   </footer>
 
+                  {/* Seção de Comentários */}
                   {activeCommentPostId === p.id && (
                     <div className="mt-4 border-t border-border/40 pt-4 space-y-3">
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {p.comments && p.comments.length > 0 ? (
+                      <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                        {Array.isArray(p.comments) && p.comments.length > 0 ? (
                           p.comments.map((c) => {
                             const commentAuthor = c.student_name || (typeof c.user === 'object' ? c.user?.username : c.user) || "Samurai";
+                            
                             return (
-                              <div key={c.id} className="text-xs bg-background/40 rounded-lg p-2.5 border border-border/40">
-                                <span className="font-bold text-kaizen block mb-0.5">{commentAuthor}</span>
-                                <p className="text-gray-300">{c.content}</p>
+                              <div key={c.id} className="text-xs bg-background/40 rounded-lg p-3 border border-border/40 space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <span className="font-bold text-kaizen block">{commentAuthor}</span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {new Date(c.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                                    </span>
+                                  </div>
+                                  
+                                  {c.is_owner && (
+                                    <button 
+                                      onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content); }} 
+                                      className="text-[10px] text-muted-foreground hover:text-kaizen font-mono"
+                                    >
+                                      [editar]
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Edição de Comentário */}
+                                {editingCommentId === c.id ? (
+                                  <div className="space-y-2 pt-1">
+                                    <input
+                                      type="text"
+                                      value={editCommentText}
+                                      onChange={(e) => setEditCommentText(e.target.value)}
+                                      className="w-full bg-background border border-border rounded px-2 py-1 text-xs text-white outline-none focus:border-kaizen"
+                                    />
+                                    <div className="flex gap-2 justify-end">
+                                      <button onClick={() => setEditingCommentId(null)} className="text-[10px] px-2 py-0.5 border border-border rounded text-white">Cancelar</button>
+                                      <button onClick={() => handleSaveCommentEdit(c.id)} className="text-[10px] px-2 py-0.5 bg-kaizen text-black font-bold rounded">Salvar</button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-gray-300">{c.content}</p>
+                                )}
+
+                                {/* Botão para responder a este comentário específico */}
+                                <div className="pt-1">
+                                  <button 
+                                    onClick={() => setReplyingToCommentId(replyingToCommentId === c.id ? null : c.id)}
+                                    className="text-[10px] text-muted-foreground hover:text-white font-mono flex items-center gap-1"
+                                  >
+                                    ↳ Responder
+                                  </button>
+                                </div>
+
+                                {/* Caixa de input para sub-resposta */}
+                                {replyingToCommentId === c.id && (
+                                  <div className="flex gap-2 pt-2 pl-4 border-l-2 border-kaizen/30 mt-2">
+                                    <input
+                                      type="text"
+                                      placeholder="Escreva sua resposta..."
+                                      value={replyText}
+                                      onChange={(e) => setReplyText(e.target.value)}
+                                      onKeyDown={(e) => e.key === 'Enter' && handleSendReply(p.id, c.id)}
+                                      className="flex-1 bg-background border border-border rounded px-2 py-1 text-xs text-white outline-none focus:border-kaizen"
+                                    />
+                                    <button 
+                                      onClick={() => handleSendReply(p.id, c.id)}
+                                      disabled={!replyText.trim()}
+                                      className="bg-kaizen text-black px-3 py-1 rounded text-[10px] font-bold uppercase disabled:opacity-40"
+                                    >
+                                      Enviar
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             );
                           })
@@ -352,10 +494,11 @@ function Community() {
                         )}
                       </div>
                       
+                      {/* Input para Comentário Principal */}
                       <div className="flex gap-2 pt-2">
                         <input
                           type="text"
-                          placeholder="Digite sua resposta e pressione Enter..."
+                          placeholder="Digite seu comentário e pressione Enter..."
                           value={commentText}
                           onChange={(e) => setCommentText(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && handleSendComment(p.id)}
@@ -366,7 +509,7 @@ function Community() {
                           disabled={!commentText.trim()} 
                           className="bg-destructive text-white px-4 py-1 rounded text-xs font-bold font-display uppercase tracking-wider disabled:opacity-40"
                         >
-                          Responder
+                          Comentar
                         </button>
                       </div>
                     </div>
