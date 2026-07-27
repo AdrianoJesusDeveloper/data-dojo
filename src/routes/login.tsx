@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useNavigate,
   createFileRoute,
@@ -12,15 +12,19 @@ import bgTech from "../assets/plano_de_fundo_tecnologico.png";
 import logoOficial from "../assets/logooicial.png";
 
 export const Route = createFileRoute("/login")({
-  beforeLoad: () => {
-    if (typeof window === "undefined") return;
+ beforeLoad: () => {
+  if (typeof window === "undefined") {
+    return;
+  }
 
-    const token = localStorage.getItem("token");
+  const token = window.localStorage.getItem("token");
 
-    if (token) {
-      throw redirect({ to: "/" });
-    }
-  },
+  if (token && token !== "undefined" && token !== "null") {
+    throw redirect({
+      to: "/",
+    });
+  }
+},
   component: Login,
 });
 
@@ -46,9 +50,32 @@ export default function Login() {
         password: password,
       });
 
-      localStorage.setItem("token", response.data.key);
+      const token = response.data.key;
 
-      navigate({ to: "/" });
+console.log("RESPOSTA LOGIN:", response.data);
+console.log("TOKEN RECEBIDO:", token);
+
+
+if (!token) {
+  throw new Error("Servidor não retornou token.");
+}
+
+
+localStorage.setItem(
+  "token",
+  token
+);
+
+
+console.log(
+  "TOKEN SALVO:",
+  localStorage.getItem("token")
+);
+
+
+navigate({
+  to: "/",
+});
     } catch (err: any) {
       if (err.response?.data) {
         const data = err.response.data;

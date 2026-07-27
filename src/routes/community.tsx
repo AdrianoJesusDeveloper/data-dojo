@@ -58,6 +58,7 @@ function beltStyle(beltName: string) {
 }
 
 function Community() {
+  
   const { state } = useDojo();
   const hydrated = useHydrated();
   const myBelt = getCurrentBelt(state.xp);
@@ -65,6 +66,9 @@ function Community() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
+
+  console.log("POSTS STATE:", posts);
+  
 
   // Estados para controle de modais, respostas e edições
   const [activeCommentPostId, setActiveCommentPostId] = useState<number | null>(null);
@@ -78,37 +82,136 @@ function Community() {
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editCommentText, setEditCommentText] = useState("");
 
-  const fetchPosts = () => {
-    const token = localStorage.getItem("token");
+const fetchPosts = async () => {
+  const token = localStorage.getItem("token");
 
-    fetch("https://data-dojo.onrender.com/api/community/posts/", {
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        const rawPosts = Array.isArray(data) ? data : (data.results || []);
-        
-        // Assegura que os comentários e respostas sejam sempre arrays seguros
-        const safePosts = rawPosts.map((post: any) => ({
-          ...post,
-          comments: Array.isArray(post.comments) ? post.comments : (post.comments?.results || [])
-        }));
+  try {
 
-        setPosts(safePosts);
-        setLoading(false);
+    const response = await fetch(
+      "https://data-dojo.onrender.com/api/community/posts/",
+      {
+        method:"GET",
+        headers:{
+          "Content-Type":"application/json",
+          ...(token && {
+            Authorization:`Token ${token}`
+          })
+        }
+      }
+    );
+
+
+    if(!response.ok){
+
+      console.error(
+        "Erro API:",
+        response.status
+      );
+
+      setPosts([]);
+      return;
+    }
+
+
+    const data = await response.json();
+
+
+    console.log(
+      "API POSTS:",
+      data
+    );
+
+
+    let postsArray:Post[]=[];
+
+
+    if(Array.isArray(data)){
+        postsArray=data;
+    }
+
+    else if(
+      data &&
+      Array.isArray(data.results)
+    ){
+        postsArray=data.results;
+    }
+
+
+    const normalizedPosts = postsArray.map(
+      (post:any)=>({
+
+        ...post,
+
+        comments:
+          Array.isArray(post.comments)
+          ? post.comments
+          : [],
+
+
+        likes_count:
+          post.likes_count ?? 0,
+
+
+        comments_count:
+          post.comments_count ?? 0,
+
+
+        student_name:
+          post.student_name ??
+          post.user?.username ??
+          "Samurai"
+
       })
-      .catch((err) => {
-        console.error("Erro ao carregar o salão dos samurais:", err);
-        setPosts([]);
-        setLoading(false);
-      });
-  };
+    );
 
-  useEffect(() => {
+
+    console.log(
+      "NORMALIZED POSTS:",
+      normalizedPosts
+    );
+
+
+    setPosts(normalizedPosts);
+
+
+  } catch(error){
+
+    console.error(
+      "Falha carregando posts:",
+      error
+    );
+
+    setPosts([]);
+
+  }
+
+  finally{
+
+    setLoading(false);
+
+  }
+
+};
+
+  useEffect(()=>{
+
+ if(typeof window === "undefined"){
+   return;
+ }
+
+ const token =
+ localStorage.getItem("token");
+
+
+ if(token){
     fetchPosts();
-  }, []);
+ }
+
+ else{
+    setLoading(false);
+ }
+
+},[]);
 
   const publish = async () => {
     const text = draft.trim();
