@@ -9,7 +9,7 @@ ROOT_DIR = BASE_DIR.parent
 
 ROOT_URLCONF = 'config.urls'
 # Carregar .env
-load_dotenv(BASE_DIR / '.env')
+load_dotenv(ROOT_DIR / '.env')
 
 # ============================================
 # CONFIGURAÇÕES DE SEGURANÇA

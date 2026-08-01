@@ -331,11 +331,11 @@ flowchart TD
 1. Instale dependências:
    ```bash
     npm install
-    ```
+   ```
 2. Inicie o frontend:
-    ```bash
-    npm run dev
-    ```
+   ```bash
+   npm run dev
+   ```
 3. Abra em `http://localhost:5173`
 
 ### Backend
@@ -400,14 +400,17 @@ flowchart TD
 **.gitignore — documentação e boas práticas**
 
 Objetivo
+
 - Fornecer orientação clara sobre o propósito de `/.gitignore` e as categorias de arquivos que não devem ser versionadas.
 
 Por que manter um `.gitignore` bem escrito
+
 - Protege segredos e credenciais (ex.: arquivos `.env`).
 - Evita incluir dependências e artefatos binários que incham o repositório.
 - Reduz o risco de conflitos e commits acidentais de arquivos gerados localmente.
 
 Categorias recomendadas
+
 - Dependências e builds: `node_modules/`, `.output/`, `dist/`, `build/`
 - Ambientes e caches: `.venv/`, `venv/`, `__pycache__/`, `.pytest_cache/`
 - Dados locais e uploads: `db.sqlite3`, `media/`, `uploads/`
@@ -437,16 +440,16 @@ media/
 ```
 
 Como remover um arquivo já comitado por engano
+
 1. Remova do índice, mantendo-o no disco:
 
-    git rm --cached path/to/file
-
+   git rm --cached path/to/file
 2. Commit e push:
 
-    git commit -m "chore: remover arquivo sensível do repositório"
-    git push
+   git commit -m "chore: remover arquivo sensível do repositório"
+   git push
 
 Manutenção
+
 - Atualize o arquivo quando adicionar novas ferramentas/fluxos de build.
 - Use templates oficiais do GitHub como base: https://github.com/github/gitignore
-

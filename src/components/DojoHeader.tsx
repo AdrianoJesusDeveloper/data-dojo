@@ -9,7 +9,7 @@ export function DojoHeader({ compact = false }: { compact?: boolean }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const belt = getCurrentBelt(state.xp);
   const navigate = useNavigate();
-
+  
   const handleLogout = () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem("token");
@@ -73,6 +73,8 @@ export function DojoHeader({ compact = false }: { compact?: boolean }) {
           {navItem("/workspace", "Workspace")}
           {navItem("/community", "Comunidade")}
           {navItem("/profile", "Meu Perfil")}
+          {navItem("/portfolio", "Portfólio")}
+
 
           <button
             onClick={handleLogout}

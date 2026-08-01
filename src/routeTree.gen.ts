@@ -13,6 +13,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommunityRouteImport } from './routes/community'
@@ -33,6 +34,11 @@ const WorkspaceRoute = WorkspaceRouteImport.update({
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortfolioRoute = PortfolioRouteImport.update({
+  id: '/portfolio',
+  path: '/portfolio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/portfolio': typeof PortfolioRoute
   '/register': typeof RegisterRoute
   '/workspace': typeof WorkspaceRoute
   '/profile': typeof ProfileLazyRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/portfolio': typeof PortfolioRoute
   '/register': typeof RegisterRoute
   '/workspace': typeof WorkspaceRoute
   '/profile': typeof ProfileLazyRoute
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/portfolio': typeof PortfolioRoute
   '/register': typeof RegisterRoute
   '/workspace': typeof WorkspaceRoute
   '/profile': typeof ProfileLazyRoute
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/community'
     | '/dashboard'
     | '/login'
+    | '/portfolio'
     | '/register'
     | '/workspace'
     | '/profile'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/community'
     | '/dashboard'
     | '/login'
+    | '/portfolio'
     | '/register'
     | '/workspace'
     | '/profile'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/community'
     | '/dashboard'
     | '/login'
+    | '/portfolio'
     | '/register'
     | '/workspace'
     | '/profile'
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   CommunityRoute: typeof CommunityRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
+  PortfolioRoute: typeof PortfolioRoute
   RegisterRoute: typeof RegisterRoute
   WorkspaceRoute: typeof WorkspaceRoute
   ProfileLazyRoute: typeof ProfileLazyRoute
@@ -145,6 +158,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portfolio': {
+      id: '/portfolio'
+      path: '/portfolio'
+      fullPath: '/portfolio'
+      preLoaderRoute: typeof PortfolioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   CommunityRoute: CommunityRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
+  PortfolioRoute: PortfolioRoute,
   RegisterRoute: RegisterRoute,
   WorkspaceRoute: WorkspaceRoute,
   ProfileLazyRoute: ProfileLazyRoute,
