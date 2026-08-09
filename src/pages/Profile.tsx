@@ -1,12 +1,9 @@
-import { createLazyFileRoute } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
 
-export const Route = createLazyFileRoute('/profile')({
-  component: ProfileComponent,
-});
 
-function ProfileComponent() {
+ export default function ProfileComponent() {
   const [user, setUser] = useState<{ username: string; email: string; profile_picture: string | null; xp_points: number } | null>(null);
+  const [username, setUsername] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,10 +16,14 @@ function ProfileComponent() {
       }
     })
       .then(res => res.json())
-      .then(data => {
-        setUser(data);
-        if (data.profile_picture) setPreviewUrl(data.profile_picture);
-      })
+     .then(data => {
+      setUser(data);
+      setUsername(data.username);
+
+  if (data.profile_picture) {
+    setPreviewUrl(data.profile_picture);
+  }
+})
       .catch(err => console.error("Erro ao carregar perfil:", err));
   }, []);
 
@@ -36,15 +37,19 @@ function ProfileComponent() {
   };
 
   // Envia a foto de perfil para o Django
+  // Envia a foto de perfil e/ou nome de usuário para o Django
   const handleSaveProfile = async () => {
-    if (!selectedFile) return;
-    setLoading(false);
+    setLoading(true);
 
     const formData = new FormData();
-    formData.append('profile_picture', selectedFile);
+    if (selectedFile) {
+      formData.append('profile_picture', selectedFile);
+    }
+    if (username !== user?.username) {
+      formData.append('username', username);
+    }
 
     try {
-      setLoading(true);
       const response = await fetch('https://data-dojo.onrender.com/api/user/profile/', {
         method: 'PATCH',
         headers: {
@@ -55,6 +60,9 @@ function ProfileComponent() {
 
       if (response.ok) {
         alert('Perfil atualizado com sucesso!');
+        // Opcional: atualizar o estado local do usuário com o novo username
+        const updatedData = await response.json();
+        setUser(updatedData);
       } else {
         alert('Erro ao atualizar perfil.');
       }
@@ -69,6 +77,50 @@ function ProfileComponent() {
     <div className="min-h-screen bg-[#0d0e12] text-white p-8 font-sans">
       <div className="max-w-2xl mx-auto bg-[#14161d] rounded-xl p-8 border border-gray-800">
         <h1 className="text-3xl font-bold mb-2">Gerenciamento de Conta</h1>
+        <div className="grid md:grid-cols-3 gap-4 mb-8">
+
+
+<div className="bg-[#1a1d26] p-4 rounded-lg border border-gray-800">
+
+<p className="text-gray-400 text-sm">
+🥋 Graduação
+</p>
+
+<p className="text-xl font-bold text-orange-400">
+Aluno
+</p>
+
+</div>
+
+
+<div className="bg-[#1a1d26] p-4 rounded-lg border border-gray-800">
+
+<p className="text-gray-400 text-sm">
+⭐ Pontos Kaizen
+</p>
+
+<p className="text-xl font-bold text-orange-400">
+{user?.xp_points || 0} XP
+</p>
+
+</div>
+
+
+
+<div className="bg-[#1a1d26] p-4 rounded-lg border border-gray-800">
+
+<p className="text-gray-400 text-sm">
+🔥 Jornada
+</p>
+
+<p className="text-xl font-bold text-orange-400">
+Data Driven Dojô
+</p>
+
+</div>
+
+
+</div>
         <p className="text-gray-400 mb-8">Personalize seu perfil no Data Driven Dojô</p>
 
         {/* Seção da Foto de Perfil */}
@@ -97,8 +149,13 @@ function ProfileComponent() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1">Nome de Usuário</label>
-            <input type="text" value={user?.username || ''} disabled className="w-full bg-[#1a1d26] border border-gray-800 rounded-md p-3 text-gray-500 cursor-not-allowed" />
-          </div>
+           <input
+            type="text"
+            value={username}
+            onChange={(e)=>setUsername(e.target.value)}
+            className="w-full bg-[#1a1d26] border border-gray-800 rounded-md p-3 text-white"
+            />
+      </div>
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1">E-mail institucional</label>
             <input type="email" value={user?.email || ''} disabled className="w-full bg-[#1a1d26] border border-gray-800 rounded-md p-3 text-gray-500 cursor-not-allowed" />

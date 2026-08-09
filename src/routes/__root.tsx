@@ -74,22 +74,46 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  beforeLoad: ({ location }) => {
-    if (typeof window === "undefined") return;
+ beforeLoad: ({ location }) => {
+  if (typeof window === "undefined") return;
 
-    // Verifica se o token existe no localStorage do navegador
-    const isAuthenticated = !!window.localStorage.getItem("token");
+  const publicRoutes = [
+    "/",
+    "/login",
+    "/register",
+    "/portfolio",
+  ];
 
-    // Permite livre acesso apenas para a página de login ou registro
-    const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
+  const isPublicRoute =
+    publicRoutes.includes(location.pathname);
 
-    // Se não estiver autenticado e tentar acessar uma área restrita, redireciona imediatamente
-    if (!isAuthenticated && !isAuthPage) {
-      throw redirect({
-        to: "/login",
-      });
+  if (isPublicRoute) {
+    return;
+  }
+
+  const authStorage =
+    window.localStorage.getItem("ddj-auth");
+
+  let isAuthenticated = false;
+
+  if (authStorage) {
+    try {
+      const parsed = JSON.parse(authStorage);
+
+      isAuthenticated =
+        parsed?.state?.isAuthenticated === true &&
+        !!parsed?.state?.token;
+    } catch {
+      isAuthenticated = false;
     }
-  },
+  }
+
+  if (!isAuthenticated) {
+    throw redirect({
+      to: "/login",
+    });
+  }
+},
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -127,7 +151,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <head>
         <HeadContent />
       </head>

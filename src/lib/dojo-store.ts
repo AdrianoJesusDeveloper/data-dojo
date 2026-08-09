@@ -1,170 +1,113 @@
-import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
-
-export type BeltId = "white" | "yellow" | "green" | "black";
-
-export interface Belt {
-  id: BeltId;
-  name: string;
-  minXp: number;
-  color: string;
-  kanji: string;
-  motto: string;
-}
-
-export const BELTS: Belt[] = [
-  {
-    id: "white",
-    name: "Faixa Branca",
-    minXp: 0,
-    color: "#E5E5E5",
-    kanji: "初",
-    motto: "O início da jornada Kaizen.",
-  },
-  {
-    id: "yellow",
-    name: "Faixa Amarela",
-    minXp: 500,
-    color: "#F4D03F",
-    kanji: "光",
-    motto: "A primeira luz do entendimento.",
-  },
-  {
-    id: "green",
-    name: "Faixa Verde",
-    minXp: 1500,
-    color: "#2ECC71",
-    kanji: "成",
-    motto: "O crescimento constante do dado.",
-  },
-  {
-    id: "black",
-    name: "Faixa Preta",
-    minXp: 3500,
-    color: "#0A0A0A",
-    kanji: "道",
-    motto: "O Caminho. Maestria absoluta.",
-  },
-];
-
-export interface ChallengeLog {
-  id: string;
-  title: string;
-  xp: number;
-  hours: number;
-  date: string; // ISO
-}
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export interface DojoState {
-  studentName: string;
-  xp: number;
-  hours: number;
-  streak: number;
-  history: ChallengeLog[];
+  state: {
+    xp: number;
+    hours: number;
+    streak: number;
+    studentName: string;
+    history: Array<{ date: string; xp: number }>;
+  };
+  fastForward: () => void;
+  reset: () => void;
+  updateStudentName: (newName: string) => void;
+  submitChallenge: (xpEarned: number) => void;
 }
 
-const STORAGE_KEY = "dojo:state:v1";
+export const BELTS = [
+  { id: "white", name: "Faixa Branca", minXp: 0, color: "#ffffff", kanji: "白帯" },
+  { id: "yellow", name: "Faixa Amarela", minXp: 100, color: "#fbbf24", kanji: "黄帯" },
+  { id: "green", name: "Faixa Verde", minXp: 300, color: "#34d399", kanji: "緑帯" },
+  { id: "blue", name: "Faixa Azul", minXp: 600, color: "#60a5fa", kanji: "青帯" },
+  { id: "brown", name: "Faixa Marrom", minXp: 1000, color: "#d97706", kanji: "茶帯" },
+  { id: "black", name: "Faixa Preta", minXp: 1500, color: "#111827", kanji: "黒帯" },
+];
 
-const seed = (): DojoState => ({
-  studentName: "Sensei Aprendiz",
-  xp: 420,
-  hours: 12,
-  streak: 5,
-  history: [
-    { id: "h1", title: "SQL: JOINs Avançados", xp: 80, hours: 1.5, date: daysAgo(9) },
-    { id: "h2", title: "Python: Pandas Pipeline", xp: 120, hours: 2.0, date: daysAgo(7) },
-    { id: "h3", title: "Estatística Bayesiana", xp: 60, hours: 1.0, date: daysAgo(5) },
-    { id: "h4", title: "Modelagem Dimensional", xp: 70, hours: 1.5, date: daysAgo(3) },
-    { id: "h5", title: "dbt: Macros & Tests", xp: 90, hours: 2.0, date: daysAgo(1) },
-  ],
-});
-
-function daysAgo(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString();
+export function getCurrentBelt(xp: number) {
+  const sorted = [...BELTS].sort((a, b) => b.minXp - a.minXp);
+  return sorted.find((b) => xp >= b.minXp) || BELTS[0];
 }
 
-function load(): DojoState {
-  if (typeof window === "undefined") return seed();
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return seed();
-    return JSON.parse(raw) as DojoState;
-  } catch {
-    return seed();
-  }
-}
-
-let state: DojoState = typeof window !== "undefined" ? load() : seed();
-const listeners = new Set<() => void>();
-
-function emit() {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }
-  listeners.forEach((l) => l());
-}
-
-export function getCurrentBelt(xp: number): Belt {
-  let current = BELTS[0];
-  for (const b of BELTS) if (xp >= b.minXp) current = b;
-  return current;
-}
-export function getNextBelt(xp: number): Belt | null {
-  return BELTS.find((b) => b.minXp > xp) ?? null;
-}
-export function beltProgress(xp: number): number {
-  const cur = getCurrentBelt(xp);
-  const next = getNextBelt(xp);
-  if (!next) return 100;
-  return Math.min(100, ((xp - cur.minXp) / (next.minXp - cur.minXp)) * 100);
-}
-
-export function useDojo() {
-  const snap = useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    () => state,
-    () => state,
+export function getNextBelt(xp: number) {
+  return (
+    BELTS.find((belt) => belt.minXp > xp) ||
+    BELTS[BELTS.length - 1]
   );
-
-  const submitChallenge = useCallback((title: string, xp: number, hours: number) => {
-    const prevBelt = getCurrentBelt(state.xp).id;
-    state = {
-      ...state,
-      xp: state.xp + xp,
-      hours: +(state.hours + hours).toFixed(2),
-      history: [
-        ...state.history,
-        { id: crypto.randomUUID(), title, xp, hours, date: new Date().toISOString() },
-      ],
-    };
-    const newBelt = getCurrentBelt(state.xp).id;
-    emit();
-    return { promoted: prevBelt !== newBelt, newBelt: getCurrentBelt(state.xp) };
-  }, []);
-
-  const reset = useCallback(() => {
-    state = seed();
-    emit();
-  }, []);
-
-  const fastForward = useCallback((amount: number) => {
-    const prevBelt = getCurrentBelt(state.xp).id;
-    state = { ...state, xp: state.xp + amount };
-    const newBelt = getCurrentBelt(state.xp).id;
-    emit();
-    return { promoted: prevBelt !== newBelt, newBelt: getCurrentBelt(state.xp) };
-  }, []);
-
-  return { state: snap, submitChallenge, reset, fastForward };
 }
 
-// Hydration helper for components that need stable initial server render
+
+export function beltProgress(xp: number) {
+  const current = getCurrentBelt(xp);
+  const next = getNextBelt(xp);
+
+  if (current.id === next.id) {
+    return 100;
+  }
+
+  const progress =
+    ((xp - current.minXp) /
+      (next.minXp - current.minXp)) *
+    100;
+
+  return Math.min(Math.max(progress, 0), 100);
+}
+
 export function useHydrated() {
-  const [h, setH] = useState(false);
-  useEffect(() => setH(true), []);
-  return h;
+  return true;
 }
+
+export const useDojo = create<DojoState>()(
+  persist(
+    (set): DojoState => ({
+      state: {
+        xp: 0,
+        hours: 0,
+        streak: 0,
+        studentName: "Aluno",
+        history: [],
+      },
+      fastForward: () =>
+        set((store: DojoState) => ({
+          state: { ...store.state, xp: store.state.xp + 50 },
+        })),
+      reset: () =>
+        set((store: DojoState) => ({
+          state: {
+            ...store.state,
+            xp: 0,
+            hours: 0,
+            streak: 0,
+            history: [],
+          },
+        })),
+      updateStudentName: (newName: string) =>
+        set((store: DojoState) => ({
+          state: { ...store.state, studentName: newName },
+        })),
+      submitChallenge: (xpEarned: number) =>
+        set((store: DojoState) => ({
+          state: {
+            ...store.state,
+            xp: store.state.xp + xpEarned,
+            hours: store.state.hours + 1,
+            streak: store.state.streak + 1,
+            history: [
+              ...store.state.history,
+              {
+                date: new Date().toISOString(),
+                xp: xpEarned,
+              },
+            ],
+          },
+        })),
+    }),
+    {
+      name: "dojo-storage",
+    }
+  )
+);
+
+export const updateStudentName = (newName: string) => {
+  useDojo.getState().updateStudentName(newName);
+};

@@ -1,186 +1,556 @@
 import os
 from pathlib import Path
+
 import dj_database_url
 from dotenv import load_dotenv
 
-# Definição do caminho base
+
+# ============================================================
+# CAMINHOS
+# ============================================================
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 ROOT_DIR = BASE_DIR.parent
 
-# Carrega variáveis de ambiente
-load_dotenv(BASE_DIR / '.env')
+load_dotenv(BASE_DIR / ".env")
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key')
-DEBUG = os.getenv('DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
-# Hosts permitidos (localhost + Render + Vercel)
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    ".onrender.com",
-    "data-dojo-nar3-or0xfo8in-adrianojesusdevelopers-projects.vercel.app",
-]
+# ============================================================
+# AMBIENTE
+# ============================================================
 
-AUTH_USER_MODEL = 'core.User'
-SITE_ID = int(os.getenv('DJANGO_SITE_ID', 1))
+SECRET_KEY = os.getenv("SECRET_KEY")
 
-# Banco de dados
-USE_SQLITE = os.getenv('DJANGO_USE_SQLITE', 'false').lower() in ('1', 'true', 'yes')
-
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL'),
-        conn_max_age=600,
-        ssl_require=True,
+if not SECRET_KEY:
+    raise RuntimeError(
+        "A variável SECRET_KEY não está configurada."
     )
-}
 
-if not os.getenv('DATABASE_URL'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME', 'dojo_db'),
-            'USER': os.getenv('DB_USER', 'postgres'),
-            'PASSWORD': os.getenv('DB_PASSWORD'),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '5433'),
-        }
-    }
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
-if USE_SQLITE:
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+ENVIRONMENT = os.getenv(
+    "ENVIRONMENT",
+    "development"
+).lower()
 
-INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'django.contrib.sites',
-    'corsheaders',
-    'rest_framework',
-    'allauth',
-    'allauth.account',
-    'rest_framework.authtoken',
-    'dj_rest_auth',
-    'dj_rest_auth.registration',
-    'allauth.socialaccount',
-    'core',
+
+# ============================================================
+# URLS / WSGI / ASGI
+# ============================================================
+
+ROOT_URLCONF = "config.urls"
+
+WSGI_APPLICATION = "config.wsgi.application"
+
+ASGI_APPLICATION = "config.asgi.application"
+
+
+# ============================================================
+# HOSTS
+# ============================================================
+
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "ALLOWED_HOSTS",
+        "localhost,127.0.0.1"
+    ).split(",")
+    if host.strip()
 ]
 
-AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
+
+# ============================================================
+# APLICAÇÕES
+# ============================================================
+
+DJANGO_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "django.contrib.sites",
 ]
 
-ACCOUNT_LOGIN_METHODS = {'email'}
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
-ACCOUNT_EMAIL_VERIFICATION = 'none'
+
+THIRD_PARTY_APPS = [
+    "corsheaders",
+    "rest_framework",
+    "rest_framework.authtoken",
+    "allauth",
+    "allauth.account",
+    "dj_rest_auth",
+    "dj_rest_auth.registration",
+]
+
+
+LOCAL_APPS = [
+    "core",
+]
+
+
+INSTALLED_APPS = (
+    DJANGO_APPS
+    + THIRD_PARTY_APPS
+    + LOCAL_APPS
+)
+
+
+# ============================================================
+# MIDDLEWARE
+# ============================================================
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    "middleware.OriginLogMiddleware",  # log de origem
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',    
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
+
+    "django.middleware.security.SecurityMiddleware",
+
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+
+    "django.contrib.sessions.middleware.SessionMiddleware",
+
+    "django.middleware.common.CommonMiddleware",
+
+    "django.middleware.csrf.CsrfViewMiddleware",
+
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+
+    "django.contrib.messages.middleware.MessageMiddleware",
+
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
-ROOT_URLCONF = 'config.urls'
+
+# ============================================================
+# TEMPLATES
+# ============================================================
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
 
-AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+# ============================================================
+# BANCO DE DADOS
+# ============================================================
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
+
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+
+else:
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME", "dojo_db"),
+            "USER": os.getenv("DB_USER", "postgres"),
+            "PASSWORD": os.getenv("DB_PASSWORD", ""),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+        }
+    }
+
+
+# ============================================================
+# AUTENTICAÇÃO
+# ============================================================
+
+AUTH_USER_MODEL = "core.User"
+
+SITE_ID = 1
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
-LANGUAGE_CODE = 'pt-br'
-TIME_ZONE = 'UTC'
-USE_I18N = True
-USE_TZ = True
 
-STATIC_URL = 'static/'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'api' / 'media'
-STATIC_ROOT = BASE_DIR / 'api' / 'staticfiles'
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# ============================================================
+# DJANGO-ALLAUTH
+# ============================================================
+
+ACCOUNT_LOGIN_METHODS = {"email"}
+
+ACCOUNT_SIGNUP_FIELDS = [
+    "email*",
+    "username*",
+    "password1*",
+    "password2*",
+]
+
+ACCOUNT_EMAIL_VERIFICATION = "none"
+
+LOGIN_REDIRECT_URL = "/"
+
+LOGOUT_REDIRECT_URL = "/"
+
+
+# ============================================================
+# DJANGO REST FRAMEWORK
+# ============================================================
 
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ],
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
+
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ],
+
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+        "user": "1000/day",
+    },
+
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+
+    "DEFAULT_PAGINATION_CLASS": (
+        "rest_framework.pagination.PageNumberPagination"
+    ),
+
+    "PAGE_SIZE": 10,
+
+    "DEFAULT_SCHEMA_CLASS": (
+        "rest_framework.schemas.openapi.AutoSchema"
+    ),
 }
 
-# Configuração de CORS
-CORS_ALLOWED_ORIGINS = [
-    "https://data-dojo-nar3.vercel.app",  # domínio principal
-    "https://data-dojo.onrender.com",     # backend principal
-]
 
-# Aceitar automaticamente qualquer domínio *.vercel.app
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.vercel\.app$",
+# ============================================================
+# CORS
+# ============================================================
+
+CORS_ALLOW_ALL_ORIGINS = False
+
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        ""
+    ).split(",")
+    if origin.strip()
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Permitir todos os domínios se variável de ambiente estiver ativada
-if os.getenv('CORS_ALLOW_ALL_ORIGINS', 'false').lower() in ('1', 'true', 'yes'):
-    CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
 
-# Celery
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
-CELERY_RESULT_BACKEND = CELERY_BROKER_URL
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
+CORS_ALLOWED_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
-# Email (console para desenvolvimento)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# Logging para garantir que os logs apareçam no Render
+# ============================================================
+# CSRF
+# ============================================================
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CSRF_TRUSTED_ORIGINS",
+        ""
+    ).split(",")
+    if origin.strip()
+]
+
+
+# ============================================================
+# ARQUIVOS ESTÁTICOS
+# ============================================================
+
+STATIC_URL = "/static/"
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_DIRS = []
+
+static_dir = BASE_DIR / "static"
+
+if static_dir.exists():
+    STATICFILES_DIRS.append(static_dir)
+
+
+# ============================================================
+# MEDIA
+# ============================================================
+
+MEDIA_URL = "/media/"
+
+MEDIA_ROOT = BASE_DIR / "media"
+
+
+# ============================================================
+# STORAGE
+# ============================================================
+
+STORAGES = {
+    "default": {
+        "BACKEND": (
+            "django.core.files.storage.FileSystemStorage"
+        ),
+    },
+
+    "staticfiles": {
+        "BACKEND": (
+            "whitenoise.storage."
+            "CompressedManifestStaticFilesStorage"
+        ),
+    },
+}
+
+
+# ============================================================
+# REDIS / CACHE
+# ============================================================
+
+REDIS_URL = os.getenv("REDIS_URL")
+
+if REDIS_URL:
+
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": (
+                    "django_redis.client.DefaultClient"
+                ),
+                "IGNORE_EXCEPTIONS": True,
+            },
+        }
+    }
+
+else:
+
+    CACHES = {
+        "default": {
+            "BACKEND": (
+                "django.core.cache.backends.locmem.LocMemCache"
+            ),
+            "LOCATION": "data-dojo-cache",
+        }
+    }
+
+
+# ============================================================
+# CELERY
+# ============================================================
+
+if REDIS_URL:
+
+    CELERY_BROKER_URL = REDIS_URL
+
+    CELERY_RESULT_BACKEND = REDIS_URL
+
+    CELERY_ACCEPT_CONTENT = ["json"]
+
+    CELERY_TASK_SERIALIZER = "json"
+
+    CELERY_RESULT_SERIALIZER = "json"
+
+    CELERY_TIMEZONE = "America/Sao_Paulo"
+
+    CELERY_TASK_TRACK_STARTED = True
+
+    CELERY_TASK_TIME_LIMIT = 30 * 60
+
+
+# ============================================================
+# EMAIL
+# ============================================================
+
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+)
+
+EMAIL_HOST = os.getenv(
+    "EMAIL_HOST",
+    "smtp.sendgrid.net"
+)
+
+EMAIL_HOST_USER = os.getenv(
+    "EMAIL_HOST_USER",
+    "apikey"
+)
+
+EMAIL_HOST_PASSWORD = os.getenv(
+    "EMAIL_HOST_PASSWORD"
+)
+
+EMAIL_PORT = int(
+    os.getenv("EMAIL_PORT", "587")
+)
+
+EMAIL_USE_TLS = True
+
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    "noreply@datadrivendojo.com"
+)
+
+
+# ============================================================
+# SEGURANÇA BASE
+# ============================================================
+
+SECURE_PROXY_SSL_HEADER = (
+    "HTTP_X_FORWARDED_PROTO",
+    "https",
+)
+
+SECURE_SSL_REDIRECT = False
+
+SESSION_COOKIE_HTTPONLY = True
+
+SESSION_COOKIE_SAMESITE = "Lax"
+
+CSRF_COOKIE_HTTPONLY = False
+
+CSRF_COOKIE_SAMESITE = "Lax"
+
+X_FRAME_OPTIONS = "DENY"
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+SECURE_REFERRER_POLICY = "same-origin"
+
+
+# ============================================================
+# LOGGING
+# ============================================================
+
 LOGGING = {
     "version": 1,
+
     "disable_existing_loggers": False,
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
+
+    "formatters": {
+        "verbose": {
+            "format": (
+                "{levelname} {asctime} "
+                "{module} {message}"
+            ),
+            "style": "{",
+        },
+
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
         },
     },
+
+    "handlers": {
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+
     "root": {
         "handlers": ["console"],
-        "level": "INFO",
+        "level": "WARNING",
     },
+
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": os.getenv(
+                "DJANGO_LOG_LEVEL",
+                "INFO"
+            ),
+            "propagate": False,
+        },
+
+        "core": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
+
+# ============================================================
+# INTERNACIONALIZAÇÃO
+# ============================================================
+
+LANGUAGE_CODE = "pt-br"
+
+TIME_ZONE = "America/Sao_Paulo"
+
+USE_I18N = True
+
+USE_TZ = True
+
+
+# ============================================================
+# MODELOS
+# ============================================================
+
+DEFAULT_AUTO_FIELD = (
+    "django.db.models.BigAutoField"
+)
+
+
+# ============================================================
+# SWAGGER / OPENAPI
+# ============================================================
+
+SWAGGER_SETTINGS = {
+    "SECURITY_DEFINITIONS": {
+        "Token": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+        }
+    }
 }

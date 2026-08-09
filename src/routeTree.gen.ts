@@ -8,24 +8,18 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { createFileRoute } from '@tanstack/react-router'
-
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommunityRouteImport } from './routes/community'
+import { Route as AiSalesRouteImport } from './routes/ai-sales'
+import { Route as AiRouteImport } from './routes/ai'
 import { Route as IndexRouteImport } from './routes/index'
 
-const ProfileLazyRouteImport = createFileRoute('/profile')()
-
-const ProfileLazyRoute = ProfileLazyRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/profile.lazy').then((d) => d.Route))
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
   path: '/workspace',
@@ -34,6 +28,11 @@ const WorkspaceRoute = WorkspaceRouteImport.update({
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortfolioRoute = PortfolioRouteImport.update({
@@ -56,6 +55,16 @@ const CommunityRoute = CommunityRouteImport.update({
   path: '/community',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiSalesRoute = AiSalesRouteImport.update({
+  id: '/ai-sales',
+  path: '/ai-sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiRoute = AiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -64,88 +73,95 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
+  '/ai-sales': typeof AiSalesRoute
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/workspace': typeof WorkspaceRoute
-  '/profile': typeof ProfileLazyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
+  '/ai-sales': typeof AiSalesRoute
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/workspace': typeof WorkspaceRoute
-  '/profile': typeof ProfileLazyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
+  '/ai-sales': typeof AiSalesRoute
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/workspace': typeof WorkspaceRoute
-  '/profile': typeof ProfileLazyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ai'
+    | '/ai-sales'
     | '/community'
     | '/dashboard'
     | '/login'
     | '/portfolio'
+    | '/profile'
     | '/register'
     | '/workspace'
-    | '/profile'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ai'
+    | '/ai-sales'
     | '/community'
     | '/dashboard'
     | '/login'
     | '/portfolio'
+    | '/profile'
     | '/register'
     | '/workspace'
-    | '/profile'
   id:
     | '__root__'
     | '/'
+    | '/ai'
+    | '/ai-sales'
     | '/community'
     | '/dashboard'
     | '/login'
     | '/portfolio'
+    | '/profile'
     | '/register'
     | '/workspace'
-    | '/profile'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiRoute: typeof AiRoute
+  AiSalesRoute: typeof AiSalesRoute
   CommunityRoute: typeof CommunityRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   PortfolioRoute: typeof PortfolioRoute
+  ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
   WorkspaceRoute: typeof WorkspaceRoute
-  ProfileLazyRoute: typeof ProfileLazyRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileLazyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/workspace': {
       id: '/workspace'
       path: '/workspace'
@@ -158,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/portfolio': {
@@ -188,6 +211,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ai-sales': {
+      id: '/ai-sales'
+      path: '/ai-sales'
+      fullPath: '/ai-sales'
+      preLoaderRoute: typeof AiSalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai': {
+      id: '/ai'
+      path: '/ai'
+      fullPath: '/ai'
+      preLoaderRoute: typeof AiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -200,13 +237,15 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiRoute: AiRoute,
+  AiSalesRoute: AiSalesRoute,
   CommunityRoute: CommunityRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   PortfolioRoute: PortfolioRoute,
+  ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
   WorkspaceRoute: WorkspaceRoute,
-  ProfileLazyRoute: ProfileLazyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
