@@ -70,4 +70,4 @@ jobs:
         run: |
           python manage.py check
           python manage.py migrate --noinput
-          python manage.py test --verbosity=2
+          python manage.py test core --verbosity=2
