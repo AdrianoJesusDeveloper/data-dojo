@@ -22,6 +22,146 @@ Uma plataforma educacional gamificada para formar profissionais de **dados, enge
 
 ---
 
+## 🖼️ Showcase da aplicação
+
+> **Espaço reservado para as imagens oficiais do Data Driven Dojô.**
+>
+> A ideia é substituir os placeholders abaixo pelas capturas reais da aplicação à medida que o produto evoluir. As imagens devem mostrar a experiência real, não mockups genéricos.
+
+### 🥋 Visão geral
+
+<!-- TODO: substituir pelo screenshot oficial da Home / Landing Page -->
+
+![Data Driven Dojô — Visão geral](docs/screenshots/01-home.png)
+
+*Visão geral da plataforma — identidade, proposta e entrada no Dojô.*
+
+---
+
+### 📊 Dashboard do Dojô
+
+<!-- TODO: substituir pelo screenshot oficial do Dashboard -->
+
+![Data Driven Dojô — Dashboard](docs/screenshots/02-dashboard.png)
+
+*Painel de progresso, XP, faixa, streak e próximos objetivos.*
+
+---
+
+### 🎓 Trilhas de aprendizagem
+
+<!-- TODO: substituir pelo screenshot oficial das Trilhas -->
+
+![Data Driven Dojô — Trilhas](docs/screenshots/03-trilhas.png)
+
+*Trilhas organizadas por competências e objetivos profissionais.*
+
+---
+
+### 📚 Cursos, módulos e aulas
+
+<!-- TODO: substituir pelo screenshot oficial da experiência de aprendizagem -->
+
+![Data Driven Dojô — Cursos](docs/screenshots/04-cursos.png)
+
+*Experiência de estudo orientada por fundamentos, prática e progressão.*
+
+---
+
+### ⚔️ Workspace / Desafios
+
+<!-- TODO: substituir pelo screenshot oficial do Workspace -->
+
+![Data Driven Dojô — Workspace](docs/screenshots/05-workspace.png)
+
+*Ambiente para transformar conhecimento em prática e projetos.*
+
+---
+
+### 🥋 Sistema de faixas e Kaizen XP
+
+<!-- TODO: substituir pelo screenshot oficial da progressão -->
+
+![Data Driven Dojô — Progressão](docs/screenshots/06-progressao.png)
+
+*Gamificação baseada em evolução, consistência e domínio progressivo.*
+
+---
+
+### 👥 Comunidade
+
+<!-- TODO: substituir pelo screenshot oficial da Comunidade -->
+
+![Data Driven Dojô — Comunidade](docs/screenshots/07-comunidade.png)
+
+*Espaço para compartilhar aprendizados, projetos e evolução.*
+
+---
+
+### 💼 Portfolio
+
+<!-- TODO: substituir pelo screenshot oficial do Portfolio -->
+
+![Data Driven Dojô — Portfolio](docs/screenshots/08-portfolio.png)
+
+*Projetos e evidências práticas de competência para conexão com o mercado.*
+
+---
+
+### 🤖 IA Sensei
+
+<!-- TODO: substituir pelo screenshot oficial da futura experiência de IA -->
+
+![Data Driven Dojô — IA Sensei](docs/screenshots/09-ai-sensei.png)
+
+*Camada de mentoria inteligente para feedback, personalização e prática.*
+
+---
+
+### 📱 Experiência responsiva
+
+<!-- TODO: substituir por uma composição mostrando Desktop + Tablet + Mobile -->
+
+![Data Driven Dojô — Responsividade](docs/screenshots/10-responsive.png)
+
+*Uma experiência consistente do desktop ao mobile, preservando a identidade do Dojô.*
+
+---
+
+## 📸 Padrão para as futuras screenshots
+
+Para manter o README profissional, as imagens devem seguir um padrão visual único:
+
+- capturas reais da aplicação;
+- mesma paleta e tipografia do Dojô;
+- resolução preferencial de **1600 × 900** para telas principais;
+- imagens mobile em **390 × 844** ou proporção equivalente;
+- sem informações pessoais ou tokens visíveis;
+- sem marcas d'água externas;
+- foco na funcionalidade apresentada;
+- nomes de arquivos padronizados em `docs/screenshots/`.
+
+### Estrutura recomendada
+
+```text
+docs/
+└── screenshots/
+    ├── 01-home.png
+    ├── 02-dashboard.png
+    ├── 03-trilhas.png
+    ├── 04-cursos.png
+    ├── 05-workspace.png
+    ├── 06-progressao.png
+    ├── 07-comunidade.png
+    ├── 08-portfolio.png
+    ├── 09-ai-sensei.png
+    └── 10-responsive.png
+```
+
+> **Importante:** os arquivos podem ser adicionados gradualmente. O README já está preparado para receber cada destaque sem precisar ser reorganizado novamente.
+
+---
+
 ## 🥋 A visão do Dojô
 
 O **Data Driven Dojô** nasceu de uma ideia simples: aprender tecnologia não deve ser apenas consumir cursos. Deve ser uma jornada de **fundamentos → prática → desafio → feedback → evolução**.
