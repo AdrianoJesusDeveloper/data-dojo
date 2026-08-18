@@ -1,6 +1,6 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/dojo-store", () => ({
   useDojo: () => ({ state: { xp: 0, studentName: "Tester" } }),
@@ -14,9 +14,11 @@ vi.mock("@/lib/dojo-store", () => ({
   ],
 }));
 
-vi.mock("@/components/DojoHeader", () => ({ DojoHeader: () => <div>HeaderMock</div> }));
+vi.mock("@/components/DojoHeader", () => ({
+  DojoHeader: () => <div>HeaderMock</div>,
+}));
 
-import Community from "../routes/community";
+import Community from "../pages/Community";
 
 describe("Community smoke", () => {
   it("renders composer and allows typing", () => {
