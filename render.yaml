@@ -64,9 +64,7 @@ services:
     plan: free
     region: oregon
     maxmemoryPolicy: allkeys-lru
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: public access required by Render service networking
+    ipAllowList: []
 
 databases:
   - name: data-dojo-db
