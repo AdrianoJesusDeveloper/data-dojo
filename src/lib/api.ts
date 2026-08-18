@@ -3,9 +3,7 @@ import { useAuthStore } from "./auth-store";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  "http://localhost:8000";
-
-console.log("VITE_API_URL =", API_URL);
+  "https://data-dojo-api.onrender.com";
 
 export const api = axios.create({
   baseURL: API_URL,
