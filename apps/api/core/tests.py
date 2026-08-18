@@ -10,7 +10,8 @@ class CoreApiTests(APITestCase):
         Course.objects.create(title="Curso Base", description="Teste")
         response = self.client.get(reverse("course-list"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(any(course["title"] == "Curso Base" for course in response.data))
+        results = response.data["results"]
+        self.assertTrue(any(course["title"] == "Curso Base" for course in results))
 
     def test_exercise_evaluation_for_sql_answers(self):
         course = Course.objects.create(title="SQL", description="Teste")
@@ -57,7 +58,7 @@ class CoreApiTests(APITestCase):
 
         response = self.client.get(reverse("course-list"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        payload = next(item for item in response.data if item["title"] == "SQL")
+        payload = next(item for item in response.data["results"] if item["title"] == "SQL")
         self.assertEqual(
             payload["modules"][0]["lessons"][0]["exercise"]["title"],
             "Exercício 1",
