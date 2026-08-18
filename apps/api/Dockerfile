@@ -19,11 +19,10 @@ RUN python -m pip install --upgrade pip \
 COPY . /app
 
 RUN mkdir -p /app/staticfiles /app/media \
-    && python manage.py collectstatic --noinput \
     && chown -R dojo:dojo /app
 
 USER dojo
 
 EXPOSE 8000
 
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]
+CMD ["sh", "-c", "python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"]
