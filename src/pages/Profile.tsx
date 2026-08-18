@@ -1,172 +1,162 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from "react";
 
+import { api } from "../lib/api";
 
- export default function ProfileComponent() {
-  const [user, setUser] = useState<{ username: string; email: string; profile_picture: string | null; xp_points: number } | null>(null);
+interface UserProfile {
+  username: string;
+  email: string;
+  profile_picture: string | null;
+  xp_points: number;
+}
+
+export default function ProfileComponent() {
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [username, setUsername] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Busca os dados atuais do aluno ao carregar a página
   useEffect(() => {
-    fetch('https://data-dojo.onrender.com/api/user/profile/', {
-      headers: {
-        'Authorization': `Token ${localStorage.getItem('token')}`, // Ajuste conforme seu sistema de login
-      }
-    })
-      .then(res => res.json())
-     .then(data => {
-      setUser(data);
-      setUsername(data.username);
+    let active = true;
 
-  if (data.profile_picture) {
-    setPreviewUrl(data.profile_picture);
-  }
-})
-      .catch(err => console.error("Erro ao carregar perfil:", err));
+    api
+      .get<UserProfile>("/api/user/profile/")
+      .then(({ data }) => {
+        if (!active) return;
+        setUser(data);
+        setUsername(data.username);
+        setPreviewUrl(data.profile_picture);
+      })
+      .catch((error) => console.error("Erro ao carregar perfil:", error));
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Trata a seleção do arquivo de imagem
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-    }
+  useEffect(() => {
+    return () => {
+      if (previewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
-  // Envia a foto de perfil para o Django
-  // Envia a foto de perfil e/ou nome de usuário para o Django
   const handleSaveProfile = async () => {
     setLoading(true);
 
-    const formData = new FormData();
-    if (selectedFile) {
-      formData.append('profile_picture', selectedFile);
-    }
-    if (username !== user?.username) {
-      formData.append('username', username);
-    }
-
     try {
-      const response = await fetch('https://data-dojo.onrender.com/api/user/profile/', {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Token ${localStorage.getItem('token')}`,
-        },
-        body: formData
-      });
+      const formData = new FormData();
+      if (selectedFile) formData.append("profile_picture", selectedFile);
+      if (username !== user?.username) formData.append("username", username);
 
-      if (response.ok) {
-        alert('Perfil atualizado com sucesso!');
-        // Opcional: atualizar o estado local do usuário com o novo username
-        const updatedData = await response.json();
-        setUser(updatedData);
-      } else {
-        alert('Erro ao atualizar perfil.');
-      }
+      const { data } = await api.patch<UserProfile>(
+        "/api/user/profile/",
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+
+      setUser(data);
+      setUsername(data.username);
+      setSelectedFile(null);
+      setPreviewUrl(data.profile_picture);
+      window.alert("Perfil atualizado com sucesso!");
     } catch (error) {
-      console.error(error);
+      console.error("Erro ao atualizar perfil:", error);
+      window.alert("Erro ao atualizar perfil.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0e12] text-white p-8 font-sans">
-      <div className="max-w-2xl mx-auto bg-[#14161d] rounded-xl p-8 border border-gray-800">
-        <h1 className="text-3xl font-bold mb-2">Gerenciamento de Conta</h1>
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
+    <div className="min-h-screen bg-[#0d0e12] p-8 font-sans text-white">
+      <div className="mx-auto max-w-2xl rounded-xl border border-gray-800 bg-[#14161d] p-8">
+        <h1 className="mb-2 text-3xl font-bold">Gerenciamento de Conta</h1>
+        <p className="mb-8 text-gray-400">
+          Personalize seu perfil no Data Driven Dojô.
+        </p>
 
+        <div className="mb-8 grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg border border-gray-800 bg-[#1a1d26] p-4">
+            <p className="text-sm text-gray-400">🥋 Graduação</p>
+            <p className="text-xl font-bold text-orange-400">Aluno</p>
+          </div>
+          <div className="rounded-lg border border-gray-800 bg-[#1a1d26] p-4">
+            <p className="text-sm text-gray-400">⭐ Pontos Kaizen</p>
+            <p className="text-xl font-bold text-orange-400">
+              {user?.xp_points || 0} XP
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-800 bg-[#1a1d26] p-4">
+            <p className="text-sm text-gray-400">🔥 Jornada</p>
+            <p className="text-xl font-bold text-orange-400">Data Driven Dojô</p>
+          </div>
+        </div>
 
-<div className="bg-[#1a1d26] p-4 rounded-lg border border-gray-800">
-
-<p className="text-gray-400 text-sm">
-🥋 Graduação
-</p>
-
-<p className="text-xl font-bold text-orange-400">
-Aluno
-</p>
-
-</div>
-
-
-<div className="bg-[#1a1d26] p-4 rounded-lg border border-gray-800">
-
-<p className="text-gray-400 text-sm">
-⭐ Pontos Kaizen
-</p>
-
-<p className="text-xl font-bold text-orange-400">
-{user?.xp_points || 0} XP
-</p>
-
-</div>
-
-
-
-<div className="bg-[#1a1d26] p-4 rounded-lg border border-gray-800">
-
-<p className="text-gray-400 text-sm">
-🔥 Jornada
-</p>
-
-<p className="text-xl font-bold text-orange-400">
-Data Driven Dojô
-</p>
-
-</div>
-
-
-</div>
-        <p className="text-gray-400 mb-8">Personalize seu perfil no Data Driven Dojô</p>
-
-        {/* Seção da Foto de Perfil */}
-        <div className="flex items-center gap-6 mb-8 bg-[#1a1d26] p-6 rounded-lg border border-gray-800">
-          <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-700 border-2 border-[#ff3b30]">
+        <div className="mb-8 flex items-center gap-6 rounded-lg border border-gray-800 bg-[#1a1d26] p-6">
+          <div className="relative h-24 w-24 overflow-hidden rounded-full border-2 border-[#ff3b30] bg-gray-700">
             {previewUrl ? (
-              <img src={previewUrl} alt="Avatar" className="w-full h-full object-cover" />
+              <img
+                src={previewUrl}
+                alt="Avatar"
+                className="h-full w-full object-cover"
+              />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-gray-400">
-                {user?.username?.substring(0, 2).toUpperCase() || 'U'}
+              <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-gray-400">
+                {user?.username?.substring(0, 2).toUpperCase() || "U"}
               </div>
             )}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Foto do Avatar</label>
-            <input 
-              type="file" 
-              accept="image/*" 
+          <div className="min-w-0 flex-1">
+            <label className="mb-2 block text-sm font-medium text-gray-300">
+              Foto do Avatar
+            </label>
+            <input
+              type="file"
+              accept="image/*"
               onChange={handleFileChange}
-              className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[#ff3b30] file:text-white hover:file:bg-red-600 cursor-pointer"
+              className="block w-full text-sm text-gray-400 file:mr-4 file:rounded-md file:border-0 file:bg-[#ff3b30] file:px-4 file:py-2 file:font-semibold file:text-white"
             />
           </div>
         </div>
 
-        {/* Dados da Conta */}
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Nome de Usuário</label>
-           <input
-            type="text"
-            value={username}
-            onChange={(e)=>setUsername(e.target.value)}
-            className="w-full bg-[#1a1d26] border border-gray-800 rounded-md p-3 text-white"
+          <label className="block text-sm font-medium text-gray-400">
+            Nome de Usuário
+            <input
+              type="text"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              className="mt-1 w-full rounded-md border border-gray-800 bg-[#1a1d26] p-3 text-white"
             />
-      </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">E-mail institucional</label>
-            <input type="email" value={user?.email || ''} disabled className="w-full bg-[#1a1d26] border border-gray-800 rounded-md p-3 text-gray-500 cursor-not-allowed" />
-          </div>
-          <div className="pt-4 flex justify-end">
-            <button 
+          </label>
+
+          <label className="block text-sm font-medium text-gray-400">
+            E-mail institucional
+            <input
+              type="email"
+              value={user?.email || ""}
+              disabled
+              className="mt-1 w-full cursor-not-allowed rounded-md border border-gray-800 bg-[#1a1d26] p-3 text-gray-500"
+            />
+          </label>
+
+          <div className="flex justify-end pt-4">
+            <button
               onClick={handleSaveProfile}
-              disabled={loading || !selectedFile}
-              className="bg-[#ff3b30] hover:bg-red-600 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-md transition-colors"
+              disabled={loading || (!selectedFile && username === user?.username)}
+              className="rounded-md bg-[#ff3b30] px-6 py-3 font-bold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-gray-700"
             >
-              {loading ? 'Salvando...' : 'Salvar Alterações'}
+              {loading ? "Salvando..." : "Salvar Alterações"}
             </button>
           </div>
         </div>
