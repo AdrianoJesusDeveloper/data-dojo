@@ -1,10 +1,12 @@
 <div align="center">
 
-# 🥋 Data Driven Dojô
+<img src="docs/assets/logo-data-driven-dojo.png" alt="Data Driven Dojô" width="180" />
+
+# Data Driven Dojô ⚔️📊
 
 ### **Treine fundamentos. Construa projetos. Evolua com Kaizen.**
 
-Uma plataforma educacional gamificada para formar profissionais de **dados, engenharia, IA e tecnologia** por meio de prática deliberada, desafios e progressão por faixas.
+Uma plataforma educacional gamificada para formação de profissionais de **dados, engenharia, IA e tecnologia**, combinando trilhas, prática, desafios, progressão e comunidade.
 
 <br>
 
@@ -24,127 +26,74 @@ Uma plataforma educacional gamificada para formar profissionais de **dados, enge
 
 ## 🖼️ Showcase da aplicação
 
-> **Espaço reservado para as imagens oficiais do Data Driven Dojô.**
->
-> A ideia é substituir os placeholders abaixo pelas capturas reais da aplicação à medida que o produto evoluir. As imagens devem mostrar a experiência real, não mockups genéricos.
+> **A vitrine visual do Data Driven Dojô.** Esta seção está preparada para receber as capturas reais das principais áreas da aplicação. As imagens devem mostrar o produto funcionando, preservando sua identidade visual.
 
 ### 🥋 Visão geral
 
-<!-- TODO: substituir pelo screenshot oficial da Home / Landing Page -->
-
 ![Data Driven Dojô — Visão geral](docs/screenshots/01-home.png)
 
-*Visão geral da plataforma — identidade, proposta e entrada no Dojô.*
+*Visão geral da plataforma, identidade e experiência de entrada no Dojô.*
 
----
-
-### 📊 Dashboard do Dojô
-
-<!-- TODO: substituir pelo screenshot oficial do Dashboard -->
+### 📊 Dashboard
 
 ![Data Driven Dojô — Dashboard](docs/screenshots/02-dashboard.png)
 
-*Painel de progresso, XP, faixa, streak e próximos objetivos.*
-
----
+*Progresso, XP, faixa, streak, atividade e próximos objetivos.*
 
 ### 🎓 Trilhas de aprendizagem
 
-<!-- TODO: substituir pelo screenshot oficial das Trilhas -->
-
 ![Data Driven Dojô — Trilhas](docs/screenshots/03-trilhas.png)
 
-*Trilhas organizadas por competências e objetivos profissionais.*
-
----
+*Jornadas organizadas por competências e objetivos profissionais.*
 
 ### 📚 Cursos, módulos e aulas
 
-<!-- TODO: substituir pelo screenshot oficial da experiência de aprendizagem -->
-
 ![Data Driven Dojô — Cursos](docs/screenshots/04-cursos.png)
 
-*Experiência de estudo orientada por fundamentos, prática e progressão.*
-
----
+*Experiência de aprendizagem orientada por fundamentos, prática e progressão.*
 
 ### ⚔️ Workspace / Desafios
 
-<!-- TODO: substituir pelo screenshot oficial do Workspace -->
-
 ![Data Driven Dojô — Workspace](docs/screenshots/05-workspace.png)
 
-*Ambiente para transformar conhecimento em prática e projetos.*
+*Ambiente para transformar conhecimento em prática e resolução de problemas.*
 
----
-
-### 🥋 Sistema de faixas e Kaizen XP
-
-<!-- TODO: substituir pelo screenshot oficial da progressão -->
+### 🥋 Faixas e Kaizen XP
 
 ![Data Driven Dojô — Progressão](docs/screenshots/06-progressao.png)
 
-*Gamificação baseada em evolução, consistência e domínio progressivo.*
-
----
+*Sistema de progressão que torna consistência e evolução visíveis.*
 
 ### 👥 Comunidade
-
-<!-- TODO: substituir pelo screenshot oficial da Comunidade -->
 
 ![Data Driven Dojô — Comunidade](docs/screenshots/07-comunidade.png)
 
 *Espaço para compartilhar aprendizados, projetos e evolução.*
 
----
-
 ### 💼 Portfolio
-
-<!-- TODO: substituir pelo screenshot oficial do Portfolio -->
 
 ![Data Driven Dojô — Portfolio](docs/screenshots/08-portfolio.png)
 
 *Projetos e evidências práticas de competência para conexão com o mercado.*
 
----
-
 ### 🤖 IA Sensei
-
-<!-- TODO: substituir pelo screenshot oficial da futura experiência de IA -->
 
 ![Data Driven Dojô — IA Sensei](docs/screenshots/09-ai-sensei.png)
 
-*Camada de mentoria inteligente para feedback, personalização e prática.*
-
----
+*Camada futura de mentoria inteligente, feedback e personalização.*
 
 ### 📱 Experiência responsiva
 
-<!-- TODO: substituir por uma composição mostrando Desktop + Tablet + Mobile -->
-
 ![Data Driven Dojô — Responsividade](docs/screenshots/10-responsive.png)
 
-*Uma experiência consistente do desktop ao mobile, preservando a identidade do Dojô.*
+*Experiência consistente do desktop ao mobile sem perder a essência do Dojô.*
 
----
-
-## 📸 Padrão para as futuras screenshots
-
-Para manter o README profissional, as imagens devem seguir um padrão visual único:
-
-- capturas reais da aplicação;
-- mesma paleta e tipografia do Dojô;
-- resolução preferencial de **1600 × 900** para telas principais;
-- imagens mobile em **390 × 844** ou proporção equivalente;
-- sem informações pessoais ou tokens visíveis;
-- sem marcas d'água externas;
-- foco na funcionalidade apresentada;
-- nomes de arquivos padronizados em `docs/screenshots/`.
-
-### Estrutura recomendada
+### 📸 Estrutura das imagens
 
 ```text
 docs/
+├── assets/
+│   └── logo-data-driven-dojo.png
 └── screenshots/
     ├── 01-home.png
     ├── 02-dashboard.png
@@ -158,7 +107,9 @@ docs/
     └── 10-responsive.png
 ```
 
-> **Importante:** os arquivos podem ser adicionados gradualmente. O README já está preparado para receber cada destaque sem precisar ser reorganizado novamente.
+**Padrão recomendado:** capturas reais, sem dados pessoais ou segredos, preferencialmente em 1600×900 para desktop e 390×844 para mobile.
+
+> Os screenshots podem ser adicionados gradualmente. O README já está estruturado para receber cada destaque sem precisar ser reorganizado.
 
 ---
 
@@ -168,14 +119,14 @@ O **Data Driven Dojô** nasceu de uma ideia simples: aprender tecnologia não de
 
 A experiência combina:
 
-- 🎓 **Trilhas de aprendizagem** para organizar conhecimento;
-- ⚔️ **Desafios e exercícios** para transformar teoria em prática;
-- 🟠 **Pontos Kaizen (XP)** para tornar evolução visível;
-- 🥋 **Sistema de faixas** para representar progressão;
-- 📈 **Dashboard de progresso** para acompanhar consistência;
-- 🧪 **Workspace** para aprender fazendo;
-- 👥 **Comunidade** para compartilhar a jornada;
-- 🤖 **IA** como camada futura de mentoria e personalização.
+- 🎓 **Trilhas de aprendizagem**;
+- ⚔️ **Desafios e exercícios**;
+- 🟠 **Pontos Kaizen (XP)**;
+- 🥋 **Sistema de faixas**;
+- 📈 **Dashboard de progresso**;
+- 🧪 **Workspace de prática**;
+- 👥 **Comunidade**;
+- 🤖 **IA Sensei** como evolução futura.
 
 > **O Dojô não quer formar apenas usuários de ferramentas. Quer formar profissionais capazes de pensar, construir e resolver problemas.**
 
@@ -187,16 +138,16 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 
 ### Público prioritário
 
-**Iniciantes e profissionais em transição/evolução para Data & Analytics, Data Engineering, AI Engineering e Full Stack.**
+**Iniciantes e profissionais em transição ou evolução para Data & Analytics, Data Science, Data Engineering, AI Engineering, Cloud Architecture e Full Stack Development.**
 
 ### Proposta de valor
 
-| Problema | Resposta do Dojô |
+| Desafio | Resposta do Dojô |
 |---|---|
 | Cursos fragmentados | Trilhas organizadas por competências |
-| Pouca prática | Exercícios e desafios dentro da plataforma |
+| Pouca prática | Exercícios, laboratórios e desafios |
 | Progresso invisível | XP, faixas, streak e indicadores |
-| Falta de feedback | Avaliação estruturada dos desafios |
+| Falta de feedback | Avaliação estruturada |
 | Aprendizado solitário | Comunidade e jornada compartilhada |
 | Excesso de teoria | Workspace orientado à execução |
 | IA sem direção | IA aplicada como mentora e camada de personalização |
@@ -206,36 +157,27 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 ## 🧭 Jornada do aluno
 
 ```text
-                    🥋 ENTRAR NO DOJÔ
-                           │
-                           ▼
-                  🎯 DEFINIR OBJETIVO
-                           │
-                           ▼
-                    📚 TRILHA DE ESTUDO
-                           │
-                           ▼
-                    🧠 APRENDER FUNDAMENTO
-                           │
-                           ▼
-                    ⚔️ PRATICAR / DESAFIAR
-                           │
-                           ▼
-                    📝 RECEBER FEEDBACK
-                           │
-                           ▼
-                    🟠 GANHAR XP / KAIZEN
-                           │
-                           ▼
-                    🥋 AVANÇAR DE FAIXA
-                           │
-                           ▼
-                    🏗️ CONSTRUIR PROJETOS
-                           │
-                           ▼
-                    💼 PORTFÓLIO / CARREIRA
-                           │
-                           └──────────► KAIZEN ♻️
+🥋 ENTRAR NO DOJÔ
+        ↓
+🎯 DEFINIR OBJETIVO
+        ↓
+📚 ESCOLHER TRILHA
+        ↓
+🧠 APRENDER FUNDAMENTO
+        ↓
+⚔️ PRATICAR / DESAFIAR
+        ↓
+📝 RECEBER FEEDBACK
+        ↓
+🟠 GANHAR XP / KAIZEN
+        ↓
+🥋 AVANÇAR DE FAIXA
+        ↓
+🏗️ CONSTRUIR PROJETOS
+        ↓
+💼 PORTFÓLIO / CARREIRA
+        ↺
+      KAIZEN
 ```
 
 ---
@@ -246,20 +188,18 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 ┌─────────────────────────────────────────────────────────────┐
 │                     DATA DRIVEN DOJÔ                        │
 ├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  React + TypeScript + Vite                                 │
-│  ├── TanStack Router                                        │
-│  ├── TanStack Query                                         │
-│  ├── Tailwind CSS                                           │
-│  ├── Componentes reutilizáveis                              │
-│  └── Store / experiência gamificada                         │
+│ React + TypeScript + Vite                                  │
+│ ├── TanStack Router                                         │
+│ ├── TanStack Query                                          │
+│ ├── Tailwind CSS                                            │
+│ └── Componentes reutilizáveis                               │
 │                         │                                   │
 │                         ▼                                   │
 │                 Django REST Framework                        │
-│  ├── Autenticação                                            │
-│  ├── Cursos / módulos / aulas                               │
-│  ├── Exercícios e avaliação                                 │
-│  └── API de conteúdo                                        │
+│ ├── Autenticação                                             │
+│ ├── Cursos / módulos / aulas                                │
+│ ├── Exercícios e avaliação                                  │
+│ └── API de conteúdo                                         │
 │                         │                                   │
 │              ┌──────────┴──────────┐                        │
 │              ▼                     ▼                        │
@@ -267,7 +207,6 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 │                                    │                        │
 │                                    ▼                        │
 │                              Celery Workers                  │
-│                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -277,9 +216,9 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 
 **API** — regras de negócio, autenticação e entrega de conteúdo.
 
-**Dados** — PostgreSQL como base principal e Redis para necessidades de cache/filas.
+**Dados** — PostgreSQL como base principal e Redis para cache/filas.
 
-**Workers** — Celery preparado para tarefas assíncronas e evolução da plataforma.
+**Workers** — Celery para tarefas assíncronas e evolução da plataforma.
 
 ---
 
@@ -321,11 +260,10 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 ### 🥋 Gamificação
 
 - XP / Pontos Kaizen;
-- progresso por faixa;
+- progressão por faixa;
 - streak;
 - indicadores de horas e evolução;
-- feedback visual;
-- celebrações de progressão.
+- feedback visual.
 
 ### 👥 Comunidade
 
@@ -337,7 +275,7 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 
 ### 📊 Dashboard
 
-A plataforma transforma atividade de aprendizagem em sinais de progresso para ajudar o aluno a responder:
+A plataforma transforma atividade de aprendizagem em sinais de progresso para responder:
 
 **Onde estou? · O que estou aprendendo? · Quanto pratiquei? · Qual é o próximo passo?**
 
@@ -345,46 +283,39 @@ A plataforma transforma atividade de aprendizagem em sinais de progresso para aj
 
 ## 🚀 Usabilidade, performance e responsividade
 
-A evolução atual prioriza uma experiência consistente em **desktop, tablet e mobile**, sem abandonar a identidade visual do Dojô.
+A evolução prioriza uma experiência consistente em **desktop, tablet e mobile**, sem abandonar a identidade visual do Dojô.
 
 ### Usabilidade
 
 - hierarquia visual orientada à tarefa;
-- estados de carregamento e erro mais claros;
+- estados de carregamento e erro claros;
 - navegação previsível;
 - foco de teclado visível;
 - alvos de toque adequados;
-- mensagens de erro em português e orientadas à ação;
-- jornada reduzida entre conteúdo, prática e feedback.
+- mensagens de erro orientadas à ação.
 
 ### Performance
 
 - cache de queries com TanStack Query;
 - revalidação controlada;
 - preloading por intenção de navegação;
-- menor refetch desnecessário ao retornar à janela;
-- tipagem estática como barreira preventiva contra regressões;
-- fontes carregadas somente nas famílias realmente utilizadas;
-- suporte a redução de movimento para diminuir custo visual e melhorar acessibilidade.
+- redução de refetch desnecessário;
+- tipagem estática contra regressões;
+- suporte a redução de movimento.
 
 ### Responsividade
-
-A base visual mantém o comportamento fluido e adiciona cuidados para telas compactas:
 
 - viewport preparado para dispositivos móveis;
 - prevenção de overflow horizontal;
 - mídias responsivas;
-- tipografia adaptada em telas pequenas;
-- interações compatíveis com toque;
-- navegação preparada para evolução mobile-first.
+- tipografia adaptada;
+- interações compatíveis com toque.
 
 > **A identidade não foi redesenhada. Foi organizada para funcionar melhor em mais contextos.**
 
 ---
 
 ## 🎨 Identidade do Dojô — preservada
-
-A evolução técnica **não altera a essência visual**.
 
 ### Tipografia oficial
 
@@ -407,12 +338,10 @@ A linguagem visual continua baseada na combinação de **dojo, samurai, discipli
 
 ## 🧩 Arquitetura de código
 
-A organização segue uma separação clara entre **rotas e páginas**:
-
 ```text
 src/
 ├── routes/          # URLs e composição de rotas
-├── pages/           # Componentes visuais das páginas
+├── pages/           # Páginas da aplicação
 ├── components/      # Componentes reutilizáveis
 ├── hooks/           # Hooks compartilhados
 ├── lib/             # Estado, helpers e serviços
@@ -424,13 +353,13 @@ apps/api/
 └── config/          # Configuração Django
 ```
 
-> **Princípio arquitetural:** `routes/` define o endereço e importa a página; `pages/` concentra a composição visual; regras reutilizáveis ficam fora das rotas.
+> `routes/` define o endereço; `pages/` compõe a experiência; componentes, hooks e serviços reutilizáveis ficam separados para facilitar evolução e manutenção.
 
 ---
 
 ## 📈 Escalabilidade: direção do produto
 
-O objetivo não é apenas fazer a aplicação crescer em número de telas. É criar uma arquitetura capaz de crescer em **conteúdo, usuários, funcionalidades e negócio**.
+O objetivo é crescer em **conteúdo, usuários, funcionalidades e negócio** sem transformar a aplicação em um monólito difícil de manter.
 
 ### Evolução planejada
 
@@ -461,8 +390,6 @@ ECOSSISTEMA
  ├── Portfólio profissional
  └── Integrações / APIs
 ```
-
-A separação entre frontend, API, dados e workers já cria uma base adequada para essa evolução sem exigir que a experiência do aluno seja reescrita a cada nova funcionalidade.
 
 ---
 
@@ -568,23 +495,17 @@ npm run build
 
 ## 📐 Princípios de engenharia
 
-**1. Fundamentos antes de abstrações**  
-A tecnologia deve servir ao problema.
+**Fundamentos antes de abstrações.** A tecnologia deve servir ao problema.
 
-**2. Experiência antes da complexidade**  
-Uma funcionalidade boa é aquela que o aluno entende e consegue usar.
+**Experiência antes da complexidade.** Uma funcionalidade boa é aquela que o aluno entende e consegue usar.
 
-**3. Performance é parte da UX**  
-Tempo de resposta, cache e carregamento fazem parte do produto.
+**Performance é parte da UX.** Tempo de resposta, cache e carregamento fazem parte do produto.
 
-**4. Segurança por padrão**  
-Segredos não pertencem ao código e permissões devem ser explícitas.
+**Segurança por padrão.** Segredos não pertencem ao código e permissões devem ser explícitas.
 
-**5. Observabilidade antes de escala**  
-Não se escala aquilo que não se consegue medir.
+**Observabilidade antes de escala.** Não se escala aquilo que não se consegue medir.
 
-**6. Kaizen**  
-Cada versão deve ser melhor que a anterior sem perder a essência.
+**Kaizen.** Cada versão deve ser melhor que a anterior sem perder a essência.
 
 ---
 
@@ -594,7 +515,7 @@ Cada versão deve ser melhor que a anterior sem perder a essência.
 > **Disciplina para continuar.**  
 > **Dedicação para dominar.**
 
-O Data Driven Dojô é mais do que uma aplicação. É um experimento contínuo sobre **como aprender tecnologia de forma prática, mensurável e sustentável**.
+O Data Driven Dojô é um experimento contínuo sobre **como aprender tecnologia de forma prática, mensurável e sustentável**.
 
 **Treinar. Construir. Ensinar. Evoluir.**
 
