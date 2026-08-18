@@ -1,5 +1,4 @@
 import js from "@eslint/js";
-import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
@@ -7,7 +6,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist", ".output", ".vinxi", "apps/api/**", "node_modules/**"],
+    ignores: ["dist", ".output", ".vinxi", "apps/api/**", "apps/site/dist/**", "node_modules/**"],
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
@@ -36,7 +35,9 @@ export default tseslint.config(
       ],
       "react-refresh/only-export-components": "off",
       "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "no-unused-labels": "warn",
+      "no-empty": "warn",
     },
   },
-  eslintPluginPrettier,
 );

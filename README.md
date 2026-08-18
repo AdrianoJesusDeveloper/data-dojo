@@ -1,455 +1,530 @@
+<div align="center">
+
+<img src="docs/assets/logo-data-driven-dojo.png" alt="Data Driven Dojô" width="180" />
+
 # Data Driven Dojô ⚔️📊
 
-Uma plataforma gamificada para formação de profissionais de dados, construída com React, TypeScript, Vite e Django REST.
+### **Treine fundamentos. Construa projetos. Evolua com Kaizen.**
 
-## Visão Geral
+Uma plataforma educacional gamificada para formação de profissionais de **dados, engenharia, IA e tecnologia**, combinando trilhas, prática, desafios, progressão e comunidade.
 
-O Data Driven Dojô combina gamificação, trilhas de aprendizado e um workspace interativo para acelerar a jornada de profissionais de dados. O sistema atual permite cadastrar cursos, módulos, aulas, vídeos e exercícios, além de oferecer um ambiente de desafio com editor SQL e feedback visual.
+<br>
 
-## Tecnologias
+**Determinação · Disciplina · Dedicação**
 
-- Frontend: React + TypeScript + Vite
-- Roteamento: TanStack Router
-- Estado e dados: TanStack React Query
-- Estilização: Tailwind CSS
-- Notificações: Sonner
-- Gráficos: Recharts
-- Backend: Django 6 + Django REST Framework
-- Autenticação: dj-rest-auth + token auth
-- Data store: PostgreSQL (opcional SQLite em dev)
-- Filas: Celery + Redis
+<br><br>
 
-## Estrutura do Repositório
+[![React](https://img.shields.io/badge/React-19-1C1C1C?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-1C1C1C?style=for-the-badge&logo=typescript&logoColor=3178C6)](https://www.typescriptlang.org/)
+[![Django](https://img.shields.io/badge/Django-1C1C1C?style=for-the-badge&logo=django&logoColor=44B78B)](https://www.djangoproject.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-1C1C1C?style=for-the-badge&logo=postgresql&logoColor=4169E1)](https://www.postgresql.org/)
+[![AWS](https://img.shields.io/badge/AWS-1C1C1C?style=for-the-badge&logo=amazonaws&logoColor=FF9900)](https://aws.amazon.com/)
 
-- [src](src) — frontend React
-  - [src/routes](src/routes) — páginas do app
-  - [src/components](src/components) — componentes reutilizáveis
-  - [src/lib](src/lib) — estado do Dojô e helpers
-- [apps/api](apps/api) — backend Django
-  - [apps/api/core](apps/api/core) — modelos, serializers, views e rotas
-  - [apps/api/config](apps/api/config) — configuração do Django
-- [apps/api/requirements.txt](apps/api/requirements.txt) — dependências Python
-- [package.json](package.json) — dependências e scripts do frontend
-
-## Funcionalidades Principais
-
-- Cadastro e login de usuários
-- Dashboard de progresso com gráficos de XP, horas e streak
-- Workspace de desafio com editor SQL simulado
-- Feed de comunidade com posts, curtidas e comentários falsos
-- Persistência local do estado do usuário no navegador
-- Integração com backend Django para cursos, módulos, aulas, vídeos e exercícios
-- Suporte a exercícios estruturados com enunciado, tipo, resposta esperada e critérios de avaliação
-
-## Arquitetura e Diagramas
-
-A documentação abaixo descreve a arquitetura atual do sistema com foco em estrutura, fluxo de dados, comportamento e modelagem.
-
-### 1. Diagrama estrutural / arquitetura de alto nível
-
-```mermaid
-flowchart LR
-    Usuario[Usuário] --> Frontend[Frontend React + Vite]
-    Frontend --> API[Django REST API]
-    API --> BD[(Banco de Dados)]
-    API --> Media[Arquivos de mídia]
-    API --> Redis[(Redis)]
-    API --> Celery[Workers Celery]
-```
-
-### 2. Diagrama de componentes
-
-```mermaid
-flowchart TB
-    subgraph Frontend
-        Router[Router TanStack]
-        Pages[Páginas do workspace e autenticação]
-        Store[Store do Dojô]
-        UI[Componentes UI]
-    end
-
-    subgraph Backend
-        Views[Views/API]
-        Models[Models Django]
-        Serializers[Serializers DRF]
-        Admin[Admin Django]
-    end
-
-    Router --> Pages
-    Pages --> Store
-    Pages --> UI
-    Pages --> Views
-    Views --> Serializers
-    Views --> Models
-    Admin --> Models
-```
-
-### 3. Diagrama de pacotes
-
-```mermaid
-flowchart TB
-    subgraph src
-        routes[Routes]
-        components[Components]
-        lib[Lib]
-    end
-
-    subgraph apps.api
-        core[Core App]
-        config[Config App]
-    end
-
-    core --> config
-    routes --> components
-    routes --> lib
-```
-
-### 4. Diagrama de classes
-
-```mermaid
-classDiagram
-    class User {
-        +id
-        +email
-        +username
-        +first_name
-        +last_name
-    }
-
-    class Course {
-        +id
-        +title
-        +description
-        +created_at
-    }
-
-    class Module {
-        +id
-        +title
-        +order
-    }
-
-    class Lesson {
-        +id
-        +title
-        +content_type
-        +file_upload
-        +video_url
-        +body
-        +order
-    }
-
-    class Exercise {
-        +id
-        +title
-        +statement
-        +answer_type
-        +expected_answer
-        +expected_keywords
-        +evaluation_mode
-        +points
-        +evaluate_answer(answer)
-    }
-
-    Course "1" --> "0..*" Module : possui
-    Module "1" --> "0..*" Lesson : contém
-    Lesson "1" --> "0..1" Exercise : possui
-```
-
-### 5. Diagrama de implantação
-
-```mermaid
-flowchart TB
-    Browser[Browser / Mobile] --> Vite[Vite Dev Server]
-    Vite --> Frontend[Frontend React]
-    Frontend --> API[API Django REST]
-    API --> Postgres[(PostgreSQL)]
-    API --> Redis[(Redis)]
-    API --> Media[(Arquivos de mídia)]
-    Celery[Celery Worker] --> Redis
-    Celery --> Postgres
-```
-
-### 6. Diagrama de objetos
-
-```mermaid
-flowchart LR
-    curso1[Curso: SQL para Dados]
-    modulo1[Módulo: Fundamentos]
-    aula1[Aula: Introdução ao SELECT]
-    aula2[Aula: Exercício SQL]
-
-    curso1 --> modulo1
-    modulo1 --> aula1
-    modulo1 --> aula2
-```
-
-### 7. Diagrama de casos de uso
-
-```mermaid
-flowchart TD
-    Usuario[Aluno] --> UC1[Entrar no sistema]
-    Usuario --> UC2[Visualizar cursos]
-    Usuario --> UC3[Assistir aula]
-    Usuario --> UC4[Enviar resposta do desafio]
-    Usuario --> UC5[Visualizar progresso]
-```
-
-### 8. Diagrama de sequência
-
-```mermaid
-sequenceDiagram
-    participant Aluno as Aluno
-    participant Front as Frontend
-    participant API as Django API
-    participant DB as Banco
-
-    Aluno->>Front: Acessa workspace
-    Front->>API: GET /api/courses/
-    API->>DB: Busca cursos, módulos e aulas
-    DB-->>API: Dados retornados
-    API-->>Front: JSON com conteúdo
-    Front-->>Aluno: Renderiza vídeo, aulas e editor
-```
-
-### 9. Diagrama de atividades
-
-```mermaid
-flowchart TD
-    A[Aluno abre o workspace] --> B[Frontend carrega curso]
-    B --> C[API retorna módulos e aulas]
-    C --> D[Usuário escolhe uma aula]
-    D --> E[Exibe vídeo ou texto do exercício]
-    E --> F[Usuário envia solução]
-    F --> G[Sistema valida resposta]
-    G --> H[Exibe feedback e XP]
-```
-
-### 10. Diagrama de máquina de estados
-
-```mermaid
-stateDiagram-v2
-    [*] --> Carregando
-    Carregando --> Pronto: dados carregados
-    Carregando --> Erro: falha de conexão
-    Pronto --> Assistindo: selecionar aula
-    Assistindo --> Respondendo: abrir desafio
-    Respondendo --> Validando: submeter resposta
-    Validando --> Pronto: resposta aceita
-    Validando --> Respondendo: resposta reprovada
-    Erro --> [*]
-```
-
-### 11. Diagrama de entidade-relacionamento (DER)
-
-```mermaid
-erDiagram
-    USER ||--o{ COURSE : cria
-    COURSE ||--o{ MODULE : possui
-    MODULE ||--o{ LESSON : contém
-    LESSON ||--o| EXERCISE : possui
-
-    USER {
-        int id
-        string email
-        string username
-    }
-
-    COURSE {
-        int id
-        string title
-        string description
-        datetime created_at
-    }
-
-    MODULE {
-        int id
-        int course_id
-        string title
-        int order
-    }
-
-    LESSON {
-        int id
-        int module_id
-        string title
-        string content_type
-        string file_upload
-        string video_url
-        text body
-        int order
-    }
-
-    EXERCISE {
-        int id
-        int lesson_id
-        string title
-        text statement
-        string answer_type
-        text expected_answer
-        json expected_keywords
-        string evaluation_mode
-        int points
-    }
-```
-
-### 12. Diagrama de fluxo de dados (DFD)
-
-```mermaid
-flowchart LR
-    Usuario[Aluno] -->|envia ação| Frontend[Frontend]
-    Frontend -->|requisição| API[API Django]
-    API -->|consulta| DB[(Banco de Dados)]
-    API -->|serve mídia| Storage[Arquivos de mídia]
-    API -->|retorna dados| Frontend
-    Frontend -->|apresenta feedback| Usuario
-```
-
-### 13. Visão de fluxo de conteúdo do curso
-
-```mermaid
-flowchart TD
-    Curso[Curso] --> Modulo1[Módulo 1]
-    Curso --> Modulo2[Módulo 2]
-    Modulo1 --> Aula1[Aula de vídeo]
-    Modulo1 --> Aula2[Exercício]
-    Modulo2 --> Aula3[Aula de apostila]
-    Modulo2 --> Aula4[Laboratório]
-```
-
-## Correções Aplicadas
-
-- Corrigido toggle de curtidas em [src/routes/community.tsx](src/routes/community.tsx), garantindo atualização correta de estado e contagem.
-- Ajustado `beforeLoad` em [src/routes/index.tsx](src/routes/index.tsx) para evitar acesso a `localStorage` durante SSR.
-- Adicionado `TokenAuthentication` nas configurações do Django para compatibilidade com `dj-rest-auth`.
-- Permitido CORS para `http://localhost:5173` e `http://127.0.0.1:5173` no backend.
-
-## Configuração Local
-
-### Frontend
-
-1. Instale dependências:
-   ```bash
-    npm install
-   ```
-2. Inicie o frontend:
-   ```bash
-   npm run dev
-   ```
-3. Abra em `http://localhost:5173`
-
-### Backend
-
-1. Acesse o backend:
-   ```bash
-   cd apps/api
-   ```
-2. Crie e ative um ambiente virtual:
-   ```bash
-   python -m venv .venv
-   .venv\Scripts\activate
-   ```
-3. Instale dependências:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Execute migrações:
-   ```bash
-   python manage.py migrate
-   ```
-5. Inicie o servidor:
-   ```bash
-   python manage.py runserver
-   ```
-
-### Banco de Dados
-
-- O backend usa PostgreSQL por padrão com configuração em [apps/api/config/settings.py](apps/api/config/settings.py).
-- Para usar SQLite local, defina `DJANGO_USE_SQLITE=True` nas variáveis de ambiente.
-
-## Endpoints Principais
-
-- `GET /api/courses/`
-- `GET /api/modules/`
-- `GET /api/lessons/`
-- `POST /api/auth/login/`
-- `POST /api/auth/registration/`
-
-## Scripts Úteis
-
-- `npm run dev` — iniciar frontend em desenvolvimento
-- `npm run build` — gerar build de produção
-- `npm run preview` — visualizar build
-- `npm run lint` — executar ESLint
-
-## Uso
-
-1. Inicie o backend Django.
-2. Inicie o frontend Vite.
-3. Acesse `http://localhost:5173`.
-
-## Observações
-
-- O workspace carrega o primeiro curso disponível e usa validação simples de SQL para aprovação de desafios.
-- O feed comunitário é alimentado por posts seed e permite curtidas locais.
-- A autenticação é baseada em token gravado no `localStorage`.
-- A autenticação é baseada em token gravado no `localStorage`.
+</div>
 
 ---
 
-**.gitignore — documentação e boas práticas**
+## 🖼️ Showcase da aplicação
 
-Objetivo
+> **A vitrine visual do Data Driven Dojô.** Esta seção está preparada para receber as capturas reais das principais áreas da aplicação. As imagens devem mostrar o produto funcionando, preservando sua identidade visual.
 
-- Fornecer orientação clara sobre o propósito de `/.gitignore` e as categorias de arquivos que não devem ser versionadas.
+### 🥋 Visão geral
 
-Por que manter um `.gitignore` bem escrito
+![Data Driven Dojô — Visão geral](docs/screenshots/01-home.png)
 
-- Protege segredos e credenciais (ex.: arquivos `.env`).
-- Evita incluir dependências e artefatos binários que incham o repositório.
-- Reduz o risco de conflitos e commits acidentais de arquivos gerados localmente.
+*Visão geral da plataforma, identidade e experiência de entrada no Dojô.*
 
-Categorias recomendadas
+### 📊 Dashboard
 
-- Dependências e builds: `node_modules/`, `.output/`, `dist/`, `build/`
-- Ambientes e caches: `.venv/`, `venv/`, `__pycache__/`, `.pytest_cache/`
-- Dados locais e uploads: `db.sqlite3`, `media/`, `uploads/`
-- Arquivos sensíveis: `.env`, `.env.local`, `credentials.json`
-- Ferramentas/IDE: `.vscode/`, `.idea/`, `.DS_Store`, `Thumbs.db`
-- Logs e relatórios: `npm-debug.log`, `yarn-debug.log`, `coverage/`
+![Data Driven Dojô — Dashboard](docs/screenshots/02-dashboard.png)
 
-Trecho de exemplo (recomenda-se revisar para o seu contexto)
+*Progresso, XP, faixa, streak, atividade e próximos objetivos.*
 
+### 🎓 Trilhas de aprendizagem
+
+![Data Driven Dojô — Trilhas](docs/screenshots/03-trilhas.png)
+
+*Jornadas organizadas por competências e objetivos profissionais.*
+
+### 📚 Cursos, módulos e aulas
+
+![Data Driven Dojô — Cursos](docs/screenshots/04-cursos.png)
+
+*Experiência de aprendizagem orientada por fundamentos, prática e progressão.*
+
+### ⚔️ Workspace / Desafios
+
+![Data Driven Dojô — Workspace](docs/screenshots/05-workspace.png)
+
+*Ambiente para transformar conhecimento em prática e resolução de problemas.*
+
+### 🥋 Faixas e Kaizen XP
+
+![Data Driven Dojô — Progressão](docs/screenshots/06-progressao.png)
+
+*Sistema de progressão que torna consistência e evolução visíveis.*
+
+### 👥 Comunidade
+
+![Data Driven Dojô — Comunidade](docs/screenshots/07-comunidade.png)
+
+*Espaço para compartilhar aprendizados, projetos e evolução.*
+
+### 💼 Portfolio
+
+![Data Driven Dojô — Portfolio](docs/screenshots/08-portfolio.png)
+
+*Projetos e evidências práticas de competência para conexão com o mercado.*
+
+### 🤖 IA Sensei
+
+![Data Driven Dojô — IA Sensei](docs/screenshots/09-ai-sensei.png)
+
+*Camada futura de mentoria inteligente, feedback e personalização.*
+
+### 📱 Experiência responsiva
+
+![Data Driven Dojô — Responsividade](docs/screenshots/10-responsive.png)
+
+*Experiência consistente do desktop ao mobile sem perder a essência do Dojô.*
+
+### 📸 Estrutura das imagens
+
+```text
+docs/
+├── assets/
+│   └── logo-data-driven-dojo.png
+└── screenshots/
+    ├── 01-home.png
+    ├── 02-dashboard.png
+    ├── 03-trilhas.png
+    ├── 04-cursos.png
+    ├── 05-workspace.png
+    ├── 06-progressao.png
+    ├── 07-comunidade.png
+    ├── 08-portfolio.png
+    ├── 09-ai-sensei.png
+    └── 10-responsive.png
 ```
-# Node / frontend
-node_modules/
-.output/
 
-# Python / Django
-.venv/
-venv/
-db.sqlite3
-media/
+**Padrão recomendado:** capturas reais, sem dados pessoais ou segredos, preferencialmente em 1600×900 para desktop e 390×844 para mobile.
 
-# Ambiente local / Segredos
-.env
+> Os screenshots podem ser adicionados gradualmente. O README já está estruturado para receber cada destaque sem precisar ser reorganizado.
 
-# IDEs / OS
-.vscode/
-.DS_Store
+---
+
+## 🥋 A visão do Dojô
+
+O **Data Driven Dojô** nasceu de uma ideia simples: aprender tecnologia não deve ser apenas consumir cursos. Deve ser uma jornada de **fundamentos → prática → desafio → feedback → evolução**.
+
+A experiência combina:
+
+- 🎓 **Trilhas de aprendizagem**;
+- ⚔️ **Desafios e exercícios**;
+- 🟠 **Pontos Kaizen (XP)**;
+- 🥋 **Sistema de faixas**;
+- 📈 **Dashboard de progresso**;
+- 🧪 **Workspace de prática**;
+- 👥 **Comunidade**;
+- 🤖 **IA Sensei** como evolução futura.
+
+> **O Dojô não quer formar apenas usuários de ferramentas. Quer formar profissionais capazes de pensar, construir e resolver problemas.**
+
+---
+
+## 🎯 Posicionamento estratégico
+
+O produto está sendo estruturado como uma plataforma de **Learning Experience + Practice + Community**, com potencial de evoluir para um ecossistema de formação profissional.
+
+### Público prioritário
+
+**Iniciantes e profissionais em transição ou evolução para Data & Analytics, Data Science, Data Engineering, AI Engineering, Cloud Architecture e Full Stack Development.**
+
+### Proposta de valor
+
+| Desafio | Resposta do Dojô |
+|---|---|
+| Cursos fragmentados | Trilhas organizadas por competências |
+| Pouca prática | Exercícios, laboratórios e desafios |
+| Progresso invisível | XP, faixas, streak e indicadores |
+| Falta de feedback | Avaliação estruturada |
+| Aprendizado solitário | Comunidade e jornada compartilhada |
+| Excesso de teoria | Workspace orientado à execução |
+| IA sem direção | IA aplicada como mentora e camada de personalização |
+
+---
+
+## 🧭 Jornada do aluno
+
+```text
+🥋 ENTRAR NO DOJÔ
+        ↓
+🎯 DEFINIR OBJETIVO
+        ↓
+📚 ESCOLHER TRILHA
+        ↓
+🧠 APRENDER FUNDAMENTO
+        ↓
+⚔️ PRATICAR / DESAFIAR
+        ↓
+📝 RECEBER FEEDBACK
+        ↓
+🟠 GANHAR XP / KAIZEN
+        ↓
+🥋 AVANÇAR DE FAIXA
+        ↓
+🏗️ CONSTRUIR PROJETOS
+        ↓
+💼 PORTFÓLIO / CARREIRA
+        ↺
+      KAIZEN
 ```
 
-Como remover um arquivo já comitado por engano
+---
 
-1. Remova do índice, mantendo-o no disco:
+## 🏗️ Arquitetura atual
 
-   git rm --cached path/to/file
-2. Commit e push:
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                     DATA DRIVEN DOJÔ                        │
+├─────────────────────────────────────────────────────────────┤
+│ React + TypeScript + Vite                                  │
+│ ├── TanStack Router                                         │
+│ ├── TanStack Query                                          │
+│ ├── Tailwind CSS                                            │
+│ └── Componentes reutilizáveis                               │
+│                         │                                   │
+│                         ▼                                   │
+│                 Django REST Framework                        │
+│ ├── Autenticação                                             │
+│ ├── Cursos / módulos / aulas                                │
+│ ├── Exercícios e avaliação                                  │
+│ └── API de conteúdo                                         │
+│                         │                                   │
+│              ┌──────────┴──────────┐                        │
+│              ▼                     ▼                        │
+│        PostgreSQL               Redis                       │
+│                                    │                        │
+│                                    ▼                        │
+│                              Celery Workers                  │
+└─────────────────────────────────────────────────────────────┘
+```
 
-   git commit -m "chore: remover arquivo sensível do repositório"
-   git push
+### Camadas
 
-Manutenção
+**Frontend** — experiência, navegação, gamificação e interação.
 
-- Atualize o arquivo quando adicionar novas ferramentas/fluxos de build.
-- Use templates oficiais do GitHub como base: https://github.com/github/gitignore
+**API** — regras de negócio, autenticação e entrega de conteúdo.
+
+**Dados** — PostgreSQL como base principal e Redis para cache/filas.
+
+**Workers** — Celery para tarefas assíncronas e evolução da plataforma.
+
+---
+
+## ⚙️ Stack
+
+### Frontend
+
+`React` · `TypeScript` · `Vite` · `TanStack Router` · `TanStack Query` · `Tailwind CSS`
+
+### UX & UI
+
+`Radix UI` · `Lucide` · `Recharts` · `Sonner`
+
+### Backend
+
+`Python` · `Django` · `Django REST Framework` · `dj-rest-auth`
+
+### Dados & infraestrutura
+
+`PostgreSQL` · `SQLite (dev)` · `Redis` · `Celery`
+
+### Qualidade
+
+`TypeScript Strict` · `ESLint` · `Prettier` · `Vitest` · `Testing Library`
+
+---
+
+## ✨ Funcionalidades
+
+### 🎓 Aprendizagem
+
+- Cadastro de cursos;
+- módulos e aulas;
+- vídeos e conteúdo textual;
+- exercícios estruturados;
+- critérios de avaliação;
+- workspace de desafios.
+
+### 🥋 Gamificação
+
+- XP / Pontos Kaizen;
+- progressão por faixa;
+- streak;
+- indicadores de horas e evolução;
+- feedback visual.
+
+### 👥 Comunidade
+
+- feed;
+- posts;
+- curtidas;
+- comentários;
+- interação social.
+
+### 📊 Dashboard
+
+A plataforma transforma atividade de aprendizagem em sinais de progresso para responder:
+
+**Onde estou? · O que estou aprendendo? · Quanto pratiquei? · Qual é o próximo passo?**
+
+---
+
+## 🚀 Usabilidade, performance e responsividade
+
+A evolução prioriza uma experiência consistente em **desktop, tablet e mobile**, sem abandonar a identidade visual do Dojô.
+
+### Usabilidade
+
+- hierarquia visual orientada à tarefa;
+- estados de carregamento e erro claros;
+- navegação previsível;
+- foco de teclado visível;
+- alvos de toque adequados;
+- mensagens de erro orientadas à ação.
+
+### Performance
+
+- cache de queries com TanStack Query;
+- revalidação controlada;
+- preloading por intenção de navegação;
+- redução de refetch desnecessário;
+- tipagem estática contra regressões;
+- suporte a redução de movimento.
+
+### Responsividade
+
+- viewport preparado para dispositivos móveis;
+- prevenção de overflow horizontal;
+- mídias responsivas;
+- tipografia adaptada;
+- interações compatíveis com toque.
+
+> **A identidade não foi redesenhada. Foi organizada para funcionar melhor em mais contextos.**
+
+---
+
+## 🎨 Identidade do Dojô — preservada
+
+### Tipografia oficial
+
+- **Exo 2** — títulos e identidade;
+- **Open Sans** — interface e leitura;
+- **Roboto Mono** — código, dados e elementos técnicos.
+
+### Paleta oficial
+
+- `#1C1C1C` — Graphite / fundo;
+- `#242424` — cards;
+- `#0057B8` — Deep Blue / ação;
+- `#E63946` — Samurai / energia e alertas;
+- `#FFA500` — Kaizen / progresso e destaque;
+- `#E5E5E5` — texto principal.
+
+A linguagem visual continua baseada na combinação de **dojo, samurai, disciplina e Kaizen**.
+
+---
+
+## 🧩 Arquitetura de código
+
+```text
+src/
+├── routes/          # URLs e composição de rotas
+├── pages/           # Páginas da aplicação
+├── components/      # Componentes reutilizáveis
+├── hooks/           # Hooks compartilhados
+├── lib/             # Estado, helpers e serviços
+├── assets/          # Recursos visuais
+└── tests/           # Testes
+
+apps/api/
+├── core/            # Domínio, models, serializers e views
+└── config/          # Configuração Django
+```
+
+> `routes/` define o endereço; `pages/` compõe a experiência; componentes, hooks e serviços reutilizáveis ficam separados para facilitar evolução e manutenção.
+
+---
+
+## 📈 Escalabilidade: direção do produto
+
+O objetivo é crescer em **conteúdo, usuários, funcionalidades e negócio** sem transformar a aplicação em um monólito difícil de manter.
+
+### Evolução planejada
+
+```text
+MVP
+ │
+ ├── Conteúdo estruturado
+ ├── Gamificação
+ ├── Workspace
+ └── Comunidade
+       │
+       ▼
+PLATAFORMA
+ │
+ ├── Perfis de aprendizagem
+ ├── Trilhas por carreira
+ ├── Avaliação avançada
+ ├── Projetos práticos
+ └── Métricas de retenção
+       │
+       ▼
+ECOSSISTEMA
+ │
+ ├── IA Sensei
+ ├── Personalização
+ ├── Mentoria
+ ├── Certificações
+ ├── Portfólio profissional
+ └── Integrações / APIs
+```
+
+---
+
+## 🗺️ Roadmap estratégico
+
+### 🟢 Fundamentos
+
+- [x] Autenticação
+- [x] Cursos, módulos e aulas
+- [x] Exercícios estruturados
+- [x] Dashboard de progresso
+- [x] Gamificação inicial
+- [x] Workspace
+- [x] Comunidade
+- [x] API Django REST
+
+### 🟡 Produto
+
+- [ ] Progresso persistido por usuário e aula
+- [ ] Avaliação de desafios mais robusta
+- [ ] Trilhas por competência
+- [ ] Onboarding orientado ao objetivo profissional
+- [ ] Melhorias mobile
+- [ ] Observabilidade de produto
+
+### 🔵 Escala
+
+- [ ] Cache estratégico
+- [ ] Jobs assíncronos para tarefas pesadas
+- [ ] Testes E2E
+- [ ] CI/CD
+- [ ] Observabilidade técnica
+- [ ] Segurança e gestão de permissões
+
+### 🟠 IA Sensei
+
+- [ ] Mentoria contextual
+- [ ] Feedback personalizado
+- [ ] Geração de exercícios
+- [ ] Recomendações de trilha
+- [ ] RAG sobre conteúdo do Dojô
+- [ ] Agentes especializados
+
+### 🟣 Mercado
+
+- [ ] Portfólio orientado a carreira
+- [ ] Certificações e badges verificáveis
+- [ ] Métricas de competência
+- [ ] Experiências B2C / B2B
+- [ ] Integrações com ecossistema profissional
+
+---
+
+## 🧪 Desenvolvimento local
+
+### Pré-requisitos
+
+- Node.js `>=18`
+- Python
+- PostgreSQL para ambiente completo ou SQLite para desenvolvimento local
+- Redis quando utilizando tarefas assíncronas
+
+### Frontend
+
+```bash
+npm install
+npm run dev
+```
+
+Acesse `http://localhost:5173`.
+
+### Backend
+
+```bash
+cd apps/api
+python -m venv .venv
+```
+
+**Windows:**
+
+```bash
+.venv\Scripts\activate
+```
+
+Depois:
+
+```bash
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
+
+### Qualidade antes de publicar
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+---
+
+## 📐 Princípios de engenharia
+
+**Fundamentos antes de abstrações.** A tecnologia deve servir ao problema.
+
+**Experiência antes da complexidade.** Uma funcionalidade boa é aquela que o aluno entende e consegue usar.
+
+**Performance é parte da UX.** Tempo de resposta, cache e carregamento fazem parte do produto.
+
+**Segurança por padrão.** Segredos não pertencem ao código e permissões devem ser explícitas.
+
+**Observabilidade antes de escala.** Não se escala aquilo que não se consegue medir.
+
+**Kaizen.** Cada versão deve ser melhor que a anterior sem perder a essência.
+
+---
+
+## 🥋 A filosofia
+
+> **Determinação para começar.**  
+> **Disciplina para continuar.**  
+> **Dedicação para dominar.**
+
+O Data Driven Dojô é um experimento contínuo sobre **como aprender tecnologia de forma prática, mensurável e sustentável**.
+
+**Treinar. Construir. Ensinar. Evoluir.**
+
+---
+
+<div align="center">
+
+### 🥋 Data Driven Dojô
+
+**Kaizen — um passo melhor a cada dia.**
+
+</div>

@@ -1,9 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import type { ComponentPropsWithoutRef } from "react";
-import { vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-// Mock dojo-store and router hooks used by DojoHeader
 vi.mock("@/lib/dojo-store", () => ({
   useDojo: () => ({ state: { xp: 0, studentName: "Tester" } }),
   getCurrentBelt: () => ({ id: "white", name: "Faixa Branca", color: "#fff", kanji: "白" }),
@@ -11,7 +10,7 @@ vi.mock("@/lib/dojo-store", () => ({
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  Link: (props: ComponentPropsWithoutRef<"a">) => <a {...props} />, // simple Link mock
+  Link: (props: ComponentPropsWithoutRef<"a">) => <a {...props} />,
   useRouterState: () => "/",
   useNavigate: () => () => {},
 }));

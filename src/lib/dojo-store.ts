@@ -1,6 +1,17 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+export const BELTS = [
+  { id: "white", name: "Faixa Branca", minXp: 0, color: "#ffffff", kanji: "白帯" },
+  { id: "yellow", name: "Faixa Amarela", minXp: 100, color: "#fbbf24", kanji: "黄帯" },
+  { id: "green", name: "Faixa Verde", minXp: 300, color: "#34d399", kanji: "緑帯" },
+  { id: "blue", name: "Faixa Azul", minXp: 600, color: "#60a5fa", kanji: "青帯" },
+  { id: "brown", name: "Faixa Marrom", minXp: 1000, color: "#d97706", kanji: "茶帯" },
+  { id: "black", name: "Faixa Preta", minXp: 1500, color: "#111827", kanji: "黒帯" },
+] as const;
+
+export type Belt = (typeof BELTS)[number];
+
 export interface DojoState {
   state: {
     xp: number;
@@ -12,43 +23,31 @@ export interface DojoState {
   fastForward: () => void;
   reset: () => void;
   updateStudentName: (newName: string) => void;
-  submitChallenge: (xpEarned: number) => void;
+  submitChallenge: (
+    lessonTitle: string,
+    xpEarned: number,
+    hours: number,
+  ) => { promoted: boolean; newBelt: Belt };
 }
 
-export const BELTS = [
-  { id: "white", name: "Faixa Branca", minXp: 0, color: "#ffffff", kanji: "白帯" },
-  { id: "yellow", name: "Faixa Amarela", minXp: 100, color: "#fbbf24", kanji: "黄帯" },
-  { id: "green", name: "Faixa Verde", minXp: 300, color: "#34d399", kanji: "緑帯" },
-  { id: "blue", name: "Faixa Azul", minXp: 600, color: "#60a5fa", kanji: "青帯" },
-  { id: "brown", name: "Faixa Marrom", minXp: 1000, color: "#d97706", kanji: "茶帯" },
-  { id: "black", name: "Faixa Preta", minXp: 1500, color: "#111827", kanji: "黒帯" },
-];
-
-export function getCurrentBelt(xp: number) {
-  const sorted = [...BELTS].sort((a, b) => b.minXp - a.minXp);
-  return sorted.find((b) => xp >= b.minXp) || BELTS[0];
-}
-
-export function getNextBelt(xp: number) {
+export function getCurrentBelt(xp: number): Belt {
   return (
-    BELTS.find((belt) => belt.minXp > xp) ||
-    BELTS[BELTS.length - 1]
+    [...BELTS].reverse().find((belt) => xp >= belt.minXp) ?? BELTS[0]
   );
 }
 
+export function getNextBelt(xp: number): Belt {
+  return BELTS.find((belt) => belt.minXp > xp) ?? BELTS[BELTS.length - 1];
+}
 
 export function beltProgress(xp: number) {
   const current = getCurrentBelt(xp);
   const next = getNextBelt(xp);
 
-  if (current.id === next.id) {
-    return 100;
-  }
+  if (current.id === next.id) return 100;
 
   const progress =
-    ((xp - current.minXp) /
-      (next.minXp - current.minXp)) *
-    100;
+    ((xp - current.minXp) / (next.minXp - current.minXp)) * 100;
 
   return Math.min(Math.max(progress, 0), 100);
 }
@@ -59,7 +58,7 @@ export function useHydrated() {
 
 export const useDojo = create<DojoState>()(
   persist(
-    (set): DojoState => ({
+    (set, get) => ({
       state: {
         xp: 0,
         hours: 0,
@@ -68,11 +67,11 @@ export const useDojo = create<DojoState>()(
         history: [],
       },
       fastForward: () =>
-        set((store: DojoState) => ({
+        set((store) => ({
           state: { ...store.state, xp: store.state.xp + 50 },
         })),
       reset: () =>
-        set((store: DojoState) => ({
+        set((store) => ({
           state: {
             ...store.state,
             xp: 0,
@@ -81,16 +80,22 @@ export const useDojo = create<DojoState>()(
             history: [],
           },
         })),
-      updateStudentName: (newName: string) =>
-        set((store: DojoState) => ({
+      updateStudentName: (newName) =>
+        set((store) => ({
           state: { ...store.state, studentName: newName },
         })),
-      submitChallenge: (xpEarned: number) =>
-        set((store: DojoState) => ({
+      submitChallenge: (lessonTitle, xpEarned, hours) => {
+        const previousXp = get().state.xp;
+        const previousBelt = getCurrentBelt(previousXp);
+        const nextXp = previousXp + xpEarned;
+        const newBelt = getCurrentBelt(nextXp);
+        const promoted = previousBelt.id !== newBelt.id;
+
+        set((store) => ({
           state: {
             ...store.state,
-            xp: store.state.xp + xpEarned,
-            hours: store.state.hours + 1,
+            xp: nextXp,
+            hours: store.state.hours + hours,
             streak: store.state.streak + 1,
             history: [
               ...store.state.history,
@@ -100,12 +105,14 @@ export const useDojo = create<DojoState>()(
               },
             ],
           },
-        })),
+        }));
+
+        void lessonTitle;
+        return { promoted, newBelt };
+      },
     }),
-    {
-      name: "dojo-storage",
-    }
-  )
+    { name: "dojo-storage" },
+  ),
 );
 
 export const updateStudentName = (newName: string) => {
