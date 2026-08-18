@@ -7,6 +7,7 @@ services:
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: ./apps/api
     healthCheckPath: /health/
+    preDeployCommand: python manage.py migrate --noinput
     envVars:
       - key: SECRET_KEY
         generateValue: true
@@ -26,14 +27,14 @@ services:
           property: connectionString
       - key: REDIS_URL
         fromService:
-          type: redis
+          type: keyvalue
           name: data-dojo-redis
           property: connectionString
 
   - type: worker
     name: data-dojo-worker
     runtime: docker
-    plan: free
+    plan: starter
     region: oregon
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: ./apps/api
@@ -53,16 +54,19 @@ services:
           property: connectionString
       - key: REDIS_URL
         fromService:
-          type: redis
+          type: keyvalue
           name: data-dojo-redis
           property: connectionString
     dockerCommand: celery -A config worker --loglevel=INFO
 
-  - type: redis
+  - type: keyvalue
     name: data-dojo-redis
     plan: free
     region: oregon
     maxmemoryPolicy: allkeys-lru
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: public access required by Render service networking
 
 databases:
   - name: data-dojo-db
