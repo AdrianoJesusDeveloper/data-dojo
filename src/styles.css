@@ -9,7 +9,6 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -29,7 +28,6 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-
   --color-samurai: var(--samurai);
   --color-samurai-foreground: var(--samurai-foreground);
   --color-kaizen: var(--kaizen);
@@ -40,7 +38,7 @@
   --color-belt-yellow: #f4d03f;
   --color-belt-green: #2ecc71;
   --color-belt-black: #0a0a0a;
-
+  /* Tipografia oficial preservada. */
   --font-display: "Exo 2", "Montserrat", sans-serif;
   --font-sans: "Open Sans", system-ui, sans-serif;
   --font-mono: "Roboto Mono", ui-monospace, monospace;
@@ -48,15 +46,13 @@
 
 :root {
   --radius: 0.5rem;
-
-  /* Marca Data Driven Dojô — Dark Mode nativo */
+  /* Paleta oficial do Data Driven Dojô — preservada. */
   --graphite: #1c1c1c;
   --deep-blue: #0057b8;
   --samurai: #e63946;
   --samurai-foreground: #ffffff;
   --kaizen: #ffa500;
   --kaizen-foreground: #1c1c1c;
-
   --background: #1c1c1c;
   --foreground: #e5e5e5;
   --card: #242424;
@@ -79,36 +75,57 @@
 }
 
 @layer base {
-  * {
-    border-color: var(--color-border);
+  * { border-color: var(--color-border); }
+
+  html {
+    min-width: 320px;
+    scroll-behavior: smooth;
+    text-size-adjust: 100%;
   }
-  html,
+
   body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    overflow-x: hidden;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  h1,
-  h2,
-  h3,
-  h4,
-  h5 {
+
+  h1, h2, h3, h4, h5 {
     font-family: var(--font-display);
     letter-spacing: -0.01em;
   }
-  code,
-  pre,
-  kbd {
-    font-family: var(--font-mono);
+
+  code, pre, kbd { font-family: var(--font-mono); }
+
+  img, svg, video, canvas { max-width: 100%; }
+
+  button, a, input, select, textarea { touch-action: manipulation; }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background: var(--kaizen);
+    color: var(--kaizen-foreground);
   }
 }
 
 @utility text-glow-kaizen {
   text-shadow: 0 0 24px color-mix(in oklab, #ffa500 55%, transparent);
 }
+
 @utility text-glow-samurai {
   text-shadow: 0 0 24px color-mix(in oklab, #e63946 55%, transparent);
 }
+
 @utility bg-grid-dojo {
   background-image:
     linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
@@ -117,46 +134,36 @@
 }
 
 @keyframes belt-promo {
-  0% {
-    transform: scale(1) rotate(0deg);
-    filter: drop-shadow(0 0 0 rgba(255, 165, 0, 0));
-  }
-  20% {
-    transform: scale(1.25) rotate(-6deg);
-    filter: drop-shadow(0 0 18px rgba(255, 165, 0, 0.95));
-  }
-  40% {
-    transform: scale(1.15) rotate(6deg);
-    filter: drop-shadow(0 0 22px rgba(230, 57, 70, 0.9));
-  }
-  60% {
-    transform: scale(1.25) rotate(-4deg);
-    filter: drop-shadow(0 0 22px rgba(255, 165, 0, 0.95));
-  }
-  80% {
-    transform: scale(1.1) rotate(2deg);
-    filter: drop-shadow(0 0 14px rgba(255, 165, 0, 0.6));
-  }
-  100% {
-    transform: scale(1) rotate(0deg);
-    filter: drop-shadow(0 0 0 rgba(255, 165, 0, 0));
-  }
+  0% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 0 rgba(255, 165, 0, 0)); }
+  20% { transform: scale(1.25) rotate(-6deg); filter: drop-shadow(0 0 18px rgba(255, 165, 0, 0.95)); }
+  40% { transform: scale(1.15) rotate(6deg); filter: drop-shadow(0 0 22px rgba(230, 57, 70, 0.9)); }
+  60% { transform: scale(1.25) rotate(-4deg); filter: drop-shadow(0 0 22px rgba(255, 165, 0, 0.95)); }
+  80% { transform: scale(1.1) rotate(2deg); filter: drop-shadow(0 0 14px rgba(255, 165, 0, 0.6)); }
+  100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 0 rgba(255, 165, 0, 0)); }
 }
+
 @keyframes belt-xp {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.12);
-    filter: drop-shadow(0 0 12px rgba(255, 165, 0, 0.8));
-  }
-  100% {
-    transform: scale(1);
+  0% { transform: scale(1); }
+  50% { transform: scale(1.12); filter: drop-shadow(0 0 12px rgba(255, 165, 0, 0.8)); }
+  100% { transform: scale(1); }
+}
+
+@utility animate-belt-promo { animation: belt-promo 2.2s ease-in-out; }
+@utility animate-belt-xp { animation: belt-xp 0.7s ease-out; }
+
+/* Acessibilidade: preserva a identidade e reduz movimento quando solicitado. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
-@utility animate-belt-promo {
-  animation: belt-promo 2.2s ease-in-out;
-}
-@utility animate-belt-xp {
-  animation: belt-xp 0.7s ease-out;
+
+/* Responsividade fina para telas compactas. */
+@media (max-width: 640px) {
+  body { font-size: 0.9375rem; }
+  h1 { line-height: 1.1; }
 }
