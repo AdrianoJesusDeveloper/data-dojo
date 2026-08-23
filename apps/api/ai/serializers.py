@@ -2,15 +2,8 @@ from rest_framework import serializers
 
 
 class AIChatSerializer(serializers.Serializer):
-    mentor = serializers.CharField()
-    message = serializers.CharField()
-    
-class AIChatSerializer(serializers.Serializer):
-
-    mentor = serializers.CharField(
-        required=True
+    mentor = serializers.ChoiceField(
+        choices=["dojo_ai", "ai_sales", "chatgpt", "gemini", "deepseek", "copilot"]
     )
-
-    message = serializers.CharField(
-        required=True
-    )
+    message = serializers.CharField(required=True, allow_blank=False)
+    conversation_id = serializers.IntegerField(required=False, allow_null=True)
