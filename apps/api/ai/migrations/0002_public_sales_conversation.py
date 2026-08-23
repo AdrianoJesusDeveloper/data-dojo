@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
 
@@ -5,6 +6,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
     dependencies = [
         ("ai", "0001_initial"),
+        ("core", "0001_initial"),
     ]
 
     operations = [
@@ -16,7 +18,7 @@ class Migration(migrations.Migration):
                 null=True,
                 on_delete=django.db.models.deletion.SET_NULL,
                 related_name="conversations",
-                to="auth.user",
+                to=settings.AUTH_USER_MODEL,
             ),
         ),
     ]
