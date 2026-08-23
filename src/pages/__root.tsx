@@ -77,30 +77,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   beforeLoad: ({ location }) => {
     if (typeof window === "undefined") return;
 
-    // Verifica se o token existe no localStorage do navegador
     const isAuthenticated = !!window.localStorage.getItem("token");
 
-    // Permite livre acesso apenas para a página de login ou registro
-    const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
+    // Páginas públicas: visitantes podem conhecer o Sensei e conversar com o AI Sales.
+    const publicRoutes = [
+      "/",
+      "/login",
+      "/register",
+      "/portfolio",
+      "/conheca-sensey",
+      "/ai-sales",
+    ];
 
-    // Se não estiver autenticado e tentar acessar uma área restrita, redireciona imediatamente
-   const publicRoutes = [
-  "/",
-  "/login",
-  "/register",
-  "/portfolio",
-];
+    const isPublicRoute = publicRoutes.includes(location.pathname);
 
-
-const isPublicRoute =
-  publicRoutes.includes(location.pathname);
-
-
-if (!isAuthenticated && !isPublicRoute) {
-  throw redirect({
-    to: "/login",
-  });
-} 
+    if (!isAuthenticated && !isPublicRoute) {
+      throw redirect({
+        to: "/login",
+      });
+    }
   },
   head: () => ({
     meta: [
@@ -156,7 +151,6 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>
   );
