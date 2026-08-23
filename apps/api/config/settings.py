@@ -4,7 +4,6 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 ROOT_DIR = BASE_DIR.parent
 load_dotenv(BASE_DIR / ".env")
@@ -42,11 +41,7 @@ THIRD_PARTY_APPS = [
     "dj_rest_auth.registration",
 ]
 
-LOCAL_APPS = [
-    "core",
-    "ai",
-]
-
+LOCAL_APPS = ["core", "ai"]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
@@ -76,7 +71,8 @@ TEMPLATES = [{
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL:
-    DATABASES = {"default": dj_database_url.config(default=DATABASE_URL, conn_max_age=600, conn_health_checks=True)}
+    DATABASES = {"default": {"ENGINE": "django.db.backends.postgresql", "NAME": "", "USER": "", "PASSWORD": "", "HOST": "", "PORT": "", "OPTIONS": {}, "TEST": {}, "CONN_MAX_AGE": 600, "CONN_HEALTH_CHECKS": True, "DISABLE_SERVER_SIDE_CURSORS": False}}
+    DATABASES["default"] = dj_database_url.config(default=DATABASE_URL, conn_max_age=600, conn_health_checks=True)
 else:
     DATABASES = {"default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -106,10 +102,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.TokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
-    "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
-    ],
+    "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.AnonRateThrottle", "rest_framework.throttling.UserRateThrottle"],
     "DEFAULT_THROTTLE_RATES": {"anon": "100/day", "user": "1000/day"},
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
@@ -117,12 +110,30 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "rest_framework.schemas.openapi.AutoSchema",
 }
 
+# O frontend público do Dojô precisa conseguir chamar o AI Sales sem login.
+DEFAULT_CORS_ORIGINS = [
+    "https://data-dojo-nine.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(
+    DEFAULT_CORS_ORIGINS + [
+        origin.strip()
+        for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+        if origin.strip()
+    ]
+))
 CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin.strip()]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
 CORS_ALLOWED_HEADERS = ["accept", "accept-encoding", "authorization", "content-type", "dnt", "origin", "user-agent", "x-csrftoken", "x-requested-with"]
-CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()]
+CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(
+    ["https://data-dojo-nine.vercel.app"] + [
+        origin.strip()
+        for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+        if origin.strip()
+    ]
+))
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -140,11 +151,7 @@ STORAGES = {
 
 REDIS_URL = os.getenv("REDIS_URL")
 if REDIS_URL:
-    CACHES = {"default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_URL,
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient", "IGNORE_EXCEPTIONS": True},
-    }}
+    CACHES = {"default": {"BACKEND": "django_redis.cache.RedisCache", "LOCATION": REDIS_URL, "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient", "IGNORE_EXCEPTIONS": True}}}
     CELERY_BROKER_URL = REDIS_URL
     CELERY_RESULT_BACKEND = REDIS_URL
     CELERY_ACCEPT_CONTENT = ["json"]
@@ -154,10 +161,7 @@ if REDIS_URL:
     CELERY_TASK_TRACK_STARTED = True
     CELERY_TASK_TIME_LIMIT = 30 * 60
 else:
-    CACHES = {"default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "data-dojo-cache",
-    }}
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "data-dojo-cache"}}
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.sendgrid.net")
