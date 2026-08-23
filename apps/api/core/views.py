@@ -1,3 +1,12 @@
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from rest_framework.views import APIView
+
 from rest_framework import viewsets, permissions, generics, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -152,3 +161,90 @@ class ModuleViewSet(viewsets.ModelViewSet):
 class LessonViewSet(viewsets.ModelViewSet):
     queryset = Lesson.objects.order_by('order')
     serializer_class = LessonSerializer
+
+
+class PasswordResetRequestView(APIView):
+    """Requests a password reset without revealing whether an account exists."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = str(request.data.get("email", "")).strip()
+        user = None
+
+        if email:
+            user = get_user_model().objects.filter(
+                email__iexact=email,
+                is_active=True,
+            ).first()
+
+        if user:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            frontend_url = getattr(
+                settings,
+                "FRONTEND_URL",
+                "http://localhost:5173",
+            ).rstrip("/")
+            reset_url = f"{frontend_url}/reset-password?uid={uid}&token={token}"
+            send_mail(
+                subject="Redefina sua senha — Data Driven Dojo",
+                message=(
+                    "Recebemos uma solicitação para redefinir sua senha.\n\n"
+                    f"Acesse o link para criar uma nova senha:\n{reset_url}\n\n"
+                    "Se você não solicitou esta alteração, ignore este e-mail."
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+        return Response(
+            {"detail": "Se houver uma conta associada a este e-mail, você receberá as instruções de recuperação."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    """Validates a reset token and saves the user's new password."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        uid = request.data.get("uid")
+        token = request.data.get("token")
+        password = request.data.get("password")
+        password_confirmation = request.data.get("password_confirmation")
+
+        if not all([uid, token, password, password_confirmation]):
+            return Response({"detail": "Preencha todos os campos."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if password != password_confirmation:
+            return Response(
+                {"password_confirmation": ["As senhas não coincidem."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = get_user_model().objects.get(pk=user_id, is_active=True)
+        except (TypeError, ValueError, OverflowError, get_user_model().DoesNotExist):
+            user = None
+
+        if not user or not default_token_generator.check_token(user, token):
+            return Response(
+                {"detail": "Este link de recuperação é inválido ou expirou."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            validate_password(password, user)
+        except Exception as error:
+            return Response({"password": list(error.messages)}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(password)
+        user.save(update_fields=["password"])
+        return Response(
+            {"detail": "Senha redefinida com sucesso. Você já pode entrar."},
+            status=status.HTTP_200_OK,
+        )
