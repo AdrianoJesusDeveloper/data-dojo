@@ -1,8 +1,9 @@
 #!/bin/bash
+set -e
 
 echo "🚀 Iniciando deploy no Render..."
 
-export DJANGO_SETTINGS_MODULE=confg.settings_prod
+export DJANGO_SETTINGS_MODULE=config.settings_prod
 
 echo "🗄 Aplicando migrações..."
 python manage.py migrate --noinput
