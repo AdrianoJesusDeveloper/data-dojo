@@ -1,11 +1,13 @@
+from django.conf import settings
 from django.db import models
-from django.contrib.auth.models import User
 
 
 class Conversation(models.Model):
     # Null para permitir conversas públicas do AI Sales.
+    # Usa AUTH_USER_MODEL para permanecer compatível com o modelo de usuário
+    # configurado pelo projeto Django.
     user = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         related_name="conversations",
         null=True,
