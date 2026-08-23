@@ -3,10 +3,13 @@ from django.contrib.auth.models import User
 
 
 class Conversation(models.Model):
+    # Null para permitir conversas públicas do AI Sales.
     user = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
-        related_name="conversations"
+        on_delete=models.SET_NULL,
+        related_name="conversations",
+        null=True,
+        blank=True,
     )
 
     mentor = models.CharField(max_length=50)
@@ -22,7 +25,8 @@ class Conversation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.mentor}"
+        owner = self.user.username if self.user else "visitante"
+        return f"{owner} - {self.mentor}"
 
 
 class Message(models.Model):
