@@ -1,3 +1,4 @@
+import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "../components/Navbar";
 
 const linkedinUrl = "https://www.linkedin.com/in/adriano-jesus-costa/";
@@ -7,7 +8,7 @@ const profile = {
   name: "Adriano Jesus Costa",
   headline: "Dados, Inteligência Artificial, Cloud e desenvolvimento de soluções digitais",
   summary:
-    "Bacharel em Sistemas de Informação e profissional em transição e evolução contínua na área de Dados e Inteligência Artificial. Minha jornada combina experiência prática em operações e atendimento, formação em Ciência de Dados e Big Data, Cloud Computing e construção de produtos digitais.",
+    "Bacharel em Sistemas de Informação e profissional em evolução contínua na área de Dados e Inteligência Artificial. Minha jornada combina experiência prática em operações e atendimento, formação em Ciência de Dados e Big Data, Cloud Computing e construção de produtos digitais.",
   philosophy:
     "Acredito em aprendizado contínuo, prática orientada a projetos e evolução de 1% ao dia. O Data Driven Dojô nasceu dessa filosofia: transformar conhecimento em prática e prática em capacidade profissional.",
 };
@@ -54,12 +55,8 @@ export function Sobre() {
           <p className="mt-7 max-w-4xl text-lg leading-8 text-zinc-300">{profile.summary}</p>
 
           <div className="mt-8 flex flex-wrap gap-4">
-            <a className="rounded-lg border border-zinc-700 px-5 py-3 hover:border-orange-500" href={linkedinUrl} target="_blank" rel="noreferrer">
-              LinkedIn
-            </a>
-            <a className="rounded-lg border border-zinc-700 px-5 py-3 hover:border-orange-500" href={githubUrl} target="_blank" rel="noreferrer">
-              GitHub
-            </a>
+            <a className="rounded-lg border border-zinc-700 px-5 py-3 hover:border-orange-500" href={linkedinUrl} target="_blank" rel="noreferrer">LinkedIn</a>
+            <a className="rounded-lg border border-zinc-700 px-5 py-3 hover:border-orange-500" href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
           </div>
         </section>
 
@@ -80,9 +77,7 @@ export function Sobre() {
             <span className="text-orange-500 font-bold tracking-[4px]">ÁREAS DE ATUAÇÃO</span>
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               {strengths.map((strength) => (
-                <div key={strength} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-zinc-200">
-                  {strength}
-                </div>
+                <div key={strength} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-zinc-200">{strength}</div>
               ))}
             </div>
 
@@ -98,13 +93,9 @@ export function Sobre() {
             <div>
               <span className="text-orange-500 font-bold tracking-[4px]">PORTFÓLIO</span>
               <h2 className="mt-3 text-4xl font-black">Projetos que mostram a jornada</h2>
-              <p className="mt-4 max-w-3xl text-zinc-400 leading-7">
-                O portfólio do Dojô também funciona como vitrine profissional: projetos reais, código público e tecnologias utilizadas em cada solução.
-              </p>
+              <p className="mt-4 max-w-3xl text-zinc-400 leading-7">O portfólio do Dojô também funciona como vitrine profissional: projetos reais, código público e tecnologias utilizadas em cada solução.</p>
             </div>
-            <a className="whitespace-nowrap rounded-lg border border-orange-500 px-5 py-3 text-orange-400 hover:bg-orange-500 hover:text-black" href="/portfolio">
-              Ver portfólio completo
-            </a>
+            <a className="whitespace-nowrap rounded-lg border border-orange-500 px-5 py-3 text-orange-400 hover:bg-orange-500 hover:text-black" href="/portfolio">Ver portfólio completo</a>
           </div>
         </section>
       </main>
@@ -112,4 +103,6 @@ export function Sobre() {
   );
 }
 
-export default Sobre;
+export const Route = createFileRoute("/sobre")({
+  component: Sobre,
+});
