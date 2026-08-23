@@ -181,9 +181,17 @@ X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_AI_MODEL = os.getenv("OPENAI_AI_MODEL", "gpt-4.1-mini")
 DDJ_AI_PROVIDER = os.getenv("DDJ_AI_PROVIDER", "chatgpt")
 AI_SALES_PROVIDER = os.getenv("AI_SALES_PROVIDER", "chatgpt")
+SENSEI_AI_PROVIDER = os.getenv("SENSEI_AI_PROVIDER", "chatgpt")
+DATA_AI_PROVIDER = os.getenv("DATA_AI_PROVIDER", "chatgpt")
+AI_ENGINEER_PROVIDER = os.getenv("AI_ENGINEER_PROVIDER", "chatgpt")
+CLOUD_AI_PROVIDER = os.getenv("CLOUD_AI_PROVIDER", "chatgpt")
+CAREER_AI_PROVIDER = os.getenv("CAREER_AI_PROVIDER", "chatgpt")
+MARKETING_AI_PROVIDER = os.getenv("MARKETING_AI_PROVIDER", "chatgpt")
+YOUTUBE_AI_PROVIDER = os.getenv("YOUTUBE_AI_PROVIDER", "chatgpt")
 COPILOT_API_URL = os.getenv("COPILOT_API_URL", "")
 COPILOT_MODEL = os.getenv("COPILOT_MODEL", "gpt-5.4")
 
