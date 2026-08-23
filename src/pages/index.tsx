@@ -70,12 +70,12 @@ function HomePage() {
               Entrar no Dojô
             </Link>
 
-            <Link
-              to="/conheca-sensey"
+            <a
+              href="https://data-dojo-nine.vercel.app/conheca-sensey"
               className="rounded-xl border border-zinc-700 px-8 py-4 hover:bg-zinc-800 transition-colors"
             >
               Conhecer Sensei
-            </Link>
+            </a>
 
             <Link
               to="/ai-sales"
