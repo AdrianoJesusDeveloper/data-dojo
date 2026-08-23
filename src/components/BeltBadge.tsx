@@ -71,15 +71,15 @@ export function BeltProgress({ xp }: { xp: number }) {
           }}
         />
       </div>
-      <div className="mt-2 flex justify-between">
+      <div className="mt-3 flex items-start justify-between gap-3 px-1">
         {BELTS.map((b) => (
-          <div key={b.id} className="flex flex-col items-center gap-1">
+          <div key={b.id} className="flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center">
             <div
-              className="h-3 w-3 rounded-sm border border-black/40"
+              className="h-3 w-3 shrink-0 rounded-sm border border-black/40"
               style={{ background: b.color, opacity: xp >= b.minXp ? 1 : 0.35 }}
             />
             <span
-              className={`text-[10px] uppercase tracking-wider ${
+              className={`whitespace-nowrap text-[10px] uppercase tracking-wider ${
                 cur.id === b.id ? "text-kaizen font-semibold" : "text-muted-foreground"
               }`}
             >
