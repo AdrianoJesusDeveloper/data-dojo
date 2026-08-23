@@ -3,9 +3,28 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
+from .agent_registry import AGENT_REGISTRY
 from .models import Conversation, Message
 from .serializers import AIChatSerializer
-from .services import AGENTS, chat_ai
+from .services import WHATSAPP_URL, chat_ai
+
+
+class AIAgentsView(APIView):
+    """Lista os agentes disponíveis para a interface do Dojô."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        agents = []
+        for key, config in AGENT_REGISTRY.items():
+            if config["public"] or request.user.is_authenticated:
+                agents.append({
+                    "key": key,
+                    "name": config["name"],
+                    "description": config["description"],
+                    "specialty": config["specialty"],
+                    "public": config["public"],
+                })
+        return Response({"agents": agents}, status=status.HTTP_200_OK)
 
 
 class AIChatView(APIView):
@@ -21,7 +40,8 @@ class AIChatView(APIView):
         message = serializer.validated_data["message"]
         conversation_id = serializer.validated_data.get("conversation_id")
 
-        if mentor != "ai_sales" and not request.user.is_authenticated:
+        agent = AGENT_REGISTRY.get(mentor)
+        if agent and not agent["public"] and not request.user.is_authenticated:
             return Response(
                 {"detail": "Autenticação necessária para este agente."},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -83,13 +103,14 @@ class AIChatView(APIView):
             content=answer,
         )
 
+        agent_name = agent["name"] if agent else mentor
         return Response(
             {
                 "agent": mentor,
-                "agent_name": AGENTS.get(mentor, {}).get("name", mentor),
+                "agent_name": agent_name,
                 "conversation_id": conversation.id,
                 "message": answer,
-                "whatsapp_url": "https://wa.me/5521972663791",
+                "whatsapp_url": WHATSAPP_URL,
             },
             status=status.HTTP_200_OK,
         )
