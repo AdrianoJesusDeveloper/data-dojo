@@ -10,11 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ConhecaSenseyRouteImport } from './routes/conheca-sensey'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as AiSalesRouteImport } from './routes/ai-sales'
 import { Route as AiRouteImport } from './routes/ai'
@@ -25,9 +28,19 @@ const WorkspaceRoute = WorkspaceRouteImport.update({
   path: '/workspace',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
+  id: '/recuperar-senha',
+  path: '/recuperar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -48,6 +61,11 @@ const LoginRoute = LoginRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConhecaSenseyRoute = ConhecaSenseyRouteImport.update({
+  id: '/conheca-sensey',
+  path: '/conheca-sensey',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommunityRoute = CommunityRouteImport.update({
@@ -76,11 +94,14 @@ export interface FileRoutesByFullPath {
   '/ai': typeof AiRoute
   '/ai-sales': typeof AiSalesRoute
   '/community': typeof CommunityRoute
+  '/conheca-sensey': typeof ConhecaSenseyRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
   '/profile': typeof ProfileRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRoutesByTo {
@@ -88,11 +109,14 @@ export interface FileRoutesByTo {
   '/ai': typeof AiRoute
   '/ai-sales': typeof AiSalesRoute
   '/community': typeof CommunityRoute
+  '/conheca-sensey': typeof ConhecaSenseyRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
   '/profile': typeof ProfileRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRoutesById {
@@ -101,11 +125,14 @@ export interface FileRoutesById {
   '/ai': typeof AiRoute
   '/ai-sales': typeof AiSalesRoute
   '/community': typeof CommunityRoute
+  '/conheca-sensey': typeof ConhecaSenseyRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
   '/profile': typeof ProfileRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRouteTypes {
@@ -115,11 +142,14 @@ export interface FileRouteTypes {
     | '/ai'
     | '/ai-sales'
     | '/community'
+    | '/conheca-sensey'
     | '/dashboard'
     | '/login'
     | '/portfolio'
     | '/profile'
+    | '/recuperar-senha'
     | '/register'
+    | '/reset-password'
     | '/workspace'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -127,11 +157,14 @@ export interface FileRouteTypes {
     | '/ai'
     | '/ai-sales'
     | '/community'
+    | '/conheca-sensey'
     | '/dashboard'
     | '/login'
     | '/portfolio'
     | '/profile'
+    | '/recuperar-senha'
     | '/register'
+    | '/reset-password'
     | '/workspace'
   id:
     | '__root__'
@@ -139,11 +172,14 @@ export interface FileRouteTypes {
     | '/ai'
     | '/ai-sales'
     | '/community'
+    | '/conheca-sensey'
     | '/dashboard'
     | '/login'
     | '/portfolio'
     | '/profile'
+    | '/recuperar-senha'
     | '/register'
+    | '/reset-password'
     | '/workspace'
   fileRoutesById: FileRoutesById
 }
@@ -152,11 +188,14 @@ export interface RootRouteChildren {
   AiRoute: typeof AiRoute
   AiSalesRoute: typeof AiSalesRoute
   CommunityRoute: typeof CommunityRoute
+  ConhecaSenseyRoute: typeof ConhecaSenseyRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   PortfolioRoute: typeof PortfolioRoute
   ProfileRoute: typeof ProfileRoute
+  RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   RegisterRoute: typeof RegisterRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   WorkspaceRoute: typeof WorkspaceRoute
 }
 
@@ -169,11 +208,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recuperar-senha': {
+      id: '/recuperar-senha'
+      path: '/recuperar-senha'
+      fullPath: '/recuperar-senha'
+      preLoaderRoute: typeof RecuperarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -202,6 +255,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conheca-sensey': {
+      id: '/conheca-sensey'
+      path: '/conheca-sensey'
+      fullPath: '/conheca-sensey'
+      preLoaderRoute: typeof ConhecaSenseyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/community': {
@@ -240,11 +300,14 @@ const rootRouteChildren: RootRouteChildren = {
   AiRoute: AiRoute,
   AiSalesRoute: AiSalesRoute,
   CommunityRoute: CommunityRoute,
+  ConhecaSenseyRoute: ConhecaSenseyRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   PortfolioRoute: PortfolioRoute,
   ProfileRoute: ProfileRoute,
+  RecuperarSenhaRoute: RecuperarSenhaRoute,
   RegisterRoute: RegisterRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   WorkspaceRoute: WorkspaceRoute,
 }
 export const routeTree = rootRouteImport

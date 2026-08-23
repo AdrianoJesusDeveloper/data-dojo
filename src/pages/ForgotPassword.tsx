@@ -12,7 +12,7 @@ export default function ForgotPassword() {
     setLoading(true);
     setMessage("");
     try {
-      await api.post("/api/auth/password/reset/", { email });
+      await api.post("/api/auth/password-reset/", { email });
       setMessage("Se existir uma conta com este e-mail, enviaremos as instruções de recuperação.");
     } catch (error: any) {
       setMessage(error?.response?.data?.detail || "Não foi possível solicitar a recuperação agora.");
