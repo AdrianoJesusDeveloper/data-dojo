@@ -1,22 +1,22 @@
-import { useEffect, useState } from "react";
 import { DojoHeader } from "@/components/DojoHeader";
-import { api } from "@/lib/api";
 
 interface Profile { username: string; profile_picture: string | null; xp_points: number; }
 
+const LINKEDIN_PROFILE_PHOTO = "https://media.licdn.com/dms/image/v2/D4D03AQF8z0S5V7ABQA/profile-displayphoto-crop_800_800/B4DZyCJA00JIAI-/0/1771709929215?e=1788998400&v=beta&t=rObBy-DXszDMhXiNU3GMVLUBg_BifW0Uth3CbDq0BXY";
 const competencias = ["Python", "SQL", "Data Science", "Data Engineering", "IA", "Cloud Computing", "AWS", "Power BI"];
 
 export default function AboutSensey() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  useEffect(() => { api.get<Profile>("/api/user/profile/").then(({ data }) => setProfile(data)).catch(() => undefined); }, []);
-
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <DojoHeader />
       <main className="mx-auto max-w-6xl px-8 py-16">
         <section className="flex flex-col gap-8 md:flex-row md:items-center">
           <div className="h-36 w-36 shrink-0 overflow-hidden rounded-full border-2 border-orange-500 bg-zinc-900">
-            {profile?.profile_picture ? <img src={profile.profile_picture} alt="Adriano Jesus da Costa" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-4xl font-black text-orange-500">AJ</div>}
+            <img
+              src={LINKEDIN_PROFILE_PHOTO}
+              alt="Adriano Jesus da Costa — Sensei do Data Driven Dojô"
+              className="h-full w-full object-cover"
+            />
           </div>
           <div>
             <span className="font-semibold tracking-widest text-orange-500">CONHEÇA O SENSEY</span>
