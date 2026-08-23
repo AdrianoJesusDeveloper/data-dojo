@@ -6,7 +6,6 @@ from .settings import *
 # ============================================================
 
 ENVIRONMENT = "production"
-
 DEBUG = False
 
 
@@ -15,9 +14,7 @@ DEBUG = False
 # ============================================================
 
 if not SECRET_KEY:
-    raise RuntimeError(
-        "SECRET_KEY é obrigatória em produção."
-    )
+    raise RuntimeError("SECRET_KEY é obrigatória em produção.")
 
 
 # ============================================================
@@ -26,10 +23,7 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = [
     host.strip()
-    for host in os.getenv(
-        "ALLOWED_HOSTS",
-        ".onrender.com"
-    ).split(",")
+    for host in os.getenv("ALLOWED_HOSTS", ".onrender.com").split(",")
     if host.strip()
 ]
 
@@ -38,12 +32,8 @@ ALLOWED_HOSTS = [
 # PROXY / HTTPS
 # ============================================================
 
-SECURE_PROXY_SSL_HEADER = (
-    "HTTP_X_FORWARDED_PROTO",
-    "https",
-)
-
-SECURE_SSL_REDIRECT = False  # Desativado para permitir acesso via HTTP em render.com
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = False
 
 
 # ============================================================
@@ -51,16 +41,11 @@ SECURE_SSL_REDIRECT = False  # Desativado para permitir acesso via HTTP em rende
 # ============================================================
 
 SESSION_COOKIE_SECURE = True
-
 SESSION_COOKIE_HTTPONLY = True
-
 SESSION_COOKIE_SAMESITE = "None"
 
-
 CSRF_COOKIE_SECURE = True
-
 CSRF_COOKIE_HTTPONLY = False
-
 CSRF_COOKIE_SAMESITE = "None"
 
 
@@ -69,9 +54,7 @@ CSRF_COOKIE_SAMESITE = "None"
 # ============================================================
 
 SECURE_HSTS_SECONDS = 31536000
-
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-
 SECURE_HSTS_PRELOAD = False
 
 
@@ -82,39 +65,19 @@ SECURE_HSTS_PRELOAD = False
 CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOWED_ORIGINS = [
-    # Desenvolvimento local - Frontend
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-
-    # Desenvolvimento local - Backend
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-
-    # Frontend Vercel
     "https://data-dojo-nine.vercel.app",
     "https://data-dojo-nar3.vercel.app",
 ]
 
-# Permite adicionar origens através do .env
-CUSTOM_ORIGINS = os.getenv(
-    "CORS_ALLOWED_ORIGINS",
-    ""
-)
-
+CUSTOM_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "")
 if CUSTOM_ORIGINS:
     CORS_ALLOWED_ORIGINS.extend(
-        [
-            origin.strip()
-            for origin in CUSTOM_ORIGINS.split(",")
-            if origin.strip()
-        ]
+        origin.strip()
+        for origin in CUSTOM_ORIGINS.split(",")
+        if origin.strip()
     )
 
-# Permite previews da Vercel
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.vercel\.app$",
-]
-
+CORS_ALLOWED_ORIGIN_REGEXES = [r"^https://.*\.vercel\.app$"]
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_METHODS = [
@@ -137,3 +100,28 @@ CORS_ALLOW_HEADERS = [
     "x-csrftoken",
     "x-requested-with",
 ]
+
+
+# ============================================================
+# CSRF
+# ============================================================
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+# Mantém as origens HTTPS do frontend explicitamente confiáveis.
+for origin in CORS_ALLOWED_ORIGINS:
+    if origin.startswith("https://") and origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
+
+
+# ============================================================
+# SEGURANÇA ADICIONAL
+# ============================================================
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "same-origin"
