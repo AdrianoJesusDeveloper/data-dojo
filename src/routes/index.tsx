@@ -21,7 +21,6 @@ function HomePage() {
         position: "relative",
       }}
     >
-      {/* Logo no canto superior esquerdo */}
       <div
         style={{
           position: "absolute",
@@ -41,7 +40,6 @@ function HomePage() {
         />
       </div>
 
-      {/* Conteúdo Principal */}
       <main className="min-h-screen text-white flex items-center">
         <section className="mx-auto max-w-7xl px-10 py-48">
           <div className="text-orange-500 font-bold tracking-[10px]">
@@ -55,7 +53,7 @@ function HomePage() {
             <br />
             Desenvolva a mente
             <br />
-            de um NINJA dos  dados.
+            de um NINJA dos dados.
           </h1>
 
           <p className="mt-8 max-w-3xl text-xl text-zinc-400">
@@ -64,7 +62,7 @@ function HomePage() {
             Evolua sua carreira em Dados, IA e Tecnologia.
           </p>
 
-          <div className="mt-12 flex gap-5">
+          <div className="mt-12 flex flex-wrap gap-5">
             <Link
               to="/login"
               className="rounded-xl bg-orange-500 px-8 py-4 font-bold hover:bg-orange-600 transition-colors"
@@ -72,11 +70,18 @@ function HomePage() {
               Entrar no Dojô
             </Link>
 
-            <Link
-              to="/portfolio"
+            <a
+              href="https://data-dojo-nine.vercel.app/conheca-sensey"
               className="rounded-xl border border-zinc-700 px-8 py-4 hover:bg-zinc-800 transition-colors"
             >
               Conhecer Sensei
+            </a>
+
+            <Link
+              to="/ai-sales"
+              className="rounded-xl border border-orange-500/60 bg-orange-500/10 px-8 py-4 font-bold text-orange-400 hover:bg-orange-500/20 transition-colors"
+            >
+              💬 Saiba mais ou tire suas dúvidas
             </Link>
           </div>
         </section>
