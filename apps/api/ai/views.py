@@ -1,5 +1,5 @@
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -9,7 +9,9 @@ from .services import AGENTS, chat_ai
 
 
 class AIChatView(APIView):
-    permission_classes = [IsAuthenticated]
+    # O AI Sales é público para visitantes e futuros alunos.
+    # Outros agentes continuam protegidos por autenticação.
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = AIChatSerializer(data=request.data)
@@ -19,12 +21,21 @@ class AIChatView(APIView):
         message = serializer.validated_data["message"]
         conversation_id = serializer.validated_data.get("conversation_id")
 
+        if mentor != "ai_sales" and not request.user.is_authenticated:
+            return Response(
+                {"detail": "Autenticação necessária para este agente."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         conversation = None
         if conversation_id:
-            conversation = Conversation.objects.filter(
-                id=conversation_id,
-                user=request.user,
-            ).first()
+            conversation_query = Conversation.objects.filter(id=conversation_id)
+            if request.user.is_authenticated:
+                conversation_query = conversation_query.filter(user=request.user)
+            else:
+                conversation_query = conversation_query.filter(user__isnull=True)
+            conversation = conversation_query.first()
+
             if conversation is None:
                 return Response(
                     {"detail": "Conversa não encontrada."},
@@ -33,7 +44,7 @@ class AIChatView(APIView):
 
         if conversation is None:
             conversation = Conversation.objects.create(
-                user=request.user,
+                user=request.user if request.user.is_authenticated else None,
                 mentor=mentor,
                 title=message[:200],
             )
@@ -57,7 +68,7 @@ class AIChatView(APIView):
             answer = chat_ai(
                 mentor,
                 message,
-                user=request.user,
+                user=request.user if request.user.is_authenticated else None,
                 history=history,
             )
         except Exception as exc:
@@ -78,6 +89,7 @@ class AIChatView(APIView):
                 "agent_name": AGENTS.get(mentor, {}).get("name", mentor),
                 "conversation_id": conversation.id,
                 "message": answer,
+                "whatsapp_url": "https://wa.me/5521972663791",
             },
             status=status.HTTP_200_OK,
         )
