@@ -1,43 +1,116 @@
 import os
 import sys
+import hmac
 from pathlib import Path
 
+import plotly.express as px
 import streamlit as st
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
+from pipeline import build_admin_tables, build_kpis, build_timeseries
 
-from pipeline import build_kpis
+st.set_page_config(page_title="Dojo Command Center", page_icon="🥋", layout="wide")
+REFRESH_SECONDS = max(15, int(os.getenv("DASHBOARD_REFRESH_SECONDS", "60")))
+ADMIN_PASSWORD = os.getenv("DOJO_ADMIN_PASSWORD", "")
+LEXDATA_URL = os.getenv("LEXDATA_URL", "https://github.com/AdrianoJesusDeveloper/lex_data_project_")
+MARKETING_URL = os.getenv("MARKETING_URL", "")
+DOJO_APP_URL = os.getenv("DOJO_APP_URL", "https://data-dojo-nine.vercel.app/")
 
-st.set_page_config(page_title="Dojo Dashboard", page_icon="🥋", layout="wide")
-st.title("🥋 Dojo Dashboard")
-st.caption("Data Driven Dojô · Analytics · Data Engineering · Data Science")
+
+def brl(value):
+    return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+@st.cache_data(ttl=REFRESH_SECONDS, show_spinner="Atualizando indicadores...")
+def cached_kpis():
+    return build_kpis()
+
+
+@st.cache_data(ttl=REFRESH_SECONDS, show_spinner="Atualizando séries...")
+def cached_timeseries(days):
+    return build_timeseries(days)
+
+
+@st.fragment(run_every=f"{REFRESH_SECONDS}s")
+def overview(days):
+    k = cached_kpis()
+    generated = k["generated_at"].replace("T", " ")[:19]
+    st.caption(f"Atualização a cada {REFRESH_SECONDS}s · dados até {k['data_date']} · consulta {generated} UTC")
+    cols = st.columns(5)
+    cols[0].metric("Usuários", k["users"], f"+{k['new_users_today']} hoje")
+    cols[1].metric("Contas habilitadas", k["enabled_accounts"])
+    cols[2].metric("Cursos", k["courses"])
+    cols[3].metric("Produtos", k["active_products"])
+    cols[4].metric("Conversão em comprador", f"{k['buyer_conversion_rate']:.1f}%")
+    cols = st.columns(5)
+    cols[0].metric("Pedidos", k["orders"])
+    cols[1].metric("Pedidos reconhecidos", k["paid_orders"], f"{k['pending_orders']} pendentes")
+    cols[2].metric("Receita", brl(k["revenue"]), brl(k["revenue_today"]) + " hoje")
+    cols[3].metric("Ticket médio", brl(k["average_ticket"]))
+    cols[4].metric("Comunidade hoje", k["community_today"])
+    series = cached_timeseries(days)
+    left, right = st.columns(2)
+    with left:
+        st.plotly_chart(px.line(series["users"], x="day", y="value", markers=True, title=f"Novos usuários · {days} dias"), use_container_width=True)
+        st.plotly_chart(px.line(series["revenue"], x="day", y="value", markers=True, title=f"Receita reconhecida · {days} dias"), use_container_width=True)
+    with right:
+        st.plotly_chart(px.line(series["community"], x="day", y="value", markers=True, title=f"Conteúdos na comunidade · {days} dias"), use_container_width=True)
+        st.info("Próxima camada: APIs oficiais do YouTube, Meta e Google Ads.")
+    with st.expander("Definições dos indicadores"):
+        st.markdown("""
+- **Usuários:** contas cadastradas, incluindo habilitadas e desabilitadas.
+- **Contas habilitadas:** contas com `is_active`; não representa atividade recente.
+- **Conversão em comprador:** usuários distintos com ao menos um pedido reconhecido ÷ usuários cadastrados.
+- **Pedidos reconhecidos:** pedidos nos estados pago, em processamento ou concluído.
+- **Receita:** soma dos pedidos reconhecidos; pedidos pendentes e cancelados são excluídos.
+- **Ticket médio:** receita reconhecida ÷ quantidade de pedidos reconhecidos.
+- **Comunidade hoje:** publicações + comentários criados na data corrente do banco. Curtidas não entram neste indicador.
+        """)
+
+
+st.title("🥋 Dojo Command Center")
+st.caption("Data Driven Dojô · Analytics · Administração · Ecossistema 3DS")
+st.sidebar.link_button("↩ Voltar ao Data Driven Dojô", DOJO_APP_URL, use_container_width=True)
+page = st.sidebar.radio("Navegação", ["Visão geral", "Administração", "Ecossistema"])
+days = st.sidebar.selectbox(
+    "Período dos gráficos",
+    [7, 30, 90, 180, 365],
+    index=1,
+    format_func=lambda value: f"{value} dias",
+    disabled=page != "Visão geral",
+)
 
 try:
-    k = build_kpis()
+    if page == "Visão geral":
+        overview(days)
+    elif page == "Administração":
+        st.subheader("🔐 Administração")
+        if not ADMIN_PASSWORD:
+            st.warning("Defina DOJO_ADMIN_PASSWORD nos Secrets antes de habilitar esta área em produção.")
+            st.stop()
+        password = st.text_input("Senha administrativa", type="password")
+        if not hmac.compare_digest(password, ADMIN_PASSWORD):
+            st.info("Informe a senha administrativa para acessar dados operacionais.")
+            st.stop()
+        tables = build_admin_tables()
+        tab_users, tab_orders, tab_community = st.tabs(["Usuários", "Pedidos", "Comunidade"])
+        with tab_users: st.dataframe(tables["users"], hide_index=True, use_container_width=True)
+        with tab_orders: st.dataframe(tables["orders"], hide_index=True, use_container_width=True)
+        with tab_community: st.dataframe(tables["topics"], hide_index=True, use_container_width=True)
+        st.caption("Admin somente leitura. Alterações permanecem no Django Admin/API autenticada.")
+    else:
+        st.subheader("🌐 Ecossistema 3DS")
+        st.markdown("**Data Driven Dojô** — educação, comunidade, IA, analytics e 3DStore.")
+        st.markdown("**3DS Marketing Digital & Soluções Tecnológicas** — dados, automação, IA, cloud e marketing.")
+        st.markdown("**LexData & Finance Solutions** — dados e soluções financeiras.")
+        st.link_button("Abrir LexData", LEXDATA_URL)
+        if MARKETING_URL:
+            st.link_button("Abrir 3DS Marketing", MARKETING_URL)
+        else:
+            st.info("MARKETING_URL será conectado quando o site/subdomínio estiver publicado.")
 except Exception as exc:
-    st.error("O Dashboard está publicado, mas ainda não conseguiu acessar o banco de dados.")
-    st.code(str(exc))
-    st.info("Configure DATABASE_URL nos Secrets do Streamlit Cloud.")
-    st.stop()
-
-c = st.columns(4)
-c[0].metric("Usuários", k["users"])
-c[1].metric("Usuários ativos", k["active_users"])
-c[2].metric("Cursos", k["courses"])
-c[3].metric("Produtos ativos", k["active_products"])
-
-c = st.columns(4)
-c[0].metric("Pedidos", k["orders"])
-c[1].metric("Pedidos pagos", k["paid_orders"])
-c[2].metric("Receita", f"R$ {k['revenue']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
-c[3].metric("Ticket médio", f"R$ {k['average_ticket']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
-
-st.subheader("Comunidade")
-c = st.columns(2)
-c[0].metric("Tópicos", k["topics"])
-c[1].metric("Comentários", k["comments"])
-
-st.subheader("Marketing Digital")
-st.dataframe({"Canal": ["Instagram", "LinkedIn", "YouTube", "Meta Ads", "Google Ads"], "Status": ["N/D"] * 5}, hide_index=True, use_container_width=True)
-st.caption(f"Última leitura: {k['generated_at']}")
+    st.error("O Command Center não conseguiu acessar uma das fontes de dados.")
+    if os.getenv("DASHBOARD_DEBUG", "False").lower() == "true":
+        st.code(str(exc))
+    st.info("Confira DATABASE_URL e os Secrets do ambiente Streamlit.")

@@ -66,7 +66,7 @@ export default function Register() {
               Criar conta
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Comece sua jornada de Determinação, Disciplina e Dedicação.
+              Comece sua jornada de Determinação, Disciplina e Direção.
             </p>
           </div>
 

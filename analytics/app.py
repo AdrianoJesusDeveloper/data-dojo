@@ -1,7 +1,4 @@
-import streamlit as st
+"""Entrypoint compatível com Streamlit Cloud."""
+from pathlib import Path
 
-st.set_page_config(page_title="Dojo Dashboard", page_icon="🥋", layout="wide")
-st.title("🥋 Dojo Dashboard")
-st.subheader("Data Driven Dojô")
-st.write("Dashboard de Analytics, Data Engineering e Data Science.")
-st.success("Streamlit entrypoint carregado com sucesso.")
+exec((Path(__file__).resolve().parent / "streamlit_app.py").read_text(encoding="utf-8"))

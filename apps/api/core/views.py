@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
+from django.db.models import Q
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework.views import APIView
@@ -12,7 +13,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
-from .models import Course, Module, Lesson, ForumTopic, ForumComment, Certificate
+from .models import Course, Module, Lesson, ForumTopic, ForumComment, Certificate, StudentProject
 from .serializers import (
     CourseSerializer, 
     LessonSerializer, 
@@ -21,8 +22,19 @@ from .serializers import (
     ForumTopicDetailSerializer,
     ForumCommentSerializer,
     CertificateSerializer,
-    UserSerializer
+    UserSerializer,
+    StudentProjectSerializer,
 )
+
+
+class OwnerWritePermission(permissions.BasePermission):
+    """Restringe edição/exclusão de publicações e comentários ao próprio autor."""
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return getattr(obj, "user_id", None) == request.user.id
+
 
 # =====================================================================
 # NOVAS VIEWS: COMUNIDADE (FÓRUM)
@@ -32,9 +44,9 @@ class ForumTopicViewSet(viewsets.ModelViewSet):
     Lista, cria, edita e apaga tópicos no fórum da comunidade.
     Suporta JSON, upload de mídias e sistema de curtidas.
     """
-    queryset = ForumTopic.objects.prefetch_related('user', 'comments__user').order_by('-created_at')
+    queryset = ForumTopic.objects.select_related('user').prefetch_related('likes', 'comments__user', 'comments__likes').order_by('-created_at')
     parser_classes = [JSONParser, MultiPartParser, FormParser]
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, OwnerWritePermission]
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -100,10 +112,10 @@ class ForumCommentViewSet(viewsets.ModelViewSet):
     """
     Gerencia as respostas e comentários de um tópico específico.
     """
-    queryset = ForumComment.objects.select_related('user').order_by('created_at')
+    queryset = ForumComment.objects.select_related('user', 'topic').prefetch_related('likes').order_by('created_at')
     serializer_class = ForumCommentSerializer
     parser_classes = [JSONParser, MultiPartParser, FormParser]
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, OwnerWritePermission]
 
     def perform_create(self, serializer):
         comment = serializer.save(user=self.request.user)
@@ -115,6 +127,19 @@ class ForumCommentViewSet(viewsets.ModelViewSet):
                 topic.comments_count = comments_set.count()
                 topic.save()
 
+    @action(detail=True, methods=['post'])
+    def like(self, request, pk=None):
+        comment = self.get_object()
+        user = request.user
+
+        if user in comment.likes.all():
+            comment.likes.remove(user)
+        else:
+            comment.likes.add(user)
+
+        serializer = self.get_serializer(comment)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 # =====================================================================
 # NOVA VIEW: CERTIFICADOS
@@ -125,6 +150,30 @@ class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return Certificate.objects.filter(user=self.request.user).order_by('-issued_at')
+
+
+class StudentProjectViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentProjectSerializer
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), OwnerWritePermission()]
+
+    def get_queryset(self):
+        queryset = StudentProject.objects.select_related("user", "course")
+        user = self.request.user
+        if user.is_authenticated:
+            queryset = queryset.filter(Q(status="published") | Q(user=user))
+        else:
+            queryset = queryset.filter(status="published")
+        course = self.request.query_params.get("course")
+        if course:
+            queryset = queryset.filter(course_id=course)
+        return queryset.distinct().order_by("-featured", "-updated_at")
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 # =====================================================================

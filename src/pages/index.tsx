@@ -58,7 +58,7 @@ function HomePage() {
 
           <p className="mt-8 max-w-3xl text-xl text-zinc-400">
             Uma plataforma de aprendizado baseada na filosofia 3DS:
-            Determinação, Disciplina e Dedicação.
+            Determinação, Disciplina e Direção.
             Evolua sua carreira em Dados, IA e Tecnologia.
           </p>
 

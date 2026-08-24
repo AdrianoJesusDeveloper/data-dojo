@@ -6,6 +6,10 @@ interface UserProfile {
   email: string;
   profile_picture: string | null;
   xp_points: number;
+  github_url: string;
+  linkedin_url: string;
+  instagram_url: string;
+  website_url: string;
 }
 
 export default function ProfileComponent() {
@@ -17,6 +21,7 @@ export default function ProfileComponent() {
   const [passwords, setPasswords] = useState({ old_password: "", new_password1: "", new_password2: "" });
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [socialLinks, setSocialLinks] = useState({ github_url: "", linkedin_url: "", instagram_url: "", website_url: "" });
 
   useEffect(() => {
     api.get<UserProfile>("/api/user/profile/")
@@ -24,6 +29,7 @@ export default function ProfileComponent() {
         setUser(data);
         setUsername(data.username);
         setPreviewUrl(data.profile_picture);
+        setSocialLinks({ github_url: data.github_url || "", linkedin_url: data.linkedin_url || "", instagram_url: data.instagram_url || "", website_url: data.website_url || "" });
       })
       .catch(() => undefined);
   }, []);
@@ -46,11 +52,13 @@ export default function ProfileComponent() {
       const formData = new FormData();
       if (selectedFile) formData.append("profile_picture", selectedFile);
       if (username !== user?.username) formData.append("username", username);
+      Object.entries(socialLinks).forEach(([key, value]) => formData.append(key, value));
       const { data } = await api.patch<UserProfile>("/api/user/profile/", formData);
       setUser(data);
       setUsername(data.username);
       setSelectedFile(null);
       setPreviewUrl(data.profile_picture);
+      setSocialLinks({ github_url: data.github_url || "", linkedin_url: data.linkedin_url || "", instagram_url: data.instagram_url || "", website_url: data.website_url || "" });
       window.alert("Perfil atualizado com sucesso!");
     } catch (error) {
       console.error(error);
@@ -105,7 +113,9 @@ export default function ProfileComponent() {
         <div className="space-y-4">
           <label className="block text-sm font-medium text-gray-400">Nome de Usuário<input type="text" value={username} onChange={(event) => setUsername(event.target.value)} className="mt-1 w-full rounded-md border border-gray-800 bg-[#1a1d26] p-3 text-white" /></label>
           <label className="block text-sm font-medium text-gray-400">E-mail<input type="email" value={user?.email || ""} disabled className="mt-1 w-full cursor-not-allowed rounded-md border border-gray-800 bg-[#1a1d26] p-3 text-gray-500" /></label>
-          <div className="flex justify-end pt-2"><button onClick={handleSaveProfile} disabled={loading || (!selectedFile && username === user?.username)} className="rounded-md bg-[#ff3b30] px-6 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-gray-700">{loading ? "Salvando..." : "Salvar Alterações"}</button></div>
+          <div className="grid gap-4 border-t border-gray-800 pt-5 md:grid-cols-2"><label className="block text-sm font-medium text-gray-400">GitHub<input type="url" placeholder="https://github.com/seu-usuario" value={socialLinks.github_url} onChange={(e) => setSocialLinks({ ...socialLinks, github_url: e.target.value })} className="mt-1 w-full rounded-md border border-gray-800 bg-[#1a1d26] p-3 text-white" /></label><label className="block text-sm font-medium text-gray-400">LinkedIn<input type="url" placeholder="https://linkedin.com/in/seu-perfil" value={socialLinks.linkedin_url} onChange={(e) => setSocialLinks({ ...socialLinks, linkedin_url: e.target.value })} className="mt-1 w-full rounded-md border border-gray-800 bg-[#1a1d26] p-3 text-white" /></label><label className="block text-sm font-medium text-gray-400">Instagram<input type="url" placeholder="https://instagram.com/seu-perfil" value={socialLinks.instagram_url} onChange={(e) => setSocialLinks({ ...socialLinks, instagram_url: e.target.value })} className="mt-1 w-full rounded-md border border-gray-800 bg-[#1a1d26] p-3 text-white" /></label><label className="block text-sm font-medium text-gray-400">Site pessoal<input type="url" placeholder="https://seusite.com.br" value={socialLinks.website_url} onChange={(e) => setSocialLinks({ ...socialLinks, website_url: e.target.value })} className="mt-1 w-full rounded-md border border-gray-800 bg-[#1a1d26] p-3 text-white" /></label></div>
+          <p className="text-xs text-gray-500">Esses links aparecerão nos seus projetos publicados no Portfólio dos Alunos.</p>
+          <div className="flex justify-end pt-2"><button onClick={handleSaveProfile} disabled={loading} className="rounded-md bg-[#ff3b30] px-6 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-gray-700">{loading ? "Salvando..." : "Salvar Alterações"}</button></div>
         </div>
 
         <div className="my-10 border-t border-gray-800" />
