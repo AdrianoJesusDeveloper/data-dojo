@@ -32,11 +32,23 @@ class UserSerializer(serializers.ModelSerializer):
 # =====================================================================
 class ForumCommentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    likes = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    likes_count = serializers.IntegerField(source="likes.count", read_only=True)
+    liked_by_me = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
 
     class Meta:
         model = ForumComment
-        fields = ["id", "topic", "user", "content", "code_screenshot", "created_at"]
-        read_only_fields = ["id", "user", "created_at"]
+        fields = ["id", "topic", "user", "content", "code_screenshot", "likes", "likes_count", "liked_by_me", "is_owner", "created_at", "updated_at"]
+        read_only_fields = ["id", "user", "likes", "created_at", "updated_at"]
+
+    def get_liked_by_me(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and obj.likes.filter(pk=request.user.pk).exists())
+
+    def get_is_owner(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and obj.user_id == request.user.id)
 
 
 class ForumTopicSerializer(serializers.ModelSerializer):
@@ -48,6 +60,8 @@ class ForumTopicSerializer(serializers.ModelSerializer):
     likes = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     # Mantém o contador dinâmico estruturado
     likes_count = serializers.SerializerMethodField()
+    liked_by_me = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
 
     class Meta:
         model = ForumTopic
@@ -59,14 +73,25 @@ class ForumTopicSerializer(serializers.ModelSerializer):
             "code_screenshot", 
             "likes",          
             "likes_count", 
+            "liked_by_me",
             "comments_count", 
             "comments",
-            "created_at"
+            "is_owner",
+            "created_at",
+            "updated_at"
         ]
-        read_only_fields = ["id", "user", "likes", "created_at"]
+        read_only_fields = ["id", "user", "likes", "created_at", "updated_at"]
 
     def get_likes_count(self, obj):
         return obj.likes.count()
+
+    def get_liked_by_me(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and obj.likes.filter(pk=request.user.pk).exists())
+
+    def get_is_owner(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and obj.user_id == request.user.id)
 
 
 class ForumTopicDetailSerializer(serializers.ModelSerializer):
@@ -74,11 +99,21 @@ class ForumTopicDetailSerializer(serializers.ModelSerializer):
     comments = ForumCommentSerializer(many=True, read_only=True)
     likes = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     likes_count = serializers.IntegerField(source="likes.count", read_only=True)
+    liked_by_me = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
 
     class Meta:
         model = ForumTopic
-        fields = ["id", "user", "title", "content", "code_screenshot", "comments", "likes", "likes_count", "created_at"]
-        read_only_fields = ["id", "user", "likes", "created_at"]
+        fields = ["id", "user", "title", "content", "code_screenshot", "comments", "likes", "likes_count", "liked_by_me", "is_owner", "created_at", "updated_at"]
+        read_only_fields = ["id", "user", "likes", "created_at", "updated_at"]
+
+    def get_liked_by_me(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and obj.likes.filter(pk=request.user.pk).exists())
+
+    def get_is_owner(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and obj.user_id == request.user.id)
 
 
 # =====================================================================
