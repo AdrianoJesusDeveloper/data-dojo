@@ -41,6 +41,31 @@ class Product(models.Model):
         return self.name
 
 
+class Cart(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="store_cart")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Carrinho de {self.user.email}"
+
+    @property
+    def total(self):
+        return sum(item.subtotal for item in self.items.select_related("product").all())
+
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="cart_items")
+    quantity = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["cart", "product"], name="unique_cart_product")]
+
+    @property
+    def subtotal(self):
+        return self.quantity * self.product.price
+
+
 class Order(models.Model):
     STATUS_CHOICES = [("pending", "Pending"), ("paid", "Paid"), ("cancelled", "Cancelled"), ("fulfilled", "Fulfilled")]
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="store_orders")
