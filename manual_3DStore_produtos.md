@@ -2,6 +2,8 @@
 
 Este manual explica como cadastrar, publicar, editar, desativar e remover itens da 3DStore pelo Django Admin, incluindo imagens e vídeos.
 
+Para instalar e executar todo o ecossistema no computador, consulte o [Manual do sistema local](manual_sistema_local.md).
+
 ## 1. Acessos
 
 - Produção: `https://data-dojo.onrender.com/admin/`
@@ -204,4 +206,3 @@ Perguntas aparecem em **Product questions**. Abra a pergunta, escreva a resposta
 | Item físico está esgotado | atualize **Stock** para valor maior que zero |
 | Afiliado entra no carrinho | confira se **Sales model** está como `Affiliate` |
 | Exclusão foi bloqueada | desative o produto para preservar pedidos relacionados |
-
