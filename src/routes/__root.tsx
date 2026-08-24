@@ -49,15 +49,21 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   beforeLoad: ({ location }) => {
     if (typeof window === "undefined") return;
-    const publicRoutes = ["/", "/login", "/register", "/portfolio", "/store"];
+
+    // Área pública: visitantes podem conhecer o Dojô e entrar no funil comercial sem login.
+    // Todo o restante da plataforma continua protegido por autenticação.
+    const publicRoutes = ["/", "/login", "/register", "/portfolio", "/store", "/conheca-sensey", "/ai-sales"];
     if (publicRoutes.includes(location.pathname)) return;
+
     const authStorage = window.localStorage.getItem("ddj-auth");
     let isAuthenticated = false;
     if (authStorage) {
       try {
         const parsed = JSON.parse(authStorage);
         isAuthenticated = parsed?.state?.isAuthenticated === true && !!parsed?.state?.token;
-      } catch { isAuthenticated = false; }
+      } catch {
+        isAuthenticated = false;
+      }
     }
     if (!isAuthenticated) throw redirect({ to: "/login" });
   },
