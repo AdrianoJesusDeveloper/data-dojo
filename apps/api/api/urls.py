@@ -7,6 +7,7 @@ router = DefaultRouter()
 router.register(r'community/posts', views.ForumTopicViewSet, basename='forumtopic')
 router.register(r'community/comments', views.ForumCommentViewSet, basename='forumcomment')
 router.register(r'certificates', views.CertificateViewSet, basename='certificate')
+router.register(r'portfolio/projects', views.StudentProjectViewSet, basename='student-project')
 router.register(r'courses', views.CourseViewSet, basename='course')
 router.register(r'modules', views.ModuleViewSet, basename='module')
 

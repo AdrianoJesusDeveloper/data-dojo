@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from .models import Course, Module, Lesson, Exercise, ForumTopic, ForumComment, Certificate
+from .models import Course, Module, Lesson, Exercise, ForumTopic, ForumComment, Certificate, StudentProject
 
 User = get_user_model()
 
@@ -14,7 +14,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "studentName", "email", "profile_picture", "xp_points"]
+        fields = ["id", "username", "studentName", "email", "profile_picture", "xp_points", "github_url", "linkedin_url", "instagram_url", "website_url"]
         read_only_fields = ["id", "xp_points"]
 
     def to_representation(self, instance):
@@ -128,6 +128,33 @@ class CertificateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "issued_at", "verification_code"]
 
 
+class StudentProjectSerializer(serializers.ModelSerializer):
+    student = UserSerializer(source="user", read_only=True)
+    course_title = serializers.CharField(source="course.title", read_only=True)
+    is_owner = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StudentProject
+        fields = [
+            "id", "student", "course", "course_title", "title", "summary", "description",
+            "technologies", "repository_url", "demo_url", "image_url", "status", "featured",
+            "is_owner", "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "student", "featured", "created_at", "updated_at"]
+
+    def validate_technologies(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Informe as tecnologias em uma lista.")
+        cleaned = list(dict.fromkeys(str(item).strip() for item in value if str(item).strip()))
+        if len(cleaned) > 12:
+            raise serializers.ValidationError("Informe no máximo 12 tecnologias.")
+        return cleaned
+
+    def get_is_owner(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and obj.user_id == request.user.id)
+
+
 # =====================================================================
 # SERIALIZERS JÁ EXISTENTES DA PLATAFORMA
 # =====================================================================
@@ -176,25 +203,6 @@ class LessonSerializer(serializers.ModelSerializer):
                 )
 
         return ret
-    exercise = ExerciseSerializer(read_only=True)
-    
-    
-
-    class Meta:
-        model = Lesson
-        fields = [
-            "id",
-            "module",
-            "title",
-            "content_type",
-            "file_upload",
-            "video_url",
-            "body",
-            "order",
-            "exercise",
-        ]
-    
-
 class ModuleSerializer(serializers.ModelSerializer):
     lessons = LessonSerializer(many=True, read_only=True)
 

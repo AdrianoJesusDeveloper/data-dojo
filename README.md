@@ -10,7 +10,7 @@ Uma plataforma educacional gamificada para formação de profissionais de **dado
 
 <br>
 
-**Determinação · Disciplina · Dedicação**
+**Determinação · Disciplina · Direção**
 
 <br><br>
 
@@ -513,7 +513,7 @@ npm run build
 
 > **Determinação para começar.**  
 > **Disciplina para continuar.**  
-> **Dedicação para dominar.**
+> **Direção para evoluir.**
 
 O Data Driven Dojô é um experimento contínuo sobre **como aprender tecnologia de forma prática, mensurável e sustentável**.
 

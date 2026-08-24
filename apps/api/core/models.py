@@ -30,6 +30,11 @@ class User(AbstractUser):
         default=0
     )
 
+    github_url = models.URLField(blank=True)
+    linkedin_url = models.URLField(blank=True)
+    instagram_url = models.URLField(blank=True)
+    website_url = models.URLField(blank=True)
+
     # Campo utilizado para autenticação
     USERNAME_FIELD = "email"
 
@@ -399,3 +404,27 @@ class Certificate(models.Model):
             f"{self.user.username} - "
             f"{self.course.title}"
         )
+
+
+class StudentProject(models.Model):
+    STATUS_CHOICES = [("draft", "Rascunho"), ("published", "Publicado")]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="portfolio_projects")
+    course = models.ForeignKey(Course, on_delete=models.PROTECT, related_name="student_projects")
+    title = models.CharField(max_length=180)
+    summary = models.CharField(max_length=320)
+    description = models.TextField(blank=True)
+    technologies = models.JSONField(default=list, blank=True)
+    repository_url = models.URLField(blank=True)
+    demo_url = models.URLField(blank=True)
+    image_url = models.URLField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
+    featured = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-featured", "-updated_at"]
+
+    def __str__(self):
+        return f"{self.title} — {self.user.username}"

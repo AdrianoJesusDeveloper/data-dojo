@@ -2,6 +2,8 @@ import { DojoHeader } from "@/components/DojoHeader";
 import { BeltBadge, BeltProgress } from "@/components/BeltBadge";
 
 import { useDojo, getCurrentBelt, BELTS, useHydrated, updateStudentName } from "@/lib/dojo-store";
+import { useAuthStore } from "@/lib/auth-store";
+import { api } from "@/lib/api";
 
 import { toast, Toaster } from "sonner";
 
@@ -38,20 +40,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function loadProfile() {
-      const token = localStorage.getItem("token");
+      const token = useAuthStore.getState().token;
 
       if (!token) return;
 
       try {
-        const response = await fetch("https://data-dojo.onrender.com/api/user/profile/", {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-        });
-
-        if (!response.ok) throw new Error("Erro buscando usuário");
-
-        const data = await response.json();
+        const { data } = await api.get("/api/user/profile/");
 
         setProfile(data);
 

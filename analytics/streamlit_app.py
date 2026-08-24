@@ -1,5 +1,6 @@
 import os
 import sys
+import hmac
 from pathlib import Path
 
 import plotly.express as px
@@ -14,52 +15,82 @@ REFRESH_SECONDS = max(15, int(os.getenv("DASHBOARD_REFRESH_SECONDS", "60")))
 ADMIN_PASSWORD = os.getenv("DOJO_ADMIN_PASSWORD", "")
 LEXDATA_URL = os.getenv("LEXDATA_URL", "https://github.com/AdrianoJesusDeveloper/lex_data_project_")
 MARKETING_URL = os.getenv("MARKETING_URL", "")
+DOJO_APP_URL = os.getenv("DOJO_APP_URL", "https://data-dojo-nine.vercel.app/")
 
 
 def brl(value):
     return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+@st.cache_data(ttl=REFRESH_SECONDS, show_spinner="Atualizando indicadores...")
+def cached_kpis():
+    return build_kpis()
+
+
+@st.cache_data(ttl=REFRESH_SECONDS, show_spinner="Atualizando séries...")
+def cached_timeseries(days):
+    return build_timeseries(days)
+
+
 @st.fragment(run_every=f"{REFRESH_SECONDS}s")
-def overview():
-    k = build_kpis()
-    st.caption(f"Near real-time · atualização a cada {REFRESH_SECONDS}s · leitura {k['generated_at']}")
+def overview(days):
+    k = cached_kpis()
+    generated = k["generated_at"].replace("T", " ")[:19]
+    st.caption(f"Atualização a cada {REFRESH_SECONDS}s · dados até {k['data_date']} · consulta {generated} UTC")
     cols = st.columns(5)
     cols[0].metric("Usuários", k["users"], f"+{k['new_users_today']} hoje")
-    cols[1].metric("Ativos", k["active_users"])
+    cols[1].metric("Contas habilitadas", k["enabled_accounts"])
     cols[2].metric("Cursos", k["courses"])
     cols[3].metric("Produtos", k["active_products"])
-    cols[4].metric("Conversão", f"{k['conversion_rate']:.1f}%")
+    cols[4].metric("Conversão em comprador", f"{k['buyer_conversion_rate']:.1f}%")
     cols = st.columns(5)
     cols[0].metric("Pedidos", k["orders"])
-    cols[1].metric("Pagos", k["paid_orders"])
+    cols[1].metric("Pedidos reconhecidos", k["paid_orders"], f"{k['pending_orders']} pendentes")
     cols[2].metric("Receita", brl(k["revenue"]), brl(k["revenue_today"]) + " hoje")
     cols[3].metric("Ticket médio", brl(k["average_ticket"]))
-    cols[4].metric("Comunidade hoje", k["topics_today"] + k["comments_today"])
-    series = build_timeseries(30)
+    cols[4].metric("Comunidade hoje", k["community_today"])
+    series = cached_timeseries(days)
     left, right = st.columns(2)
     with left:
-        st.plotly_chart(px.line(series["users"], x="day", y="value", markers=True, title="Novos usuários · 30 dias"), use_container_width=True)
-        st.plotly_chart(px.line(series["revenue"], x="day", y="value", markers=True, title="Receita · 30 dias"), use_container_width=True)
+        st.plotly_chart(px.line(series["users"], x="day", y="value", markers=True, title=f"Novos usuários · {days} dias"), use_container_width=True)
+        st.plotly_chart(px.line(series["revenue"], x="day", y="value", markers=True, title=f"Receita reconhecida · {days} dias"), use_container_width=True)
     with right:
-        st.plotly_chart(px.line(series["community"], x="day", y="value", markers=True, title="Interações na comunidade · 30 dias"), use_container_width=True)
+        st.plotly_chart(px.line(series["community"], x="day", y="value", markers=True, title=f"Conteúdos na comunidade · {days} dias"), use_container_width=True)
         st.info("Próxima camada: APIs oficiais do YouTube, Meta e Google Ads.")
+    with st.expander("Definições dos indicadores"):
+        st.markdown("""
+- **Usuários:** contas cadastradas, incluindo habilitadas e desabilitadas.
+- **Contas habilitadas:** contas com `is_active`; não representa atividade recente.
+- **Conversão em comprador:** usuários distintos com ao menos um pedido reconhecido ÷ usuários cadastrados.
+- **Pedidos reconhecidos:** pedidos nos estados pago, em processamento ou concluído.
+- **Receita:** soma dos pedidos reconhecidos; pedidos pendentes e cancelados são excluídos.
+- **Ticket médio:** receita reconhecida ÷ quantidade de pedidos reconhecidos.
+- **Comunidade hoje:** publicações + comentários criados na data corrente do banco. Curtidas não entram neste indicador.
+        """)
 
 
 st.title("🥋 Dojo Command Center")
 st.caption("Data Driven Dojô · Analytics · Administração · Ecossistema 3DS")
+st.sidebar.link_button("↩ Voltar ao Data Driven Dojô", DOJO_APP_URL, use_container_width=True)
 page = st.sidebar.radio("Navegação", ["Visão geral", "Administração", "Ecossistema"])
+days = st.sidebar.selectbox(
+    "Período dos gráficos",
+    [7, 30, 90, 180, 365],
+    index=1,
+    format_func=lambda value: f"{value} dias",
+    disabled=page != "Visão geral",
+)
 
 try:
     if page == "Visão geral":
-        overview()
+        overview(days)
     elif page == "Administração":
         st.subheader("🔐 Administração")
         if not ADMIN_PASSWORD:
             st.warning("Defina DOJO_ADMIN_PASSWORD nos Secrets antes de habilitar esta área em produção.")
             st.stop()
         password = st.text_input("Senha administrativa", type="password")
-        if password != ADMIN_PASSWORD:
+        if not hmac.compare_digest(password, ADMIN_PASSWORD):
             st.info("Informe a senha administrativa para acessar dados operacionais.")
             st.stop()
         tables = build_admin_tables()
@@ -80,5 +111,6 @@ try:
             st.info("MARKETING_URL será conectado quando o site/subdomínio estiver publicado.")
 except Exception as exc:
     st.error("O Command Center não conseguiu acessar uma das fontes de dados.")
-    st.code(str(exc))
+    if os.getenv("DASHBOARD_DEBUG", "False").lower() == "true":
+        st.code(str(exc))
     st.info("Confira DATABASE_URL e os Secrets do ambiente Streamlit.")
