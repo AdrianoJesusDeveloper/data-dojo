@@ -1,11 +1,13 @@
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import AffiliateClick, AffiliateOffer, Cart, Category, CommercePartner, DropshipOffer, Order, Product, ProductQuestion, ProductReview, SupplierFulfillment
+from .models import AffiliateClick, AffiliateOffer, Cart, Category, CommercePartner, DropshipOffer, Order, Product, ProductQuestion, ProductReview, SupplierFulfillment, validate_product_image_size
 
 
 class StoreApiTests(APITestCase):
@@ -31,6 +33,23 @@ class StoreApiTests(APITestCase):
         self.assertEqual(catalog.status_code, status.HTTP_200_OK)
         self.assertIn("Livro Python", [product["name"] for product in catalog.data["results"]])
         self.assertEqual(cart.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_catalog_exposes_product_image_and_video_urls(self):
+        self.product.image_url = "https://cdn.example.com/produto.webp"
+        self.product.video_url = "https://www.youtube.com/watch?v=video123"
+        self.product.save(update_fields=["image_url", "video_url"])
+
+        catalog = self.client.get(reverse("store-products"))
+        product_data = next(item for item in catalog.data["results"] if item["id"] == self.product.id)
+
+        self.assertEqual(product_data["image_url"], self.product.image_url)
+        self.assertEqual(product_data["video_url"], self.product.video_url)
+
+    def test_product_image_upload_rejects_files_above_five_megabytes(self):
+        oversized = SimpleUploadedFile("produto.webp", b"0" * (5 * 1024 * 1024 + 1), content_type="image/webp")
+
+        with self.assertRaisesMessage(ValidationError, "A imagem deve ter no máximo 5 MB."):
+            validate_product_image_size(oversized)
 
     def test_catalog_query_count_does_not_grow_per_product(self):
         for index in range(5):

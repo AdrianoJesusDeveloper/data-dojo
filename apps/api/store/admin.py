@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.utils import timezone
+from django.utils.html import format_html
 
 from .models import AffiliateClick, AffiliateOffer, Category, CommercePartner, DropshipOffer, Order, OrderItem, Product, ProductQuestion, ProductReview, SupplierFulfillment
 
@@ -12,10 +13,28 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "category", "product_type", "sales_model", "price", "active", "featured")
+    list_display = ("name", "category", "product_type", "sales_model", "price", "has_media", "active", "featured")
     list_filter = ("product_type", "sales_model", "active", "featured", "category")
     search_fields = ("name", "slug", "description")
     prepopulated_fields = {"slug": ("name",)}
+    readonly_fields = ("image_preview", "created_at", "updated_at")
+    fieldsets = (
+        ("Identificação", {"fields": ("name", "slug", "category", "short_description", "description")}),
+        ("Oferta", {"fields": ("product_type", "sales_model", "price", "compare_at_price", "stock", "digital_url")}),
+        ("Mídia", {"fields": ("image", "image_url", "image_preview", "video_url"), "description": "Envie uma imagem ou informe URLs públicas de imagem e vídeo."}),
+        ("Publicação", {"fields": ("active", "featured", "created_at", "updated_at")}),
+    )
+
+    @admin.display(boolean=True, description="Mídia")
+    def has_media(self, obj):
+        return bool(obj.image or obj.image_url or obj.video_url)
+
+    @admin.display(description="Prévia da imagem")
+    def image_preview(self, obj):
+        source = obj.image.url if obj.image else obj.image_url
+        if not source:
+            return "Nenhuma imagem cadastrada."
+        return format_html('<img src="{}" alt="" style="max-width:320px;max-height:180px;object-fit:cover;border-radius:8px" />', source)
 
 
 class OrderItemInline(admin.TabularInline):

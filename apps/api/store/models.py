@@ -1,5 +1,12 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.db import models
+
+
+def validate_product_image_size(image):
+    if image.size > 5 * 1024 * 1024:
+        raise ValidationError("A imagem deve ter no máximo 5 MB.")
 
 
 class Category(models.Model):
@@ -49,6 +56,20 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     compare_at_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     image_url = models.URLField(blank=True)
+    image = models.ImageField(
+        upload_to="store/products/%Y/%m/",
+        blank=True,
+        validators=[
+            FileExtensionValidator(["jpg", "jpeg", "png", "webp"]),
+            validate_product_image_size,
+        ],
+        help_text="Upload opcional (JPG, PNG ou WebP; máximo 5 MB). Tem prioridade sobre a URL da imagem.",
+    )
+    video_url = models.URLField(
+        max_length=1000,
+        blank=True,
+        help_text="URL pública do YouTube, Vimeo ou de um arquivo MP4/WebM.",
+    )
     digital_url = models.URLField(blank=True)
     stock = models.PositiveIntegerField(default=0)
     active = models.BooleanField(default=False)
