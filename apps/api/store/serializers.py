@@ -10,12 +10,19 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
+    image_url = serializers.SerializerMethodField()
     rating_average = serializers.SerializerMethodField()
     reviews_count = serializers.SerializerMethodField()
     questions_count = serializers.SerializerMethodField()
     partner_name = serializers.SerializerMethodField()
     affiliate_disclosure = serializers.SerializerMethodField()
     fulfillment_details = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        if obj.image:
+            request = self.context.get("request")
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return obj.image_url
 
     def get_rating_average(self, obj):
         value = getattr(obj, "rating_average", None)
@@ -49,7 +56,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ["id", "name", "slug", "short_description", "description", "product_type", "sales_model", "price", "compare_at_price", "image_url", "stock", "featured", "category", "rating_average", "reviews_count", "questions_count", "partner_name", "affiliate_disclosure", "fulfillment_details"]
+        fields = ["id", "name", "slug", "short_description", "description", "product_type", "sales_model", "price", "compare_at_price", "image_url", "video_url", "stock", "featured", "category", "rating_average", "reviews_count", "questions_count", "partner_name", "affiliate_disclosure", "fulfillment_details"]
 
 
 class ProductQuestionSerializer(serializers.ModelSerializer):
