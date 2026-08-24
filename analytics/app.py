@@ -1,7 +1,10 @@
-import streamlit as st
+"""Compatibility entrypoint for Streamlit Cloud.
 
-st.set_page_config(page_title="Dojo Dashboard", page_icon="🥋", layout="wide")
-st.title("🥋 Dojo Dashboard")
-st.subheader("Data Driven Dojô")
-st.write("Dashboard de Analytics, Data Engineering e Data Science.")
-st.success("Streamlit entrypoint carregado com sucesso.")
+The canonical dashboard lives in streamlit_app.py. Keeping this tiny wrapper
+prevents older deployments configured with analytics/app.py from serving the
+obsolete placeholder dashboard.
+"""
+
+from pathlib import Path
+
+exec((Path(__file__).resolve().parent / "streamlit_app.py").read_text(encoding="utf-8"))
