@@ -305,6 +305,10 @@ class ForumTopic(models.Model):
         auto_now_add=True
     )
 
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
     def __str__(self):
         return f"{self.user.username}: {self.title}"
 
@@ -337,8 +341,18 @@ class ForumComment(models.Model):
         null=True
     )
 
+    likes = models.ManyToManyField(
+        User,
+        related_name="liked_forum_comments",
+        blank=True
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
     )
 
     def __str__(self):

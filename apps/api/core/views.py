@@ -24,6 +24,16 @@ from .serializers import (
     UserSerializer
 )
 
+
+class OwnerWritePermission(permissions.BasePermission):
+    """Restringe edição/exclusão de publicações e comentários ao próprio autor."""
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return getattr(obj, "user_id", None) == request.user.id
+
+
 # =====================================================================
 # NOVAS VIEWS: COMUNIDADE (FÓRUM)
 # =====================================================================
@@ -32,9 +42,9 @@ class ForumTopicViewSet(viewsets.ModelViewSet):
     Lista, cria, edita e apaga tópicos no fórum da comunidade.
     Suporta JSON, upload de mídias e sistema de curtidas.
     """
-    queryset = ForumTopic.objects.prefetch_related('user', 'comments__user').order_by('-created_at')
+    queryset = ForumTopic.objects.select_related('user').prefetch_related('likes', 'comments__user', 'comments__likes').order_by('-created_at')
     parser_classes = [JSONParser, MultiPartParser, FormParser]
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, OwnerWritePermission]
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -100,10 +110,10 @@ class ForumCommentViewSet(viewsets.ModelViewSet):
     """
     Gerencia as respostas e comentários de um tópico específico.
     """
-    queryset = ForumComment.objects.select_related('user').order_by('created_at')
+    queryset = ForumComment.objects.select_related('user', 'topic').prefetch_related('likes').order_by('created_at')
     serializer_class = ForumCommentSerializer
     parser_classes = [JSONParser, MultiPartParser, FormParser]
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, OwnerWritePermission]
 
     def perform_create(self, serializer):
         comment = serializer.save(user=self.request.user)
@@ -114,6 +124,19 @@ class ForumCommentViewSet(viewsets.ModelViewSet):
             if comments_set is not None:
                 topic.comments_count = comments_set.count()
                 topic.save()
+
+    @action(detail=True, methods=['post'])
+    def like(self, request, pk=None):
+        comment = self.get_object()
+        user = request.user
+
+        if user in comment.likes.all():
+            comment.likes.remove(user)
+        else:
+            comment.likes.add(user)
+
+        serializer = self.get_serializer(comment)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # =====================================================================
