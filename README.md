@@ -445,9 +445,7 @@ ECOSSISTEMA
 
 ## 🧪 Desenvolvimento local
 
-O guia completo de instalação, configuração, execução e diagnóstico está no **[Manual do sistema local](manual_sistema_local.md)**.
-
-Para operar o catálogo, consulte também o **[Manual da 3DStore](manual_3DStore_produtos.md)**.
+Os manuais operacionais completos são mantidos localmente pela administração do projeto e não são publicados no repositório.
 
 Resumo das URLs recomendadas:
 
