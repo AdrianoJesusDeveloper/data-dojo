@@ -19,6 +19,7 @@ import { Route as ConhecaSenseyRouteImport } from './routes/conheca-sensey'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as AiSalesRouteImport } from './routes/ai-sales'
 import { Route as AiRouteImport } from './routes/ai'
+import { Route as StoreCheckoutRouteImport } from './routes/store-checkout'
 import { Route as StoreRouteImport } from './routes/store'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -34,6 +35,7 @@ const ConhecaSenseyRoute = ConhecaSenseyRouteImport.update({ id: '/conheca-sense
 const CommunityRoute = CommunityRouteImport.update({ id: '/community', path: '/community', getParentRoute: () => rootRouteImport } as any)
 const AiSalesRoute = AiSalesRouteImport.update({ id: '/ai-sales', path: '/ai-sales', getParentRoute: () => rootRouteImport } as any)
 const AiRoute = AiRouteImport.update({ id: '/ai', path: '/ai', getParentRoute: () => rootRouteImport } as any)
+const StoreCheckoutRoute = StoreCheckoutRouteImport.update({ id: '/store/checkout', path: '/store/checkout', getParentRoute: () => rootRouteImport } as any)
 const StoreRoute = StoreRouteImport.update({ id: '/store', path: '/store', getParentRoute: () => rootRouteImport } as any)
 const IndexRoute = IndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => rootRouteImport } as any)
 
@@ -51,11 +53,11 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/store': typeof StoreRoute
+  '/store/checkout': typeof StoreCheckoutRoute
   '/workspace': typeof WorkspaceRoute
 }
 
 export interface FileRoutesByTo extends FileRoutesByFullPath {}
-
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
@@ -71,33 +73,12 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/store': typeof StoreRoute
+  '/store/checkout': typeof StoreCheckoutRoute
   '/workspace': typeof WorkspaceRoute
 }
-
-export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: keyof FileRoutesByFullPath
-  fileRoutesByTo: FileRoutesByTo
-  to: keyof FileRoutesByTo
-  id: keyof FileRoutesById
-  fileRoutesById: FileRoutesById
-}
-
+export interface FileRouteTypes { fileRoutesByFullPath: FileRoutesByFullPath; fullPaths: keyof FileRoutesByFullPath; fileRoutesByTo: FileRoutesByTo; to: keyof FileRoutesByTo; id: keyof FileRoutesById; fileRoutesById: FileRoutesById }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AiRoute: typeof AiRoute
-  AiSalesRoute: typeof AiSalesRoute
-  CommunityRoute: typeof CommunityRoute
-  ConhecaSenseyRoute: typeof ConhecaSenseyRoute
-  DashboardRoute: typeof DashboardRoute
-  LoginRoute: typeof LoginRoute
-  PortfolioRoute: typeof PortfolioRoute
-  ProfileRoute: typeof ProfileRoute
-  RecuperarSenhaRoute: typeof RecuperarSenhaRoute
-  RegisterRoute: typeof RegisterRoute
-  ResetPasswordRoute: typeof ResetPasswordRoute
-  StoreRoute: typeof StoreRoute
-  WorkspaceRoute: typeof WorkspaceRoute
+  IndexRoute: typeof IndexRoute; AiRoute: typeof AiRoute; AiSalesRoute: typeof AiSalesRoute; CommunityRoute: typeof CommunityRoute; ConhecaSenseyRoute: typeof ConhecaSenseyRoute; DashboardRoute: typeof DashboardRoute; LoginRoute: typeof LoginRoute; PortfolioRoute: typeof PortfolioRoute; ProfileRoute: typeof ProfileRoute; RecuperarSenhaRoute: typeof RecuperarSenhaRoute; RegisterRoute: typeof RegisterRoute; ResetPasswordRoute: typeof ResetPasswordRoute; StoreRoute: typeof StoreRoute; StoreCheckoutRoute: typeof StoreCheckoutRoute; WorkspaceRoute: typeof WorkspaceRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -107,43 +88,18 @@ declare module '@tanstack/react-router' {
     '/register': { id: '/register'; path: '/register'; fullPath: '/register'; preLoaderRoute: typeof RegisterRouteImport; parentRoute: typeof rootRouteImport }
     '/recuperar-senha': { id: '/recuperar-senha'; path: '/recuperar-senha'; fullPath: '/recuperar-senha'; preLoaderRoute: typeof RecuperarSenhaRouteImport; parentRoute: typeof rootRouteImport }
     '/profile': { id: '/profile'; path: '/profile'; fullPath: '/profile'; preLoaderRoute: typeof ProfileRouteImport; parentRoute: typeof rootRouteImport }
-    '/portfolio': { id: '/portfolio'; path: '/portfolio'; fullPath: '/portfolio'; preLoaderRoute: typeof PortfolioRouteImport; parentRoute: typeof rootRouteImport }
     '/login': { id: '/login'; path: '/login'; fullPath: '/login'; preLoaderRoute: typeof LoginRouteImport; parentRoute: typeof rootRouteImport }
     '/dashboard': { id: '/dashboard'; path: '/dashboard'; fullPath: '/dashboard'; preLoaderRoute: typeof DashboardRouteImport; parentRoute: typeof rootRouteImport }
     '/conheca-sensey': { id: '/conheca-sensey'; path: '/conheca-sensey'; fullPath: '/conheca-sensey'; preLoaderRoute: typeof ConhecaSenseyRouteImport; parentRoute: typeof rootRouteImport }
     '/community': { id: '/community'; path: '/community'; fullPath: '/community'; preLoaderRoute: typeof CommunityRouteImport; parentRoute: typeof rootRouteImport }
     '/ai-sales': { id: '/ai-sales'; path: '/ai-sales'; fullPath: '/ai-sales'; preLoaderRoute: typeof AiSalesRouteImport; parentRoute: typeof rootRouteImport }
     '/ai': { id: '/ai'; path: '/ai'; fullPath: '/ai'; preLoaderRoute: typeof AiRouteImport; parentRoute: typeof rootRouteImport }
+    '/store/checkout': { id: '/store/checkout'; path: '/store/checkout'; fullPath: '/store/checkout'; preLoaderRoute: typeof StoreCheckoutRouteImport; parentRoute: typeof rootRouteImport }
     '/store': { id: '/store'; path: '/store'; fullPath: '/store'; preLoaderRoute: typeof StoreRouteImport; parentRoute: typeof rootRouteImport }
     '/': { id: '/'; path: '/'; fullPath: '/'; preLoaderRoute: typeof IndexRouteImport; parentRoute: typeof rootRouteImport }
   }
 }
-
-const rootRouteChildren: RootRouteChildren = {
-  IndexRoute,
-  AiRoute,
-  AiSalesRoute,
-  CommunityRoute,
-  ConhecaSenseyRoute,
-  DashboardRoute,
-  LoginRoute,
-  PortfolioRoute,
-  ProfileRoute,
-  RecuperarSenhaRoute,
-  RegisterRoute,
-  ResetPasswordRoute,
-  StoreRoute,
-  WorkspaceRoute,
-}
-
+const rootRouteChildren: RootRouteChildren = { IndexRoute, AiRoute, AiSalesRoute, CommunityRoute, ConhecaSenseyRoute, DashboardRoute, LoginRoute, PortfolioRoute, ProfileRoute, RecuperarSenhaRoute, RegisterRoute, ResetPasswordRoute, StoreRoute, StoreCheckoutRoute, WorkspaceRoute }
 export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
+import type { getRouter } from './router.tsx'; import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' { interface Register { ssr: true; router: Awaited<ReturnType<typeof getRouter>>; config: Awaited<ReturnType<typeof startInstance.getOptions>> } }
