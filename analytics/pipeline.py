@@ -46,13 +46,18 @@ def calculate_kpis(row: dict) -> dict:
     buyers = int(_number(row.get("buyers")))
     revenue = Decimal(str(_number(row.get("revenue"), Decimal("0"))))
     paid_orders = int(_number(row.get("paid_orders")))
+    orders = int(_number(row.get("orders")))
+    cancelled_orders = int(_number(row.get("cancelled_orders")))
     return {
         **row,
         "users": users,
         "buyers": buyers,
+        "orders": orders,
+        "cancelled_orders": cancelled_orders,
         "revenue": float(revenue),
         "average_ticket": float(revenue / paid_orders) if paid_orders else 0.0,
         "buyer_conversion_rate": (buyers / users * 100) if users else 0.0,
+        "order_cancellation_rate": (cancelled_orders / orders * 100) if orders else 0.0,
         "community_today": int(_number(row.get("topics_today"))) + int(_number(row.get("comments_today"))),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -65,6 +70,7 @@ def build_kpis():
           (SELECT COUNT(*) FROM core_user WHERE is_active = TRUE) AS enabled_accounts,
           (SELECT COUNT(*) FROM core_user WHERE date_joined::date = CURRENT_DATE) AS new_users_today,
           (SELECT COUNT(*) FROM core_course) AS courses,
+          (SELECT COUNT(*) FROM core_studentproject WHERE status = 'published') AS published_portfolios,
           (SELECT COUNT(*) FROM core_forumtopic) AS topics,
           (SELECT COUNT(*) FROM core_forumcomment) AS comments,
           (SELECT COUNT(*) FROM core_forumtopic WHERE created_at::date = CURRENT_DATE) AS topics_today,
@@ -72,6 +78,7 @@ def build_kpis():
           (SELECT COUNT(*) FROM store_product WHERE active = TRUE) AS active_products,
           (SELECT COUNT(*) FROM store_order) AS orders,
           (SELECT COUNT(*) FROM store_order WHERE status = 'pending') AS pending_orders,
+          (SELECT COUNT(*) FROM store_order WHERE status = 'cancelled') AS cancelled_orders,
           (SELECT COUNT(*) FROM store_order WHERE status IN ('paid','processing','fulfilled')) AS paid_orders,
           (SELECT COUNT(DISTINCT user_id) FROM store_order WHERE status IN ('paid','processing','fulfilled')) AS buyers,
           (SELECT COALESCE(SUM(total), 0) FROM store_order WHERE status IN ('paid','processing','fulfilled')) AS revenue,
@@ -100,10 +107,22 @@ def build_timeseries(days: int = 30):
         "users": "SELECT date_joined::date AS day, COUNT(*) AS value FROM core_user WHERE date_joined::date > CURRENT_DATE - :days GROUP BY 1 ORDER BY 1",
         "community": "SELECT day, SUM(value) AS value FROM (SELECT created_at::date AS day, COUNT(*) AS value FROM core_forumtopic WHERE created_at::date > CURRENT_DATE - :days GROUP BY 1 UNION ALL SELECT created_at::date AS day, COUNT(*) AS value FROM core_forumcomment WHERE created_at::date > CURRENT_DATE - :days GROUP BY 1) x GROUP BY day ORDER BY day",
         "revenue": "SELECT created_at::date AS day, COALESCE(SUM(total),0) AS value FROM store_order WHERE status IN ('paid','processing','fulfilled') AND created_at::date > CURRENT_DATE - :days GROUP BY 1 ORDER BY 1",
+        "cancelled_orders": "SELECT created_at::date AS day, COUNT(*) AS value FROM store_order WHERE status = 'cancelled' AND created_at::date > CURRENT_DATE - :days GROUP BY 1 ORDER BY 1",
     }
     with engine().connect() as conn:
         frames = {name: pd.read_sql(text(query), conn, params={"days": days}) for name, query in queries.items()}
     return {name: _complete_daily_series(frame, days) for name, frame in frames.items()}
+
+
+def build_order_status_distribution():
+    query = text("""
+        SELECT status, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS gross_value
+        FROM store_order
+        GROUP BY status
+        ORDER BY orders DESC, status
+    """)
+    with engine().connect() as conn:
+        return pd.read_sql(query, conn)
 
 
 def build_admin_tables(limit: int = 30):
