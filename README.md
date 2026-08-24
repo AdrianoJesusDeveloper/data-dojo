@@ -445,50 +445,27 @@ ECOSSISTEMA
 
 ## 🧪 Desenvolvimento local
 
-### Pré-requisitos
+O guia completo de instalação, configuração, execução e diagnóstico está no **[Manual do sistema local](manual_sistema_local.md)**.
 
-- Node.js `>=18`
-- Python
-- PostgreSQL para ambiente completo ou SQLite para desenvolvimento local
-- Redis quando utilizando tarefas assíncronas
+Para operar o catálogo, consulte também o **[Manual da 3DStore](manual_3DStore_produtos.md)**.
 
-### Frontend
+Resumo das URLs recomendadas:
 
-```bash
-npm install
-npm run dev
-```
-
-Acesse `http://localhost:5173`.
-
-### Backend
-
-```bash
-cd apps/api
-python -m venv .venv
-```
-
-**Windows:**
-
-```bash
-.venv\Scripts\activate
-```
-
-Depois:
-
-```bash
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
-```
+| Componente | Endereço local |
+|---|---|
+| Frontend | `http://127.0.0.1:8083/` |
+| API Django | `http://127.0.0.1:8000/` |
+| Django Admin | `http://127.0.0.1:8000/admin/` |
+| 3DStore | `http://127.0.0.1:8083/store` |
+| Dojo Command Center | `http://127.0.0.1:8501/` |
 
 ### Qualidade antes de publicar
 
-```bash
-npm run lint
-npm run typecheck
-npm test
-npm run build
+```powershell
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd test -- --run
+npm.cmd run build
 ```
 
 ---
