@@ -76,3 +76,24 @@ Redis:    localhost:6379
 ## Limitação do plano gratuito
 
 O ambiente gratuito do Render é adequado para demonstração e testes, mas possui limitações de disponibilidade e persistência. Para produção real, use planos com persistência, backups e recursos de operação adequados.
+
+## Agentes de IA
+
+Os agentes são habilitados somente no ambiente local por padrão. O Docker
+Compose define `AI_ENABLED=true`; os serviços do Render definem
+`AI_ENABLED=false`. Chaves de provedores devem permanecer apenas em arquivos
+locais ignorados pelo Git e nunca devem ser incluídas na imagem Docker.
+
+Para habilitar IA futuramente em produção:
+
+1. Configure `AI_ENABLED=true` no serviço web e no worker.
+2. Cadastre pelo menos um secret de provedor, como `GEMINI_API_KEY` ou
+   `OPENAI_API_KEY`, nos dois serviços.
+3. Defina `AI_DEFAULT_PROVIDER` com o provedor principal (`gemini` ou
+   `openai`). Opcionalmente, configure `AI_FALLBACK_PROVIDERS`.
+4. Faça um novo deploy e confirme `available: true` em
+   `/api/ai/agents/`. Valide uma conversa sem registrar chaves ou respostas
+   sensíveis nos logs.
+
+Enquanto `AI_ENABLED=false`, a listagem apresenta os agentes como
+indisponíveis e o endpoint de conversa responde HTTP 503.

@@ -40,6 +40,7 @@ services:
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:5173,http://localhost:8080}
       DATABASE_URL: postgres://${POSTGRES_USER:-dojo}:${POSTGRES_PASSWORD:-dojo_dev_password}@db:5432/${POSTGRES_DB:-dojo_db}
       REDIS_URL: redis://redis:6379/0
+      AI_ENABLED: ${AI_ENABLED:-true}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_AI_MODEL: ${OPENAI_AI_MODEL:-gpt-4.1-mini}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
@@ -71,6 +72,7 @@ services:
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,api}
       DATABASE_URL: postgres://${POSTGRES_USER:-dojo}:${POSTGRES_PASSWORD:-dojo_dev_password}@db:5432/${POSTGRES_DB:-dojo_db}
       REDIS_URL: redis://redis:6379/0
+      AI_ENABLED: ${AI_ENABLED:-true}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_AI_MODEL: ${OPENAI_AI_MODEL:-gpt-4.1-mini}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}

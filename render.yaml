@@ -32,14 +32,8 @@ services:
           type: keyvalue
           name: data-dojo-redis
           property: connectionString
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: AI_DEFAULT_PROVIDER
-        value: gemini
-      - key: AI_FALLBACK_PROVIDERS
-        value: gemini,deepseek
+      - key: AI_ENABLED
+        value: "false"
 
   - type: worker
     name: data-dojo-worker
@@ -69,14 +63,8 @@ services:
           type: keyvalue
           name: data-dojo-redis
           property: connectionString
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: AI_DEFAULT_PROVIDER
-        value: gemini
-      - key: AI_FALLBACK_PROVIDERS
-        value: gemini,deepseek
+      - key: AI_ENABLED
+        value: "false"
     dockerCommand: celery -A config worker --loglevel=INFO
 
   - type: keyvalue

@@ -29,6 +29,15 @@ class AgentRuntimeTests(TestCase):
 
     @patch.dict(
         "os.environ",
+        {"ENVIRONMENT": "production", "AI_ENABLED": "false", "OPENAI_API_KEY": "local-test-key"},
+    )
+    def test_agents_are_disabled_in_production_even_with_a_key(self):
+        runtime = agent_runtime_status({"provider_env": "DATA_AI_PROVIDER", "default_provider": "chatgpt"})
+        self.assertFalse(runtime["available"])
+        self.assertIn(runtime["provider"], {"chatgpt", "gemini"})
+
+    @patch.dict(
+        "os.environ",
         {
             "AI_DEFAULT_PROVIDER": "chatgpt",
             "OPENAI_API_KEY": "local-test-key",
@@ -69,6 +78,11 @@ class AgentApiTests(TestCase):
         response = self.client.post(reverse("ai-chat"), {"mentor": "data", "message": "Explique SQL."})
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @patch.dict("os.environ", {"AI_ENABLED": "false"})
+    def test_chat_is_unavailable_when_ai_is_disabled(self):
+        response = self.client.post(reverse("ai-chat"), {"mentor": "ai_sales", "message": "Olá"})
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
 
     @patch("ai.views.chat_ai", return_value="Comece por SELECT e pratique com uma tabela pequena.")
     def test_authenticated_agent_persists_conversation(self, mocked_chat):

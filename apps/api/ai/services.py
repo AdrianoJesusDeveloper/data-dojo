@@ -13,6 +13,17 @@ WHATSAPP_URL = "https://wa.me/5521972663791"
 logger = logging.getLogger("ai")
 
 
+def ai_is_enabled():
+    """IA é opt-in em produção e habilitada por padrão apenas localmente."""
+    configured = os.getenv("AI_ENABLED")
+    if configured is not None:
+        return configured.strip().lower() in {"1", "true", "yes", "on"}
+    return os.getenv("ENVIRONMENT", "development").strip().lower() not in {
+        "production",
+        "prod",
+    }
+
+
 def _provider(name):
     name = (name or "").strip().lower()
     providers = {
@@ -50,8 +61,11 @@ def agent_runtime_status(agent):
     variables = required.get(provider, ())
     return {
         "provider": provider,
-        "available": (bool(variables) and all(os.getenv(variable, "").strip() for variable in variables))
-        or bool(os.getenv("GEMINI_API_KEY", "").strip()),
+        "available": ai_is_enabled()
+        and (
+            (bool(variables) and all(os.getenv(variable, "").strip() for variable in variables))
+            or bool(os.getenv("GEMINI_API_KEY", "").strip())
+        ),
     }
 
 
@@ -121,6 +135,9 @@ Aluno/visitante atual: {user_name}.
 
 
 def chat_ai(mentor, message, user=None, history=None):
+    if not ai_is_enabled():
+        raise RuntimeError("Os agentes de IA estão desabilitados neste ambiente.")
+
     """Executa um agente mantendo contexto conversacional."""
     history = history or []
 

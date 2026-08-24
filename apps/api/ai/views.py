@@ -6,7 +6,7 @@ from rest_framework import status
 from .agent_registry import AGENT_REGISTRY
 from .models import Conversation, Message
 from .serializers import AIChatSerializer
-from .services import WHATSAPP_URL, agent_runtime_status, chat_ai
+from .services import WHATSAPP_URL, agent_runtime_status, ai_is_enabled, chat_ai
 
 
 class AIAgentsView(APIView):
@@ -36,6 +36,12 @@ class AIChatView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        if not ai_is_enabled():
+            return Response(
+                {"detail": "Os agentes de IA não estão disponíveis neste ambiente."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
         serializer = AIChatSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
