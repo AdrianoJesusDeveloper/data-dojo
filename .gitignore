@@ -62,3 +62,13 @@ estrutura_api.txt
 estrutura_components.txt
 estrutura_lib.txt
 estrutura_routes.txt
+
+# Documentação e relatórios mantidos somente no computador
+/AGENTS.md
+/MANUAL_CURSOS_VIDEOS_EXERCICIOS.md
+/manual_3DStore_produtos.md
+/manual_sistema_local.md
+/arvore.txt
+/arvore_de_pastas.txt
+/eslint-fix-output.txt
+/lint-output.txt
