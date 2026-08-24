@@ -25,7 +25,8 @@ function StorePage() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<Cart | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [storedOrders, setOrders] = useState<Order[]>([]);
+  const orders = storedOrders.filter((order) => order.status !== "cancelled");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<number | "checkout" | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
@@ -74,7 +75,7 @@ function StorePage() {
       if (hasSession) {
         const [cartResponse, ordersResponse] = await Promise.all([api.get<Cart>("/api/store/cart/"), api.get<Order[] | { results: Order[] }>("/api/store/orders/")]);
         setCart(cartResponse.data);
-        setOrders(list(ordersResponse.data));
+        setOrders(list(ordersResponse.data).filter((order) => order.status !== "cancelled"));
       }
     } catch { toast.error("Não foi possível carregar a 3DStore."); }
     finally { /* O carregamento do catálogo é controlado separadamente. */ }
@@ -229,7 +230,7 @@ function StorePage() {
     setBusy("checkout");
     try {
       const { data } = await api.post<Order>(`/api/store/orders/${order.id}/cancel/`);
-      setOrders((current) => current.map((item) => item.id === data.id ? data : item));
+      setOrders((current) => current.filter((item) => item.id !== data.id));
       setCart((current) => current ? { ...current, items: [], total: "0.00" } : current);
       const { data: catalogData } = await api.get<Product[] | { results: Product[] }>("/api/store/products/");
       setProducts(list(catalogData));
