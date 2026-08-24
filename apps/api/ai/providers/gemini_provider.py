@@ -8,10 +8,18 @@ class GeminiProvider:
 
     def chat(self, messages):
         api_key = os.getenv("GEMINI_API_KEY")
-        model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY não configurada.")
+
+        if os.name == "nt":
+            try:
+                import truststore
+
+                truststore.inject_into_ssl()
+            except ImportError:
+                pass
 
         contents = []
         for item in messages:

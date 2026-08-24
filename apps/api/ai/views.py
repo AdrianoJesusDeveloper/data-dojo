@@ -6,7 +6,7 @@ from rest_framework import status
 from .agent_registry import AGENT_REGISTRY
 from .models import Conversation, Message
 from .serializers import AIChatSerializer
-from .services import WHATSAPP_URL, chat_ai
+from .services import WHATSAPP_URL, agent_runtime_status, chat_ai
 
 
 class AIAgentsView(APIView):
@@ -17,12 +17,15 @@ class AIAgentsView(APIView):
         agents = []
         for key, config in AGENT_REGISTRY.items():
             if config["public"] or request.user.is_authenticated:
+                runtime = agent_runtime_status(config)
                 agents.append({
                     "key": key,
                     "name": config["name"],
                     "description": config["description"],
                     "specialty": config["specialty"],
                     "public": config["public"],
+                    "provider": runtime["provider"],
+                    "available": runtime["available"],
                 })
         return Response({"agents": agents}, status=status.HTTP_200_OK)
 
@@ -92,8 +95,11 @@ class AIChatView(APIView):
                 history=history,
             )
         except Exception as exc:
+            payload = {"detail": "O agente de IA não pôde responder. Confira o provedor configurado."}
+            if request._request.META.get("SERVER_NAME") in {"localhost", "127.0.0.1"}:
+                payload["error"] = f"{type(exc).__name__}: {exc}"
             return Response(
-                {"detail": "O agente de IA não pôde responder.", "error": str(exc)},
+                payload,
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 

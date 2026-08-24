@@ -25,7 +25,7 @@ ADMIN_PASSWORD = os.getenv("DOJO_ADMIN_PASSWORD", "")
 DOJO_APP_URL = os.getenv("DOJO_APP_URL", "https://data-dojo-nine.vercel.app/")
 LEXDATA_URL = os.getenv("LEXDATA_URL", "https://lexdata-frontend.vercel.app/")
 MARKETING_URL = os.getenv("MARKETING_URL", "https://lexdata-frontend.vercel.app/#agencia-3ds")
-APP_VERSION = "2026.08.24.2"
+APP_VERSION = "2026.08.24.3"
 BRAND_ORANGE = "#F59E0B"
 BRAND_BLUE = "#38BDF8"
 STATUS_LABELS = {
@@ -48,6 +48,31 @@ st.markdown("""
 
 def brl(value: float) -> str:
     return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def require_admin_access() -> None:
+    """Bloqueia todo o Command Center antes de qualquer consulta operacional."""
+    if not ADMIN_PASSWORD:
+        st.error("O Command Center está desabilitado até a senha administrativa ser configurada.")
+        st.info("Defina DOJO_ADMIN_PASSWORD nos Secrets do ambiente de hospedagem.")
+        st.stop()
+
+    if st.session_state.get("admin_authenticated"):
+        return
+
+    st.markdown('<div class="dojo-kicker">ACESSO RESTRITO</div>', unsafe_allow_html=True)
+    st.title("🔐 Dojo Command Center")
+    st.caption("Área exclusiva para administradores do sistema.")
+    with st.form("command_center_login"):
+        password = st.text_input("Senha administrativa", type="password")
+        submitted = st.form_submit_button("Entrar", use_container_width=True)
+
+    if submitted:
+        if hmac.compare_digest(password, ADMIN_PASSWORD):
+            st.session_state.admin_authenticated = True
+            st.rerun()
+        st.error("Credencial administrativa inválida.")
+    st.stop()
 
 
 @st.cache_data(ttl=REFRESH_SECONDS, show_spinner="Atualizando indicadores...")
@@ -135,24 +160,6 @@ def overview(days: int):
 
 def administration():
     st.subheader("🔐 Administração")
-    if not ADMIN_PASSWORD:
-        st.warning("Defina DOJO_ADMIN_PASSWORD nos Secrets para habilitar esta área.")
-        return
-    if not st.session_state.get("admin_authenticated"):
-        with st.form("admin_login"):
-            password = st.text_input("Senha administrativa", type="password")
-            submitted = st.form_submit_button("Entrar", use_container_width=True)
-        if not submitted:
-            st.info("Informe a senha administrativa para acessar dados operacionais.")
-            return
-        if not hmac.compare_digest(password, ADMIN_PASSWORD):
-            st.error("Senha inválida.")
-            return
-        st.session_state.admin_authenticated = True
-        st.rerun()
-    if st.button("Sair da área administrativa"):
-        st.session_state.admin_authenticated = False
-        st.rerun()
     tables = build_admin_tables()
     tab_users, tab_orders, tab_community = st.tabs(["Usuários", "Pedidos", "Comunidade"])
     with tab_users:
@@ -178,6 +185,8 @@ def ecosystem():
         st.info("Ative o link da 3DS Marketing pelo Secret MARKETING_URL.")
 
 
+require_admin_access()
+
 st.markdown('<div class="dojo-kicker">DETERMINAÇÃO · DISCIPLINA · DIREÇÃO</div>', unsafe_allow_html=True)
 st.title("🥋 Dojo Command Center")
 st.markdown('<div class="dojo-subtitle">Inteligência operacional do Data Driven Dojô e do ecossistema 3DS.</div>', unsafe_allow_html=True)
@@ -187,6 +196,9 @@ page = st.sidebar.radio("Navegação", ["Visão geral", "Administração", "Ecos
 days = st.sidebar.selectbox("Período dos gráficos", [7, 30, 90, 180, 365], index=1,
                             format_func=lambda value: f"{value} dias", disabled=page != "Visão geral")
 st.sidebar.link_button("↩ Voltar ao Data Driven Dojô", DOJO_APP_URL, use_container_width=True)
+if st.sidebar.button("Sair do Command Center", use_container_width=True):
+    st.session_state.admin_authenticated = False
+    st.rerun()
 st.sidebar.caption(f"Versão {APP_VERSION}")
 
 try:

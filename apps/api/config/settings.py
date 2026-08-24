@@ -20,7 +20,7 @@ ASGI_APPLICATION = "config.asgi.application"
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host.strip()]
 
 DJANGO_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles", "django.contrib.sites"]
-THIRD_PARTY_APPS = ["corsheaders", "rest_framework", "rest_framework.authtoken", "allauth", "allauth.account", "dj_rest_auth", "dj_rest_auth.registration"]
+THIRD_PARTY_APPS = ["corsheaders", "rest_framework", "rest_framework.authtoken", "allauth", "allauth.account", "allauth.socialaccount", "dj_rest_auth", "dj_rest_auth.registration"]
 LOCAL_APPS = ["core", "ai", "store"]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
@@ -62,3 +62,8 @@ if static_dir.exists(): STATICFILES_DIRS.append(static_dir)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}}
+
+# Provedores de IA. Os valores continuam apenas no ambiente/.env e nunca são
+# enviados ao frontend.
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_AI_MODEL = os.getenv("OPENAI_AI_MODEL", "gpt-4.1-mini")

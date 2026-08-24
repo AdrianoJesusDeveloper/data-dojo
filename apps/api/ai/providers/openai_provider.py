@@ -1,10 +1,26 @@
 import logging
+import os
+import ssl
 
+import httpx
 from openai import OpenAI
 from django.conf import settings
 
 
 logger = logging.getLogger("ai")
+
+
+def _secure_http_client():
+    """Usa a cadeia de certificados do Windows sem desativar TLS."""
+    if os.name == "nt":
+        try:
+            import truststore
+
+            context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            return httpx.Client(verify=context, timeout=90)
+        except ImportError:
+            logger.warning("truststore não instalado; usando certificados padrão do Python")
+    return httpx.Client(timeout=90)
 
 
 class OpenAIProvider:
@@ -14,7 +30,7 @@ class OpenAIProvider:
             raise RuntimeError("OPENAI_API_KEY não está configurada no ambiente.")
 
         self.model = getattr(settings, "OPENAI_AI_MODEL", "gpt-4.1-mini")
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key, http_client=_secure_http_client())
 
     def chat(self, messages):
         try:

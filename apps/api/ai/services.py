@@ -1,4 +1,5 @@
 import os
+import logging
 
 from .agent_registry import get_agent
 from .orchestrator import build_sensei_prompt, route_message
@@ -9,9 +10,11 @@ from .providers.copilot_provider import GitHubCopilotProvider
 
 
 WHATSAPP_URL = "https://wa.me/5521972663791"
+logger = logging.getLogger("ai")
 
 
 def _provider(name):
+    name = (name or "").strip().lower()
     providers = {
         "chatgpt": OpenAIProvider,
         "openai": OpenAIProvider,
@@ -23,6 +26,42 @@ def _provider(name):
         return providers[name]()
     except KeyError as exc:
         raise ValueError("Provedor de IA não encontrado") from exc
+
+
+def _configured_provider(agent):
+    global_default = os.getenv("AI_DEFAULT_PROVIDER", "").strip().lower()
+    if not global_default and os.getenv("GEMINI_API_KEY", "").strip():
+        global_default = "gemini"
+    return os.getenv(
+        agent["provider_env"], global_default or agent["default_provider"]
+    ).strip().lower()
+
+
+def agent_runtime_status(agent):
+    """Retorna metadados seguros de disponibilidade, sem expor credenciais."""
+    provider = _configured_provider(agent)
+    required = {
+        "chatgpt": ("OPENAI_API_KEY",),
+        "openai": ("OPENAI_API_KEY",),
+        "gemini": ("GEMINI_API_KEY",),
+        "deepseek": ("DEEPSEEK_API_KEY",),
+        "copilot": ("COPILOT_API_URL", "COPILOT_API_TOKEN"),
+    }
+    variables = required.get(provider, ())
+    return {
+        "provider": provider,
+        "available": (bool(variables) and all(os.getenv(variable, "").strip() for variable in variables))
+        or bool(os.getenv("GEMINI_API_KEY", "").strip()),
+    }
+
+
+def _provider_candidates(primary):
+    candidates = [(primary or "").strip().lower()]
+    configured = os.getenv("AI_FALLBACK_PROVIDERS", "gemini,deepseek")
+    for name in (item.strip().lower() for item in configured.split(",")):
+        if name and name not in candidates:
+            candidates.append(name)
+    return candidates
 
 
 def _agent_system_prompt(agent_key, user=None, selected_agent=None):
@@ -99,9 +138,7 @@ def chat_ai(mentor, message, user=None, history=None):
         agent = get_agent(agent_key)
 
     if agent:
-        provider_name = os.getenv(
-            agent["provider_env"], agent["default_provider"]
-        )
+        provider_name = _configured_provider(agent)
         system_prompt = _agent_system_prompt(
             agent_key,
             user,
@@ -117,9 +154,16 @@ def chat_ai(mentor, message, user=None, history=None):
         provider_name = mentor
         system_prompt = _agent_system_prompt("dojo_ai", user)
 
-    provider = _provider(provider_name)
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": message})
 
-    return provider.chat(messages)
+    failures = []
+    for candidate in _provider_candidates(provider_name):
+        try:
+            return _provider(candidate).chat(messages)
+        except Exception as exc:
+            failures.append(type(exc).__name__)
+            logger.warning("Provedor %s indisponível; tentando fallback: %s", candidate, type(exc).__name__)
+
+    raise RuntimeError(f"Nenhum provedor de IA disponível ({', '.join(failures)}).")

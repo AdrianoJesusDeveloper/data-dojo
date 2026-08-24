@@ -1,33 +1,18 @@
-interface AIMentor {
-  name: string;
-  role: string;
-  icon: string;
-  description: string;
-}
-
-const mentor: AIMentor = {
-  name: "Sensei Código",
-  role: "Copilot",
-  icon: "💻",
-  description:
-    "Especialista em programação, arquitetura e boas práticas.",
-};
-
 export function AIMentorCard() {
   return (
     <div className="rounded-xl border bg-card p-5">
-      <div className="text-5xl mb-3">{mentor.icon}</div>
+      <div className="text-5xl mb-3">🥋</div>
 
       <h2 className="text-xl font-bold">
-        {mentor.name}
+        Conselho 3DS IA
       </h2>
 
       <p className="text-sm text-muted-foreground mb-3">
-        {mentor.role}
+        Agentes especializados
       </p>
 
       <p className="text-sm">
-        {mentor.description}
+        Escolha o especialista adequado. O Sensei AI pode rotear demandas multidisciplinares.
       </p>
     </div>
   );

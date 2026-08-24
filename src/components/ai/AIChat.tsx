@@ -6,9 +6,16 @@ interface ChatMessage {
   content: string;
 }
 
-interface AIChatProps {
-  mentor?: "dojo_ai" | "ai_sales";
-}
+export type AgentKey = "dojo_ai" | "sensei" | "data" | "ai_engineer" | "cloud" | "career" | "marketing" | "youtube" | "ai_sales";
+
+const agentNames: Record<AgentKey, string> = {
+  dojo_ai: "DDJ AI", sensei: "Sensei AI", data: "Data Sensei",
+  ai_engineer: "AI Engineer Sensei", cloud: "Cloud Sensei",
+  career: "Career Sensei", marketing: "Marketing Sensei",
+  youtube: "YouTube Sensei", ai_sales: "AI Sales",
+};
+
+interface AIChatProps { mentor?: AgentKey; }
 
 export function AIChat({ mentor = "dojo_ai" }: AIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -16,6 +23,7 @@ export function AIChat({ mentor = "dojo_ai" }: AIChatProps) {
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const agentName = agentNames[mentor];
 
   async function sendMessage(event: FormEvent) {
     event.preventDefault();
@@ -54,12 +62,12 @@ export function AIChat({ mentor = "dojo_ai" }: AIChatProps) {
     <div className="rounded-xl border bg-card overflow-hidden">
       <div className="border-b px-5 py-4">
         <h2 className="font-bold text-lg">
-          {mentor === "ai_sales" ? "💼 AI Sales" : "🥋 DDJ AI — Sensei"}
+          🥋 {agentName}
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
           {mentor === "ai_sales"
             ? "Converse com o agente comercial do Data Driven Dojô."
-            : "Aprenda, pratique e evolua com a IA ao seu lado."}
+            : `Converse com o ${agentName} e receba uma orientação prática.`}
         </p>
       </div>
 
@@ -88,7 +96,7 @@ export function AIChat({ mentor = "dojo_ai" }: AIChatProps) {
               }
             >
               <p className="text-xs font-semibold mb-1 opacity-75">
-                {item.role === "user" ? "Você" : mentor === "ai_sales" ? "AI Sales" : "DDJ AI"}
+                {item.role === "user" ? "Você" : agentName}
               </p>
               <p className="whitespace-pre-wrap text-sm leading-6">{item.content}</p>
             </div>

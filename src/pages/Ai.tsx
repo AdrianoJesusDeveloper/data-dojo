@@ -2,9 +2,12 @@ import { DojoHeader } from "@/components/DojoHeader";
 import { AIChat } from "@/components/ai/AIChat";
 import { AISelector } from "@/components/ai/AISelector";
 import { AIMentorCard } from "@/components/ai/AIMentorCard";
+import { useState } from "react";
+import type { AgentKey } from "@/components/ai/AIChat";
 
 
 export default function Ai(){
+const [agent, setAgent] = useState<AgentKey>("dojo_ai");
 
 return (
 
@@ -64,7 +67,7 @@ space-y-4
 <AIMentorCard/>
 
 
-<AISelector/>
+<AISelector value={agent} onChange={setAgent}/>
 
 
 </aside>
@@ -76,7 +79,7 @@ lg:col-span-3
 ">
 
 
-<AIChat/>
+<AIChat mentor={agent}/>
 
 
 </section>
