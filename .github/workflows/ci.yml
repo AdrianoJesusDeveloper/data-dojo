@@ -71,7 +71,7 @@ jobs:
         run: |
           python manage.py check
           python manage.py migrate --noinput
-          python manage.py test core store --verbosity=2
+          python manage.py test core.tests store.tests --verbosity=2
 
       - name: Production settings check
         working-directory: apps/api
