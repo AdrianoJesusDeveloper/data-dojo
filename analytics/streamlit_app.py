@@ -25,6 +25,7 @@ ADMIN_PASSWORD = os.getenv("DOJO_ADMIN_PASSWORD", "")
 DOJO_APP_URL = os.getenv("DOJO_APP_URL", "https://data-dojo-nine.vercel.app/")
 LEXDATA_URL = os.getenv("LEXDATA_URL", "https://frontend-eta-vert-44.vercel.app/")
 MARKETING_URL = os.getenv("MARKETING_URL", "")
+APP_VERSION = "2026.08.24.2"
 BRAND_ORANGE = "#F59E0B"
 BRAND_BLUE = "#38BDF8"
 STATUS_LABELS = {
@@ -186,6 +187,7 @@ page = st.sidebar.radio("Navegação", ["Visão geral", "Administração", "Ecos
 days = st.sidebar.selectbox("Período dos gráficos", [7, 30, 90, 180, 365], index=1,
                             format_func=lambda value: f"{value} dias", disabled=page != "Visão geral")
 st.sidebar.link_button("↩ Voltar ao Data Driven Dojô", DOJO_APP_URL, use_container_width=True)
+st.sidebar.caption(f"Versão {APP_VERSION}")
 
 try:
     if page == "Visão geral":
