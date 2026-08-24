@@ -2,7 +2,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    dependencies = [("core", "0009_alter_user_profile_picture")]
+    dependencies = [("core", "0003_alter_user_email")]
 
     operations = [
         migrations.AddField(model_name="forumtopic", name="updated_at", field=models.DateTimeField(auto_now=True)),
