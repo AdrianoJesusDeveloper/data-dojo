@@ -23,7 +23,7 @@ st.set_page_config(page_title="Dojo Command Center", page_icon="🥋", layout="w
 REFRESH_SECONDS = max(15, int(os.getenv("DASHBOARD_REFRESH_SECONDS", "60")))
 ADMIN_PASSWORD = os.getenv("DOJO_ADMIN_PASSWORD", "")
 DOJO_APP_URL = os.getenv("DOJO_APP_URL", "https://data-dojo-nine.vercel.app/")
-LEXDATA_URL = os.getenv("LEXDATA_URL", "https://frontend-eta-vert-44.vercel.app/")
+LEXDATA_URL = os.getenv("LEXDATA_URL", "https://lexdata-frontend.vercel.app/")
 MARKETING_URL = os.getenv("MARKETING_URL", "")
 APP_VERSION = "2026.08.24.2"
 BRAND_ORANGE = "#F59E0B"
