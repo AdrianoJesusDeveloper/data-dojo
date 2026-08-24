@@ -44,7 +44,11 @@ class ForumCommentSerializer(serializers.ModelSerializer):
 
     def get_liked_by_me(self, obj):
         request = self.context.get("request")
-        return bool(request and request.user.is_authenticated and obj.likes.filter(pk=request.user.pk).exists())
+        return bool(
+            request
+            and request.user.is_authenticated
+            and any(user.pk == request.user.pk for user in obj.likes.all())
+        )
 
     def get_is_owner(self, obj):
         request = self.context.get("request")
@@ -87,7 +91,11 @@ class ForumTopicSerializer(serializers.ModelSerializer):
 
     def get_liked_by_me(self, obj):
         request = self.context.get("request")
-        return bool(request and request.user.is_authenticated and obj.likes.filter(pk=request.user.pk).exists())
+        return bool(
+            request
+            and request.user.is_authenticated
+            and any(user.pk == request.user.pk for user in obj.likes.all())
+        )
 
     def get_is_owner(self, obj):
         request = self.context.get("request")
@@ -109,7 +117,11 @@ class ForumTopicDetailSerializer(serializers.ModelSerializer):
 
     def get_liked_by_me(self, obj):
         request = self.context.get("request")
-        return bool(request and request.user.is_authenticated and obj.likes.filter(pk=request.user.pk).exists())
+        return bool(
+            request
+            and request.user.is_authenticated
+            and any(user.pk == request.user.pk for user in obj.likes.all())
+        )
 
     def get_is_owner(self, obj):
         request = self.context.get("request")

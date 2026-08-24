@@ -1,4 +1,6 @@
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -29,6 +31,23 @@ class StoreApiTests(APITestCase):
         self.assertEqual(catalog.status_code, status.HTTP_200_OK)
         self.assertIn("Livro Python", [product["name"] for product in catalog.data["results"]])
         self.assertEqual(cart.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_catalog_query_count_does_not_grow_per_product(self):
+        for index in range(5):
+            Product.objects.create(
+                category=self.category,
+                name=f"Produto escalável {index}",
+                slug=f"produto-escalavel-{index}",
+                product_type="digital",
+                price="10.00",
+                active=True,
+            )
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(reverse("store-products"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertLessEqual(len(queries), 3)
 
     def test_catalog_filters_by_search_category_product_type_and_sales_model(self):
         service = Product.objects.create(

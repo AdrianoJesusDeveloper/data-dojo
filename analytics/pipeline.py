@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 from decimal import Decimal
+from functools import lru_cache
 
 import pandas as pd
 from sqlalchemy import create_engine, text
@@ -24,8 +25,15 @@ def database_url() -> str:
     return url
 
 
+@lru_cache(maxsize=1)
 def engine():
-    return create_engine(database_url(), pool_pre_ping=True, pool_recycle=300)
+    return create_engine(
+        database_url(),
+        pool_pre_ping=True,
+        pool_recycle=300,
+        pool_size=max(1, int(os.getenv("DASHBOARD_DB_POOL_SIZE", "2"))),
+        max_overflow=max(0, int(os.getenv("DASHBOARD_DB_MAX_OVERFLOW", "1"))),
+    )
 
 
 def _number(value, default=0):

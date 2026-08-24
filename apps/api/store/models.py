@@ -58,6 +58,10 @@ class Product(models.Model):
 
     class Meta:
         ordering = ["-featured", "-created_at"]
+        indexes = [
+            models.Index(fields=["active", "sales_model", "-created_at"], name="store_product_catalog_idx"),
+            models.Index(fields=["active", "category", "product_type"], name="store_product_filter_idx"),
+        ]
 
     def __str__(self):
         return self.name
@@ -188,6 +192,12 @@ class Order(models.Model):
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="store_order_user_date_idx"),
+            models.Index(fields=["status", "-created_at"], name="store_order_status_date_idx"),
+        ]
 
     def __str__(self):
         return f"Pedido #{self.pk}"

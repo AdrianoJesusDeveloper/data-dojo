@@ -22,10 +22,12 @@ class ProductSerializer(serializers.ModelSerializer):
         return round(float(value), 1) if value is not None else None
 
     def get_reviews_count(self, obj):
-        return getattr(obj, "reviews_count", obj.reviews.count())
+        annotated = getattr(obj, "reviews_count", None)
+        return annotated if annotated is not None else obj.reviews.count()
 
     def get_questions_count(self, obj):
-        return getattr(obj, "questions_count", obj.questions.count())
+        annotated = getattr(obj, "questions_count", None)
+        return annotated if annotated is not None else obj.questions.count()
 
     def get_partner_name(self, obj):
         if obj.sales_model == "affiliate" and hasattr(obj, "affiliate_offer"):

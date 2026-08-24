@@ -262,7 +262,11 @@ class OrderListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user).select_related("payment").prefetch_related("items__product__category").order_by("-created_at")
+        return Order.objects.filter(user=self.request.user).select_related("payment").prefetch_related(
+            "items__product__category",
+            "items__product__reviews",
+            "items__product__questions",
+        ).order_by("-created_at")
 
 
 class OrderCancelView(APIView):
