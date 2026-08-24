@@ -1,0 +1,21 @@
+name: Dojo Analytics Pipeline
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 6 * * *"
+
+jobs:
+  kpi-pipeline:
+    runs-on: ubuntu-latest
+    env:
+      DOJO_DATABASE_URL: ${{ secrets.DOJO_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install analytics dependencies
+        run: pip install -r analytics/requirements.txt
+      - name: Validate and calculate KPIs
+        run: python analytics/pipeline.py
