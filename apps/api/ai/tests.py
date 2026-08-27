@@ -95,3 +95,36 @@ class AgentApiTests(TestCase):
         self.assertEqual(Conversation.objects.filter(user=self.user, mentor="data").count(), 1)
         self.assertEqual(Message.objects.filter(conversation_id=response.data["conversation_id"]).count(), 2)
         mocked_chat.assert_called_once()
+
+    @patch("ai.views.chat_ai", return_value="Resposta comercial")
+    def test_anonymous_conversation_requires_its_private_token(self, mocked_chat):
+        first = self.client.post(
+            reverse("ai-chat"),
+            {"mentor": "ai_sales", "message": "Quero conhecer os cursos."},
+        )
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertTrue(first.data["conversation_token"])
+
+        attacker = APIClient()
+        denied = attacker.post(
+            reverse("ai-chat"),
+            {
+                "mentor": "ai_sales",
+                "message": "Continue a conversa.",
+                "conversation_id": first.data["conversation_id"],
+                "conversation_token": "token-incorreto",
+            },
+        )
+        self.assertEqual(denied.status_code, status.HTTP_404_NOT_FOUND)
+
+        allowed = self.client.post(
+            reverse("ai-chat"),
+            {
+                "mentor": "ai_sales",
+                "message": "Continue a conversa.",
+                "conversation_id": first.data["conversation_id"],
+                "conversation_token": first.data["conversation_token"],
+            },
+        )
+        self.assertEqual(allowed.status_code, status.HTTP_200_OK)
+        self.assertNotIn("conversation_token", allowed.data)

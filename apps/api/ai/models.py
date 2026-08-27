@@ -1,8 +1,12 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 
 
 class Conversation(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    anonymous_access_hash = models.CharField(max_length=64, blank=True, default="")
     # Null para permitir conversas públicas do AI Sales.
     # Usa AUTH_USER_MODEL para permanecer compatível com o modelo de usuário
     # configurado pelo projeto Django.

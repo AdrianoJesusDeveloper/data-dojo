@@ -20,7 +20,8 @@ interface AIChatProps { mentor?: AgentKey; }
 export function AIChat({ mentor = "dojo_ai" }: AIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState("");
-  const [conversationId, setConversationId] = useState<number | null>(null);
+  const [conversationId, setConversationId] = useState<string | number | null>(null);
+  const [conversationToken, setConversationToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const agentName = agentNames[mentor];
@@ -40,9 +41,11 @@ export function AIChat({ mentor = "dojo_ai" }: AIChatProps) {
         mentor,
         message: text,
         conversation_id: conversationId,
+        conversation_token: conversationToken,
       });
 
       setConversationId(response.data.conversation_id ?? conversationId);
+      setConversationToken(response.data.conversation_token ?? conversationToken);
       setMessages((current) => [
         ...current,
         { role: "assistant", content: response.data.message },

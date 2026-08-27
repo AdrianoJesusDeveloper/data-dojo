@@ -125,3 +125,8 @@ for origin in CORS_ALLOWED_ORIGINS:
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "same-origin"
+
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update({
+    "ai_anon": os.getenv("AI_ANON_THROTTLE_RATE", "20/hour"),
+    "ai_user": os.getenv("AI_USER_THROTTLE_RATE", "100/hour"),
+})
