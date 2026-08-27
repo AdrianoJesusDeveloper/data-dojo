@@ -2,12 +2,13 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
+from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import AffiliateClick, AffiliateOffer, Cart, Category, CommercePartner, DropshipOffer, Order, Product, ProductQuestion, ProductReview, SupplierFulfillment, validate_product_image_size
+from .models import AffiliateClick, AffiliateOffer, Cart, Category, CommercePartner, DropshipOffer, Order, Payment, Product, ProductQuestion, ProductReview, SupplierFulfillment, validate_product_image_size
 
 
 class StoreApiTests(APITestCase):
@@ -116,6 +117,9 @@ class StoreApiTests(APITestCase):
         order = Order.objects.get(user=self.user)
         self.assertEqual(str(order.total), "100.00")
         self.assertEqual(order.payment.provider, "mercado_pago")
+        self.assertTrue(order.payment.external_id.startswith("sandbox_"))
+        self.assertTrue(checkout.data["payment"]["sandbox"])
+        self.assertIn(f"/sandbox/orders/{order.id}/approve/", checkout.data["payment"]["checkout_url"])
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock, 1)
         self.assertFalse(Cart.objects.get(user=self.user).items.exists())
@@ -226,6 +230,47 @@ class StoreApiTests(APITestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock, 3)
         self.assertFalse(Cart.objects.get(user=self.user).items.exists())
+
+    def test_sandbox_payment_can_be_approved_only_by_order_owner(self):
+        self.client.force_authenticate(self.user)
+        self.client.post(
+            reverse("store-cart-add"), {"product_id": self.product.id, "quantity": 1}, format="json"
+        )
+        order_data = self.client.post(
+            reverse("store-checkout"), {"provider": "mercado_pago"}, format="json"
+        ).data
+
+        other = get_user_model().objects.create_user(
+            email="sandbox-other@example.com", username="sandbox_other", password="dojo-test-password"
+        )
+        self.client.force_authenticate(other)
+        denied = self.client.post(
+            reverse("store-sandbox-payment-approve", kwargs={"pk": order_data["id"]})
+        )
+        self.assertEqual(denied.status_code, status.HTTP_404_NOT_FOUND)
+
+        self.client.force_authenticate(self.user)
+        approved = self.client.post(
+            reverse("store-sandbox-payment-approve", kwargs={"pk": order_data["id"]})
+        )
+        self.assertEqual(approved.status_code, status.HTTP_200_OK)
+        self.assertEqual(approved.data["status"], "paid")
+        self.assertEqual(approved.data["payment"]["status"], "approved")
+
+    @override_settings(PAYMENT_BACKEND="disabled")
+    def test_checkout_fails_closed_when_payment_backend_is_disabled(self):
+        self.client.force_authenticate(self.user)
+        self.client.post(
+            reverse("store-cart-add"), {"product_id": self.product.id, "quantity": 1}, format="json"
+        )
+
+        response = self.client.post(
+            reverse("store-checkout"), {"provider": "mercado_pago"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertFalse(Order.objects.filter(user=self.user).exists())
+        self.assertFalse(Payment.objects.exists())
 
     def test_cancel_order_rejects_non_pending_and_another_users_order(self):
         self.client.force_authenticate(self.user)

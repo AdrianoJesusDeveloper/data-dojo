@@ -14,6 +14,7 @@ if not SECRET_KEY:
 
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+PAYMENT_BACKEND = os.getenv("PAYMENT_BACKEND", "sandbox" if ENVIRONMENT == "development" else "disabled")
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"

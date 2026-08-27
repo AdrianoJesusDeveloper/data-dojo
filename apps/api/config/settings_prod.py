@@ -7,6 +7,7 @@ from .settings import *
 
 ENVIRONMENT = "production"
 DEBUG = False
+PAYMENT_BACKEND = os.getenv("PAYMENT_BACKEND", "disabled")
 
 
 # ============================================================

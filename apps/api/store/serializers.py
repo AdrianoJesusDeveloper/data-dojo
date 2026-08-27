@@ -134,9 +134,18 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class PaymentSerializer(serializers.ModelSerializer):
+    checkout_url = serializers.SerializerMethodField()
+    sandbox = serializers.SerializerMethodField()
+
+    def get_checkout_url(self, obj):
+        return obj.raw_response.get("checkout_url", "")
+
+    def get_sandbox(self, obj):
+        return obj.raw_response.get("gateway") == "sandbox"
+
     class Meta:
         model = Payment
-        fields = ["id", "provider", "status", "external_id", "payment_method", "amount", "created_at", "updated_at"]
+        fields = ["id", "provider", "status", "external_id", "payment_method", "amount", "checkout_url", "sandbox", "created_at", "updated_at"]
 
 
 class OrderSerializer(serializers.ModelSerializer):

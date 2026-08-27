@@ -9,6 +9,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import AffiliateClick, AffiliateOffer, Category, Product, Cart, CartItem, Order, OrderItem, Payment, ProductQuestion, ProductReview, SupplierFulfillment
+from .payments import get_payment_gateway
+from .payments.base import PaymentConfigurationError
 from .serializers import CategorySerializer, ProductSerializer, CartSerializer, CartItemSerializer, OrderSerializer, ProductQuestionSerializer, ProductReviewSerializer
 
 
@@ -208,53 +210,91 @@ class CartItemDetailView(APIView):
 class CheckoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    @transaction.atomic
     def post(self, request):
-        cart = generics.get_object_or_404(Cart.objects.select_for_update(), user=request.user)
-        items = list(cart.items.select_related("product"))
-        if not items:
-            return Response({"detail": "Carrinho vazio."}, status=status.HTTP_400_BAD_REQUEST)
-
         provider = request.data.get("provider", "mercado_pago")
         if provider not in {value for value, _ in Payment.PROVIDERS}:
             return Response({"detail": "Provedor de pagamento inválido."}, status=status.HTTP_400_BAD_REQUEST)
 
-        total = Decimal("0.00")
-        locked_products = {}
-        for item in items:
-            product = Product.objects.select_for_update().get(pk=item.product_id)
-            locked_products[item.product_id] = product
-            if not product.active:
-                return Response({"detail": f"{product.name} não está disponível."}, status=status.HTTP_400_BAD_REQUEST)
-            if product.product_type == "physical" and product.stock < item.quantity:
-                return Response({"detail": f"Estoque insuficiente para {product.name}."}, status=status.HTTP_400_BAD_REQUEST)
-            if product.sales_model == "affiliate":
-                return Response({"detail": f"{product.name} deve ser comprado no parceiro."}, status=status.HTTP_400_BAD_REQUEST)
-            if product.sales_model == "dropship" and (
-                not hasattr(product, "dropship_offer")
-                or not product.dropship_offer.active
-                or not product.dropship_offer.supplier.active
-            ):
-                return Response({"detail": f"Fornecedor de {product.name} indisponível."}, status=status.HTTP_400_BAD_REQUEST)
-            total += product.price * item.quantity
+        try:
+            gateway = get_payment_gateway()
+        except PaymentConfigurationError:
+            gateway = None
+        if gateway is None or not gateway.available:
+            return Response(
+                {"detail": "O pagamento ainda não está configurado neste ambiente."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
-        order = Order.objects.create(user=request.user, total=total)
-        for item in items:
-            product = locked_products[item.product_id]
-            order_item = OrderItem.objects.create(order=order, product=product, quantity=item.quantity, unit_price=product.price)
-            if product.sales_model == "dropship":
-                SupplierFulfillment.objects.create(
-                    order_item=order_item,
-                    supplier=product.dropship_offer.supplier,
-                    supplier_cost=product.dropship_offer.supplier_cost * item.quantity,
-                )
-            if product.product_type == "physical":
-                product.stock -= item.quantity
-                product.save(update_fields=["stock"])
+        with transaction.atomic():
+            cart = generics.get_object_or_404(Cart.objects.select_for_update(), user=request.user)
+            items = list(cart.items.select_related("product"))
+            if not items:
+                return Response({"detail": "Carrinho vazio."}, status=status.HTTP_400_BAD_REQUEST)
 
-        Payment.objects.create(order=order, amount=total, provider=provider)
-        cart.items.all().delete()
+            total = Decimal("0.00")
+            locked_products = {}
+            for item in items:
+                product = Product.objects.select_for_update().get(pk=item.product_id)
+                locked_products[item.product_id] = product
+                if not product.active:
+                    return Response({"detail": f"{product.name} não está disponível."}, status=status.HTTP_400_BAD_REQUEST)
+                if product.product_type == "physical" and product.stock < item.quantity:
+                    return Response({"detail": f"Estoque insuficiente para {product.name}."}, status=status.HTTP_400_BAD_REQUEST)
+                if product.sales_model == "affiliate":
+                    return Response({"detail": f"{product.name} deve ser comprado no parceiro."}, status=status.HTTP_400_BAD_REQUEST)
+                if product.sales_model == "dropship" and (
+                    not hasattr(product, "dropship_offer")
+                    or not product.dropship_offer.active
+                    or not product.dropship_offer.supplier.active
+                ):
+                    return Response({"detail": f"Fornecedor de {product.name} indisponível."}, status=status.HTTP_400_BAD_REQUEST)
+                total += product.price * item.quantity
+
+            order = Order.objects.create(user=request.user, total=total)
+            for item in items:
+                product = locked_products[item.product_id]
+                order_item = OrderItem.objects.create(order=order, product=product, quantity=item.quantity, unit_price=product.price)
+                if product.sales_model == "dropship":
+                    SupplierFulfillment.objects.create(
+                        order_item=order_item,
+                        supplier=product.dropship_offer.supplier,
+                        supplier_cost=product.dropship_offer.supplier_cost * item.quantity,
+                    )
+                if product.product_type == "physical":
+                    product.stock -= item.quantity
+                    product.save(update_fields=["stock"])
+
+            payment = Payment.objects.create(order=order, amount=total, provider=provider)
+            cart.items.all().delete()
+
+        intent = gateway.create_intent(order=order, requested_provider=provider)
+        payment.external_id = intent.external_id
+        payment.status = intent.status
+        payment.raw_response = {**intent.metadata, "checkout_url": intent.checkout_url}
+        payment.save(update_fields=["external_id", "status", "raw_response", "updated_at"])
         return Response(OrderSerializer(order, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
+
+class SandboxPaymentApproveView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        gateway = get_payment_gateway()
+        if not gateway.sandbox:
+            return Response({"detail": "Rota indisponível."}, status=status.HTTP_404_NOT_FOUND)
+        order = generics.get_object_or_404(
+            Order.objects.select_for_update().select_related("payment"),
+            pk=pk,
+            user=request.user,
+            status="pending",
+        )
+        order.status = "paid"
+        order.save(update_fields=["status", "updated_at"])
+        order.payment.status = "approved"
+        order.payment.raw_response = {**order.payment.raw_response, "sandbox_approved": True}
+        order.payment.save(update_fields=["status", "raw_response", "updated_at"])
+        return Response(OrderSerializer(order, context={"request": request}).data)
 
 
 class OrderListView(generics.ListAPIView):
