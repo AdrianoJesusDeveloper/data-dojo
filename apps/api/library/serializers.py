@@ -3,7 +3,10 @@ from pathlib import Path
 from django.conf import settings
 from rest_framework import serializers
 
-from .models import Book, GeneratedScript, LibrarySource, Trilha
+from .models import (
+    Book, ContentPackage, GeneratedScript, LibrarySource, ModernizationPlan,
+    SourceCitation, StudioApproval, StudioProject, Trilha,
+)
 
 
 class LibrarySourceSerializer(serializers.ModelSerializer):
@@ -93,3 +96,52 @@ class GeneratedScriptSerializer(serializers.ModelSerializer):
             "ganho_negocio", "estrutura", "conteudo_bruto", "created_by", "created_at",
         )
         read_only_fields = fields
+
+
+class SourceCitationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SourceCitation
+        fields = ("id", "book_title", "page_number", "excerpt", "purpose", "created_at")
+
+
+class ModernizationPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ModernizationPlan
+        exclude = ("raw_response",)
+        read_only_fields = ("project", "version", "created_at", "updated_at")
+
+
+class StudioApprovalSerializer(serializers.ModelSerializer):
+    decided_by_name = serializers.CharField(source="decided_by.username", read_only=True)
+
+    class Meta:
+        model = StudioApproval
+        fields = ("id", "artifact", "decision", "notes", "decided_by", "decided_by_name", "created_at")
+        read_only_fields = ("decided_by", "decided_by_name", "created_at")
+
+
+class ContentPackageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContentPackage
+        exclude = ("raw_response",)
+
+
+class StudioProjectSerializer(serializers.ModelSerializer):
+    modernization_plan = ModernizationPlanSerializer(read_only=True)
+    citations = SourceCitationSerializer(many=True, read_only=True)
+    approvals = StudioApprovalSerializer(many=True, read_only=True)
+    content_package = ContentPackageSerializer(read_only=True)
+
+    class Meta:
+        model = StudioProject
+        fields = (
+            "id", "title", "theme", "objective", "source", "books", "status",
+            "created_by", "created_at", "updated_at", "modernization_plan",
+            "citations", "approvals", "content_package",
+        )
+        read_only_fields = ("status", "created_by", "created_at", "updated_at")
+
+
+class ApprovalInputSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=("approved", "revision"))
+    notes = serializers.CharField(required=False, allow_blank=True, max_length=4000)

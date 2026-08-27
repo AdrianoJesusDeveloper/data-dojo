@@ -24,6 +24,9 @@ urlpatterns = [
     path("api/store/", include("store.urls")),
 ]
 
+if settings.DDJ_CONTENT_STUDIO_ENABLED:
+    urlpatterns.append(path("api/library/", include("library.urls")))
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

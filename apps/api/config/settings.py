@@ -80,7 +80,13 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_LIBRARY_MODEL = os.getenv("ANTHROPIC_LIBRARY_MODEL", "claude-sonnet-4-20250514")
 LIBRARY_EMBEDDING_MODEL = os.getenv("LIBRARY_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 LIBRARY_MAX_UPLOAD_MB = int(os.getenv("LIBRARY_MAX_UPLOAD_MB", "50"))
+DDJ_CONTENT_STUDIO_ENABLED = (
+    ENVIRONMENT == "development"
+    and os.getenv("DDJ_CONTENT_STUDIO_ENABLED", "False").lower() == "true"
+)
+DDJ_CONTENT_STUDIO_LOCAL_ONLY = os.getenv("DDJ_CONTENT_STUDIO_LOCAL_ONLY", "True").lower() == "true"
 LOCAL_LIBRARY_PATH = Path(os.getenv("LOCAL_LIBRARY_PATH", str(BASE_DIR / ".local-library")))
+CONTENT_STUDIO_PROVIDER = os.getenv("CONTENT_STUDIO_PROVIDER", "gemini")
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 CELERY_BROKER_URL = REDIS_URL

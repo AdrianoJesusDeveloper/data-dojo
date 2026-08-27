@@ -39,6 +39,13 @@ def _provider(name):
         raise ValueError("Provedor de IA não encontrado") from exc
 
 
+def chat_with_provider(provider_name, messages):
+    """Executa um provedor configurado sem expor credenciais ao chamador."""
+    if not ai_is_enabled():
+        raise RuntimeError("Os agentes de IA estão desabilitados neste ambiente.")
+    return _provider(provider_name).chat(messages)
+
+
 def _configured_provider(agent):
     global_default = os.getenv("AI_DEFAULT_PROVIDER", "").strip().lower()
     if not global_default and os.getenv("GEMINI_API_KEY", "").strip():

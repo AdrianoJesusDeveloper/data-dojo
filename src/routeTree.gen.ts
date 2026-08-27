@@ -18,6 +18,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ContentStudioRouteImport } from './routes/content-studio'
 import { Route as ConhecaSenseyRouteImport } from './routes/conheca-sensey'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as AiSalesRouteImport } from './routes/ai-sales'
@@ -69,6 +70,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContentStudioRoute = ContentStudioRouteImport.update({
+  id: '/content-studio',
+  path: '/content-studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConhecaSenseyRoute = ConhecaSenseyRouteImport.update({
   id: '/conheca-sensey',
   path: '/conheca-sensey',
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/ai-sales': typeof AiSalesRoute
   '/community': typeof CommunityRoute
   '/conheca-sensey': typeof ConhecaSenseyRoute
+  '/content-studio': typeof ContentStudioRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/ai-sales': typeof AiSalesRoute
   '/community': typeof CommunityRoute
   '/conheca-sensey': typeof ConhecaSenseyRoute
+  '/content-studio': typeof ContentStudioRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/ai-sales': typeof AiSalesRoute
   '/community': typeof CommunityRoute
   '/conheca-sensey': typeof ConhecaSenseyRoute
+  '/content-studio': typeof ContentStudioRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/ai-sales'
     | '/community'
     | '/conheca-sensey'
+    | '/content-studio'
     | '/dashboard'
     | '/login'
     | '/portfolio'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/ai-sales'
     | '/community'
     | '/conheca-sensey'
+    | '/content-studio'
     | '/dashboard'
     | '/login'
     | '/portfolio'
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/ai-sales'
     | '/community'
     | '/conheca-sensey'
+    | '/content-studio'
     | '/dashboard'
     | '/login'
     | '/portfolio'
@@ -201,6 +213,7 @@ export interface RootRouteChildren {
   AiSalesRoute: typeof AiSalesRoute
   CommunityRoute: typeof CommunityRoute
   ConhecaSenseyRoute: typeof ConhecaSenseyRoute
+  ContentStudioRoute: typeof ContentStudioRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   PortfolioRoute: typeof PortfolioRoute
@@ -277,6 +290,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/content-studio': {
+      id: '/content-studio'
+      path: '/content-studio'
+      fullPath: '/content-studio'
+      preLoaderRoute: typeof ContentStudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/conheca-sensey': {
       id: '/conheca-sensey'
       path: '/conheca-sensey'
@@ -321,6 +341,7 @@ const rootRouteChildren: RootRouteChildren = {
   AiSalesRoute: AiSalesRoute,
   CommunityRoute: CommunityRoute,
   ConhecaSenseyRoute: ConhecaSenseyRoute,
+  ContentStudioRoute: ContentStudioRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   PortfolioRoute: PortfolioRoute,

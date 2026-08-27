@@ -94,3 +94,88 @@ class GeneratedScript(models.Model):
 
     def __str__(self):
         return self.titulo_video
+
+
+class StudioProject(models.Model):
+    STATUS_CHOICES = [
+        ("draft", "Rascunho"),
+        ("planning", "Planejamento"),
+        ("awaiting_approval", "Aguardando aprovação"),
+        ("approved", "Aprovado"),
+        ("implementing", "Em implementação"),
+        ("validating", "Em validação"),
+        ("content", "Produção de conteúdo"),
+        ("complete", "Concluído"),
+    ]
+
+    title = models.CharField(max_length=255)
+    theme = models.CharField(max_length=500)
+    objective = models.TextField()
+    source = models.ForeignKey(LibrarySource, on_delete=models.SET_NULL, null=True, blank=True, related_name="projects")
+    books = models.ManyToManyField(Book, blank=True, related_name="studio_projects")
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default="draft")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="studio_projects")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class ModernizationPlan(models.Model):
+    STATUS_CHOICES = [("draft", "Rascunho"), ("review", "Em revisão"), ("approved", "Aprovado")]
+    project = models.OneToOneField(StudioProject, on_delete=models.CASCADE, related_name="modernization_plan")
+    source_summary = models.TextField(blank=True)
+    original_architecture = models.JSONField(default=dict)
+    proposed_architecture = models.JSONField(default=dict)
+    replacements = models.JSONField(default=list)
+    requirements = models.JSONField(default=dict)
+    acceptance_criteria = models.JSONField(default=list)
+    test_strategy = models.JSONField(default=dict)
+    risks = models.JSONField(default=list)
+    business_value = models.TextField(blank=True)
+    raw_response = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class SourceCitation(models.Model):
+    project = models.ForeignKey(StudioProject, on_delete=models.CASCADE, related_name="citations")
+    chunk = models.ForeignKey(BookChunk, on_delete=models.SET_NULL, null=True, blank=True)
+    source = models.ForeignKey(LibrarySource, on_delete=models.SET_NULL, null=True, blank=True)
+    book_title = models.CharField(max_length=255, blank=True)
+    page_number = models.PositiveIntegerField(null=True, blank=True)
+    excerpt = models.TextField()
+    purpose = models.CharField(max_length=120, default="modernization_plan")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class StudioApproval(models.Model):
+    DECISIONS = [("approved", "Aprovado"), ("revision", "Solicitar revisão")]
+    project = models.ForeignKey(StudioProject, on_delete=models.CASCADE, related_name="approvals")
+    artifact = models.CharField(max_length=80, default="modernization_plan")
+    decision = models.CharField(max_length=20, choices=DECISIONS)
+    notes = models.TextField(blank=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class ContentPackage(models.Model):
+    project = models.OneToOneField(StudioProject, on_delete=models.CASCADE, related_name="content_package")
+    study_plan = models.JSONField(default=dict)
+    lesson = models.JSONField(default=dict)
+    kata = models.JSONField(default=dict)
+    video_script = models.JSONField(default=dict)
+    article = models.TextField(blank=True)
+    linkedin_post = models.TextField(blank=True)
+    raw_response = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
