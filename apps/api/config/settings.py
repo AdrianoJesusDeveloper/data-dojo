@@ -22,7 +22,7 @@ ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "localhost,
 
 DJANGO_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles", "django.contrib.sites"]
 THIRD_PARTY_APPS = ["corsheaders", "rest_framework", "rest_framework.authtoken", "allauth", "allauth.account", "allauth.socialaccount", "dj_rest_auth", "dj_rest_auth.registration"]
-LOCAL_APPS = ["core", "ai", "store"]
+LOCAL_APPS = ["core", "ai", "store", "library"]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = ["corsheaders.middleware.CorsMiddleware", "django.middleware.security.SecurityMiddleware", "whitenoise.middleware.WhiteNoiseMiddleware", "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware", "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware", "django.contrib.messages.middleware.MessageMiddleware", "django.middleware.clickjacking.XFrameOptionsMiddleware", "allauth.account.middleware.AccountMiddleware"]
@@ -75,3 +75,16 @@ STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"
 # enviados ao frontend.
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_AI_MODEL = os.getenv("OPENAI_AI_MODEL", "gpt-4.1-mini")
+
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_LIBRARY_MODEL = os.getenv("ANTHROPIC_LIBRARY_MODEL", "claude-sonnet-4-20250514")
+LIBRARY_EMBEDDING_MODEL = os.getenv("LIBRARY_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+LIBRARY_MAX_UPLOAD_MB = int(os.getenv("LIBRARY_MAX_UPLOAD_MB", "50"))
+LOCAL_LIBRARY_PATH = Path(os.getenv("LOCAL_LIBRARY_PATH", str(BASE_DIR / ".local-library")))
+
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
