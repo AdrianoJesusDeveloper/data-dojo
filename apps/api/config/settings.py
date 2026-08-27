@@ -85,7 +85,7 @@ DDJ_CONTENT_STUDIO_ENABLED = (
     and os.getenv("DDJ_CONTENT_STUDIO_ENABLED", "False").lower() == "true"
 )
 DDJ_CONTENT_STUDIO_LOCAL_ONLY = os.getenv("DDJ_CONTENT_STUDIO_LOCAL_ONLY", "True").lower() == "true"
-LOCAL_LIBRARY_PATH = Path(os.getenv("LOCAL_LIBRARY_PATH", str(BASE_DIR / ".local-library")))
+LOCAL_LIBRARY_PATH = Path(os.getenv("LOCAL_LIBRARY_PATH", r"C:\livros"))
 CONTENT_STUDIO_PROVIDER = os.getenv("CONTENT_STUDIO_PROVIDER", "gemini")
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")

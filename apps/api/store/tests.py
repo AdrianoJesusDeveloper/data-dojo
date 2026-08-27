@@ -230,6 +230,11 @@ class StoreApiTests(APITestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock, 3)
         self.assertFalse(Cart.objects.get(user=self.user).items.exists())
+        self.assertTrue(Order.objects.filter(pk=order_data["id"], status="cancelled").exists())
+        recent_orders = self.client.get(reverse("store-orders"))
+        self.assertFalse(
+            any(order["id"] == order_data["id"] for order in recent_orders.data["results"])
+        )
 
     def test_sandbox_payment_can_be_approved_only_by_order_owner(self):
         self.client.force_authenticate(self.user)

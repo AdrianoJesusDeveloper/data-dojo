@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "vite dev --config vite.local.config.ts",
+    "dev:ssr": "vite dev",
+    "server": ".venv/Scripts/python.exe apps/api/manage.py runserver",
     "test": "vitest run",
     "test:ui": "vitest",
     "typecheck": "tsc --noEmit",
@@ -93,7 +95,7 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.0.16",
+    "vite": "^7.2.4",
     "vitest": "^1.2.0"
   },
   "engines": {

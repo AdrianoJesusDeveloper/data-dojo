@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist", ".output", ".vinxi", ".venv/**", ".wrangler/**", ".tanstack/**", "apps/api/**", "apps/site/dist/**", "node_modules/**", "src/routeTree.gen.ts"],
+    ignores: ["dist", ".output", ".vinxi", "**/.venv/**", "**/venv/**", ".venv.broken-*/**", "**/site-packages/**", ".wrangler/**", ".tanstack/**", "apps/api/**", "apps/site/dist/**", "node_modules/**", "src/routeTree.gen.ts"],
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

@@ -21,7 +21,6 @@ Uma plataforma educacional gamificada para formação de profissionais de **dado
 [![AWS](https://img.shields.io/badge/AWS-1C1C1C?style=for-the-badge&logo=amazonaws&logoColor=FF9900)](https://aws.amazon.com/)
 
 </div>
-
 ---
 
 ## 🖼️ Showcase da aplicação
@@ -80,7 +79,7 @@ Uma plataforma educacional gamificada para formação de profissionais de **dado
 
 ![Data Driven Dojô — IA Sensei](docs/screenshots/09-ai-sensei.png)
 
-*Camada futura de mentoria inteligente, feedback e personalização.*
+*Ecossistema de mentores especializados, conversas persistidas e seleção segura de provedores de IA.*
 
 ### 📱 Experiência responsiva
 
@@ -126,7 +125,7 @@ A experiência combina:
 - 📈 **Dashboard de progresso**;
 - 🧪 **Workspace de prática**;
 - 👥 **Comunidade**;
-- 🤖 **IA Sensei** como evolução futura.
+- 🤖 **Ecossistema IA Sensei** com mentores especializados.
 
 > **O Dojô não quer formar apenas usuários de ferramentas. Quer formar profissionais capazes de pensar, construir e resolver problemas.**
 
@@ -199,7 +198,9 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 │ ├── Autenticação                                             │
 │ ├── Cursos / módulos / aulas                                │
 │ ├── Exercícios e avaliação                                  │
-│ └── API de conteúdo                                         │
+│ ├── Ecossistema de agentes de IA                            │
+│ ├── 3DStore e operações comerciais                          │
+│ └── Biblioteca do Sensei / RAG                              │
 │                         │                                   │
 │              ┌──────────┴──────────┐                        │
 │              ▼                     ▼                        │
@@ -234,11 +235,11 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 
 ### Backend
 
-`Python` · `Django` · `Django REST Framework` · `dj-rest-auth`
+`Python` · `Django` · `Django REST Framework` · `dj-rest-auth` · `Celery`
 
 ### Dados & infraestrutura
 
-`PostgreSQL` · `SQLite (dev)` · `Redis` · `Celery`
+`PostgreSQL` · `SQLite (dev)` · `Redis` · `Celery` · `pypdf` · `sentence-transformers`
 
 ### Qualidade
 
@@ -272,6 +273,35 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 - curtidas;
 - comentários;
 - interação social.
+
+### 🤖 Ecossistema IA Sensei
+
+- Sensei coordenador e mentores especializados em dados, engenharia de IA, cloud, carreira, marketing e YouTube;
+- AI Sales público e agentes educacionais protegidos por autenticação;
+- conversas persistidas com histórico e isolamento por usuário;
+- suporte configurável a OpenAI, Gemini, DeepSeek e endpoint compatível com GitHub Copilot;
+- fallback controlado entre provedores e limites de uso por usuário.
+
+### 🛒 3DStore
+
+- catálogo organizado por categorias;
+- produtos próprios, afiliados e dropshipping;
+- carrinho, pedidos e checkout desacoplado;
+- pagamento sandbox seguro para desenvolvimento;
+- avaliações e perguntas vinculadas aos produtos;
+- rastreamento de redirecionamentos para parceiros.
+
+### 📚 Biblioteca do Sensei
+
+- upload e validação de livros técnicos em PDF;
+- extração, divisão em chunks e embeddings locais;
+- recuperação semântica com indicação de livro e página;
+- processamento assíncrono com Celery e Redis;
+- geração de roteiros estruturados a partir das fontes recuperadas;
+- catálogo privado com indexação recursiva do acervo local e detecção de duplicidades;
+- **DDJ Content Studio** com projetos, plano de modernização, aprovação humana e pacote de conteúdo;
+- proteção por feature flag, acesso administrativo e restrição ao ambiente local;
+- desativação obrigatória do Studio na configuração de produção.
 
 ### 📊 Dashboard
 
@@ -349,8 +379,11 @@ src/
 └── tests/           # Testes
 
 apps/api/
-├── core/            # Domínio, models, serializers e views
-└── config/          # Configuração Django
+├── core/            # Domínio educacional, comunidade e portfólio
+├── ai/              # Agentes, conversas, provedores e orquestração
+├── store/           # Catálogo, carrinho, pedidos e pagamentos
+├── library/         # Biblioteca do Sensei, ingestão e RAG
+└── config/          # Configuração Django, URLs e Celery
 ```
 
 > `routes/` define o endereço; `pages/` compõe a experiência; componentes, hooks e serviços reutilizáveis ficam separados para facilitar evolução e manutenção.
@@ -417,8 +450,8 @@ ECOSSISTEMA
 
 ### 🔵 Escala
 
-- [ ] Cache estratégico
-- [ ] Jobs assíncronos para tarefas pesadas
+- [x] Jobs assíncronos para ingestão de livros
+- [ ] Cache estratégico para leitura e consultas frequentes
 - [ ] Testes E2E
 - [ ] CI/CD
 - [ ] Observabilidade técnica
@@ -430,8 +463,11 @@ ECOSSISTEMA
 - [ ] Feedback personalizado
 - [ ] Geração de exercícios
 - [ ] Recomendações de trilha
-- [ ] RAG sobre conteúdo do Dojô
-- [ ] Agentes especializados
+- [x] Base RAG da Biblioteca do Sensei
+- [x] Agentes especializados
+- [x] Catálogo privado do acervo local
+- [x] DDJ Content Studio privado com aprovações humanas
+- [ ] Permissões administrativas granulares para produção
 
 ### 🟣 Mercado
 
@@ -456,6 +492,9 @@ Resumo das URLs recomendadas:
 | Django Admin | `http://127.0.0.1:8000/admin/` |
 | 3DStore | `http://127.0.0.1:8083/store` |
 | Dojo Command Center | `http://127.0.0.1:8501/` |
+| API dos agentes | `http://127.0.0.1:8000/api/ai/` |
+| API da Biblioteca | `http://127.0.0.1:8000/api/library/` |
+| DDJ Content Studio (MVP local) | `http://127.0.0.1:8080/content-studio` |
 
 ### Qualidade antes de publicar
 

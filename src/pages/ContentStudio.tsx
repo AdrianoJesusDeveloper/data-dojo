@@ -193,7 +193,7 @@ export default function ContentStudio() {
           </div>
           <Button onClick={() => scanMutation.mutate()} disabled={!status || scanMutation.isPending}>
             {scanMutation.isPending ? <LoaderCircle className="animate-spin" /> : <FolderSearch />}
-            Examinar acervo local
+            Examinar C:\livros
           </Button>
         </section>
 
