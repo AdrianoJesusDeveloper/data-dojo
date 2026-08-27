@@ -40,8 +40,8 @@ export function AIChat({ mentor = "dojo_ai" }: AIChatProps) {
       const response = await api.post("/api/ai/chat/", {
         mentor,
         message: text,
-        conversation_id: conversationId,
-        conversation_token: conversationToken,
+        ...(conversationId !== null ? { conversation_id: conversationId } : {}),
+        ...(conversationToken !== null ? { conversation_token: conversationToken } : {}),
       });
 
       setConversationId(response.data.conversation_id ?? conversationId);
