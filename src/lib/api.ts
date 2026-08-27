@@ -27,7 +27,31 @@ export const api = axios.create({
   },
 });
 
+const PUBLIC_AUTH_ENDPOINTS = [
+  "/api/auth/login/",
+  "/api/auth/registration/",
+  "/api/auth/password-reset/",
+  "/api/auth/password-reset/confirm/",
+];
+
+function isPublicAuthRequest(url?: string): boolean {
+  if (!url) return false;
+
+  try {
+    const pathname = new URL(url, API_ORIGIN).pathname;
+    return PUBLIC_AUTH_ENDPOINTS.includes(pathname);
+  } catch {
+    return PUBLIC_AUTH_ENDPOINTS.some((endpoint) => url.startsWith(endpoint));
+  }
+}
+
 api.interceptors.request.use((config) => {
+  // A stale token must never block login, registration or password recovery.
+  if (isPublicAuthRequest(config.url)) {
+    delete config.headers.Authorization;
+    return config;
+  }
+
   const token = getAuthToken();
 
   if (token) {
@@ -36,3 +60,17 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (
+      error.response?.status === 401 &&
+      error.response?.data?.detail === "Invalid token."
+    ) {
+      useAuthStore.getState().logout();
+    }
+
+    return Promise.reject(error);
+  }
+);

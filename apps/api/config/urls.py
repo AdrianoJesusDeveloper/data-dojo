@@ -18,6 +18,7 @@ urlpatterns = [
     path("home/", RedirectView.as_view(url="/admin/", permanent=False)),
     path("admin/", admin.site.urls),
     path("api/auth/", include("dj_rest_auth.urls")),
+    path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
     path("api/", include("api.urls")),
     path("api/ai/", include("ai.urls")),
     path("api/store/", include("store.urls")),

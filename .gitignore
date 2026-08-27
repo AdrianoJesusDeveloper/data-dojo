@@ -39,11 +39,13 @@ __pycache__/
 *.sqlite3
 *.db
 .venv/
+.venv*/
 venv/
 env/
 .env
 .env.*
 .pytest_cache/
+.npm-cache/
 .coverage
 htmlcov/
 
@@ -64,6 +66,7 @@ estrutura_lib.txt
 estrutura_routes.txt
 
 # Documentação e relatórios mantidos somente no computador
+.private-docs/
 /AGENTS.md
 /MANUAL_CURSOS_VIDEOS_EXERCICIOS.md
 /manual_3DStore_produtos.md
@@ -72,3 +75,26 @@ estrutura_routes.txt
 /arvore_de_pastas.txt
 /eslint-fix-output.txt
 /lint-output.txt
+
+# Documentos de texto locais. Requirements permanecem versionados.
+*.txt
+!requirements.txt
+!**/requirements.txt
+
+# Manuais e documentos técnicos privatizados são locais; documentação pública
+# futura em docs/ continua visível para o Git.
+/docs/ADR/0001-monolito-modular.md
+/docs/ARCHITECTURE.md
+/docs/DEPLOYMENT.md
+/docs/PRODUCT_METRICS.md
+/docs/SECURITY.md
+**/MANUAL*.md
+**/manual*.md
+!README.md
+!**/README.md
+!**/LICENSE*.md
+
+# Artefatos privados locais identificados nesta estação
+/Criar apresentação executiva.html
+/Criar apresentação executiva_files/
+/Ecossistema_3DS_Oportunidade_de_Aquisicao.pptx

@@ -28,9 +28,16 @@ MIDDLEWARE = ["corsheaders.middleware.CorsMiddleware", "django.middleware.securi
 TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [], "APP_DIRS": True, "OPTIONS": {"context_processors": ["django.template.context_processors.debug", "django.template.context_processors.request", "django.contrib.auth.context_processors.auth", "django.contrib.messages.context_processors.messages"]}}]
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL:
+DJANGO_USE_SQLITE = os.getenv("DJANGO_USE_SQLITE", "False").lower() == "true"
+if DJANGO_USE_SQLITE:
+    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
+elif DATABASE_URL:
     DATABASES = {"default": {"ENGINE": "django.db.backends.postgresql", "NAME": "", "USER": "", "PASSWORD": "", "HOST": "", "PORT": "", "OPTIONS": {}, "TEST": {}, "CONN_MAX_AGE": 600, "CONN_HEALTH_CHECKS": True, "DISABLE_SERVER_SIDE_CURSORS": False}}
     DATABASES["default"] = dj_database_url.config(default=DATABASE_URL, conn_max_age=600, conn_health_checks=True)
+    if DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3":
+        sqlite_name = Path(DATABASES["default"]["NAME"])
+        if not sqlite_name.is_absolute():
+            DATABASES["default"]["NAME"] = BASE_DIR / sqlite_name
 else:
     DATABASES = {"default": {"ENGINE": "django.db.backends.postgresql", "NAME": os.getenv("DB_NAME", "dojo_db"), "USER": os.getenv("DB_USER", "postgres"), "PASSWORD": os.getenv("DB_PASSWORD", ""), "HOST": os.getenv("DB_HOST", "localhost"), "PORT": os.getenv("DB_PORT", "5432")}}
 

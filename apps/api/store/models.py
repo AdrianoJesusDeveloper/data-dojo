@@ -60,7 +60,9 @@ class Product(models.Model):
         upload_to="store/products/%Y/%m/",
         blank=True,
         validators=[
-            FileExtensionValidator(["jpg", "jpeg", "png", "webp"]),
+            FileExtensionValidator(
+                allowed_extensions=["jpg", "jpeg", "png", "webp"]
+            ),
             validate_product_image_size,
         ],
         help_text="Upload opcional (JPG, PNG ou WebP; máximo 5 MB). Tem prioridade sobre a URL da imagem.",

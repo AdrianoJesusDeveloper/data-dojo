@@ -6,6 +6,33 @@ from rest_framework.test import APITestCase
 from core.models import Course, Exercise, Lesson, Module, StudentProject
 
 
+class AuthenticationFlowTests(APITestCase):
+    def test_user_can_register_and_login_with_email(self):
+        credentials = {
+            "email": "login-local@example.com",
+            "username": "login_local",
+            "password1": "Dojo-local-test-2026!",
+            "password2": "Dojo-local-test-2026!",
+        }
+
+        registration = self.client.post(
+            "/api/auth/registration/", credentials, format="json"
+        )
+        self.assertEqual(registration.status_code, status.HTTP_201_CREATED)
+
+        login = self.client.post(
+            "/api/auth/login/",
+            {
+                "username": credentials["email"],
+                "email": credentials["email"],
+                "password": credentials["password1"],
+            },
+            format="json",
+        )
+        self.assertEqual(login.status_code, status.HTTP_200_OK)
+        self.assertTrue(login.data["key"])
+
+
 class CoreApiTests(APITestCase):
     def test_course_list_returns_ok(self):
         Course.objects.create(title="Curso Base", description="Teste")

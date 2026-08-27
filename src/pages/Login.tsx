@@ -28,6 +28,10 @@ export default function Login() {
       navigate({ to: redirect, replace: true });
     } catch (err: any) {
       const data = err?.response?.data;
+      if (data?.non_field_errors?.[0] === "Unable to log in with provided credentials.") {
+        setError("Usuário ou senha incorretos. Se o banco foi recriado, cadastre sua conta novamente.");
+        return;
+      }
       setError(data?.non_field_errors?.[0] ?? data?.detail ?? "Usuário ou senha incorretos.");
     } finally {
       setLoading(false);
