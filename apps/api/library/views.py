@@ -13,14 +13,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import (
-    Book, ContentPackage, EditorialComment, EditorialPlanVersion, GeneratedScript,
+    Book, ContentPackage, EditorialComment, EditorialCouncilRun, EditorialPlanVersion, GeneratedScript,
     LibrarySource, ModernizationPlan, SourceCitation, StudioApproval, StudioProject, Trilha,
 )
 from .permissions import IsLocalStudioAdmin
 from .serializers import (
     BookSerializer, BookStatusSerializer, GeneratedScriptSerializer, LibrarySourceSerializer,
     ApprovalInputSerializer, ContentGenerationInputSerializer, ContentPackageSerializer,
-    EditorialCommentSerializer, EditorialPlanEditSerializer, EditorialPlanVersionSerializer,
+    EditorialCommentSerializer, EditorialCouncilRunSerializer, EditorialPlanEditSerializer, EditorialPlanVersionSerializer,
     GenerateScriptSerializer, StudioProjectSerializer, TrilhaSerializer,
 )
 from .services.generation import gerar_roteiro
@@ -28,10 +28,82 @@ from .services.retrieval import buscar_chunks_relevantes
 from .services.catalog import scan_library
 from .editorial_contracts import validate_editorial_plan
 from .services.studio_agents import generate_content_item, generate_content_package, generate_modernization_plan
+from .services.editorial_council import CouncilExecutionError, start_editorial_council
 from .tasks import process_book
 
 
 logger = logging.getLogger(__name__)
+
+
+class StudioCouncilRunListCreateView(APIView):
+    permission_classes = [IsLocalStudioAdmin]
+
+    def get(self, request, pk):
+        project = generics.get_object_or_404(StudioProject, pk=pk, created_by=request.user)
+        runs = project.council_runs.prefetch_related("agent_runs")[:50]
+        return Response(EditorialCouncilRunSerializer(runs, many=True).data)
+
+    def post(self, request, pk):
+        generics.get_object_or_404(StudioProject, pk=pk, created_by=request.user)
+        try:
+            run = start_editorial_council(pk, request.user)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        except CouncilExecutionError:
+            return Response({"detail": "O Conselho Editorial falhou de forma segura."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(EditorialCouncilRunSerializer(run).data, status=status.HTTP_201_CREATED)
+
+
+class StudioCouncilRunDetailView(generics.RetrieveAPIView):
+    serializer_class = EditorialCouncilRunSerializer
+    permission_classes = [IsLocalStudioAdmin]
+
+    def get_queryset(self):
+        return EditorialCouncilRun.objects.filter(project__created_by=self.request.user).prefetch_related("agent_runs")
+
+
+class StudioCouncilDecisionView(APIView):
+    permission_classes = [IsLocalStudioAdmin]
+    decision = None
+
+    def post(self, request, pk):
+        raw_notes = request.data.get("notes", "")
+        if not isinstance(raw_notes, str):
+            return Response({"detail": "As observacoes devem ser texto."}, status=status.HTTP_400_BAD_REQUEST)
+        if len(raw_notes) > 4000:
+            return Response({"detail": "As observacoes excedem o limite de 4.000 caracteres."}, status=status.HTTP_400_BAD_REQUEST)
+        notes = raw_notes.strip()
+        with transaction.atomic():
+            run = generics.get_object_or_404(
+                EditorialCouncilRun.objects.select_for_update().select_related("project"),
+                pk=pk, project__created_by=request.user,
+            )
+            current_plan = ModernizationPlan.objects.select_for_update().get(project=run.project)
+            if current_plan.version != run.plan_version or current_plan.status != "approved":
+                if run.status == "awaiting_human_approval":
+                    run.status = "cancelled"
+                    run.completed_at = timezone.now()
+                    run.error_code = "plan_invalid"
+                    run.save(update_fields=["status", "completed_at", "error_code", "updated_at"])
+                return Response({"detail": "A execuÃ§Ã£o nÃ£o corresponde a um plano aprovado atual."}, status=status.HTTP_409_CONFLICT)
+            if run.status != "awaiting_human_approval":
+                return Response({"detail": "A execuÃ§Ã£o nÃ£o estÃ¡ aguardando decisÃ£o humana."}, status=status.HTTP_409_CONFLICT)
+            run.status = self.decision
+            run.save(update_fields=["status", "updated_at"])
+            StudioApproval.objects.create(
+                project=run.project, artifact=f"editorial_council:{run.id}",
+                decision="approved" if self.decision == "approved" else "revision",
+                notes=notes, decided_by=request.user,
+            )
+        return Response(EditorialCouncilRunSerializer(run).data)
+
+
+class StudioCouncilApproveView(StudioCouncilDecisionView):
+    decision = "approved"
+
+
+class StudioCouncilRevisionView(StudioCouncilDecisionView):
+    decision = "revision_requested"
 
 
 class BookUploadView(generics.ListCreateAPIView):

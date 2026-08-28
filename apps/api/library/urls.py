@@ -7,6 +7,7 @@ from .views import (
     StudioCommentResolveView, StudioGenerateContentView, StudioGeneratePlanView,
     StudioPermanentDeleteView, StudioPlanEditView, StudioPlanVersionListView,
     StudioProjectDetailView, StudioProjectListCreateView, StudioStatusView, TrilhaListView,
+    StudioCouncilApproveView, StudioCouncilRevisionView, StudioCouncilRunDetailView, StudioCouncilRunListCreateView,
 )
 
 urlpatterns = [
@@ -25,6 +26,10 @@ urlpatterns = [
     path("studio/projects/<int:pk>/archive/", StudioArchiveView.as_view(), name="library-studio-archive"),
     path("studio/projects/<int:pk>/permanent-delete/", StudioPermanentDeleteView.as_view(), name="library-studio-permanent-delete"),
     path("studio/projects/<int:pk>/generate-content/", StudioGenerateContentView.as_view(), name="library-studio-generate-content"),
+    path("studio/projects/<int:pk>/council-runs/", StudioCouncilRunListCreateView.as_view(), name="library-studio-council-runs"),
+    path("studio/council-runs/<int:pk>/", StudioCouncilRunDetailView.as_view(), name="library-studio-council-run-detail"),
+    path("studio/council-runs/<int:pk>/approve/", StudioCouncilApproveView.as_view(), name="library-studio-council-approve"),
+    path("studio/council-runs/<int:pk>/request-revision/", StudioCouncilRevisionView.as_view(), name="library-studio-council-revision"),
     path("books/", BookUploadView.as_view(), name="library-book-upload"),
     path("books/<int:pk>/process/", BookProcessView.as_view(), name="library-book-process"),
     path("books/<int:pk>/status/", BookStatusView.as_view(), name="library-book-status"),

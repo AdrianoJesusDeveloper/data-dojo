@@ -62,6 +62,8 @@ type LibrarySource = {
 
 type PaginatedSources = { count: number; next: string | null; previous: string | null; results: LibrarySource[] };
 type Book = { id: number; title: string; author: string; status: string; source: number | null };
+type CouncilAgentRun = { id: number; role: string; status: string; provider: string; model: string; output_payload: Record<string, unknown>; error_code: string };
+type CouncilRun = { id: number; plan_version: number; status: string; final_synthesis: Record<string, unknown>; agent_runs: CouncilAgentRun[]; created_at: string };
 type StudioProject = {
   id: number; title: string; theme: string; objective: string; project_type: "youtube" | "premium"; status: string; books: number[];
   modernization_plan?: any; citations: Array<{ id: number; book_title: string; page_number: number | null; excerpt: string }>;
@@ -159,6 +161,13 @@ export default function ContentStudio() {
     retry: false,
   });
 
+  const councilQuery = useQuery({
+    queryKey: ["content-studio-council", selectedProject?.id],
+    queryFn: async () => (await api.get<CouncilRun[]>(`/api/library/studio/projects/${selectedProject!.id}/council-runs/`)).data,
+    enabled: Boolean(selectedProject?.modernization_plan),
+    retry: false,
+  });
+
   const refreshProjects = () => { queryClient.invalidateQueries({ queryKey: ["content-studio-projects"] }); queryClient.invalidateQueries({ queryKey: ["content-studio-plan-versions"] }); };
 
   const createProjectMutation = useMutation({
@@ -184,6 +193,17 @@ export default function ContentStudio() {
       queryClient.invalidateQueries({ queryKey: ["content-studio-status"] });
     },
     onError: (error: any) => toast.error(error.response?.data?.detail || "A etapa não pôde ser concluída."),
+  });
+
+  const councilMutation = useMutation({
+    mutationFn: async ({ action, runId, projectId }: { action: "run" | "approve" | "revision"; runId?: number; projectId: number }) => {
+      if (action === "run") return (await api.post(`/api/library/studio/projects/${projectId}/council-runs/`, {})).data;
+      if (!runId) throw new Error("missing-run");
+      const endpoint = action === "approve" ? "approve" : "request-revision";
+      return (await api.post(`/api/library/studio/council-runs/${runId}/${endpoint}/`, {})).data;
+    },
+    onSuccess: () => { toast.success("Conselho Editorial atualizado."); queryClient.invalidateQueries({ queryKey: ["content-studio-council"] }); },
+    onError: (error: any) => toast.error(error.response?.data?.detail || "O Conselho Editorial nÃ£o pÃ´de concluir a operaÃ§Ã£o."),
   });
 
   const savePlanMutation = useMutation({
@@ -470,6 +490,7 @@ export default function ContentStudio() {
                       )}
                       {!!versionsQuery.data?.length && <details className="no-print rounded-lg border p-4"><summary className="flex cursor-pointer list-none items-center gap-2 font-bold"><History className="h-4 w-4" />Histórico do plano ({versionsQuery.data.length})</summary><div className="mt-3 space-y-2">{versionsQuery.data.map((version) => <details key={version.id} className="rounded-md border p-3"><summary className="cursor-pointer text-sm font-semibold">Plano v{version.version} · {version.origin} · {version.state}</summary><p className="mt-1 text-xs text-muted-foreground">{version.created_by_name} · {new Date(version.created_at).toLocaleString("pt-BR")}</p><JsonSummary title={`Conteúdo da versão ${version.version}`} value={version.content} /></details>)}</div></details>}
                       <section className="no-print rounded-lg border p-4"><h4 className="flex items-center gap-2 font-bold"><MessageSquare className="h-4 w-4" />Comentários editoriais</h4><div className="mt-3 flex flex-wrap gap-2"><select aria-label="Alvo do comentário" value={commentTarget} onChange={(event) => setCommentTarget(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">{commentTargets(selectedProject).map((target) => <option key={target.value} value={target.value}>{target.label}</option>)}</select><Input className="min-w-56 flex-1" placeholder="Adicionar comentário" value={commentText} onChange={(event) => setCommentText(event.target.value)} /><Button disabled={!commentText.trim() || commentMutation.isPending} onClick={() => commentMutation.mutate()}>Adicionar comentário</Button></div><div className="mt-3 space-y-2">{(selectedProject.editorial_comments ?? []).map((comment) => <div key={comment.id} className={`rounded-md border p-3 text-sm ${comment.resolved ? "opacity-60" : ""}`}><div className="flex justify-between gap-3"><p><strong>{comment.author_name}</strong> · {comment.target}</p>{!comment.resolved && <Button size="sm" variant="ghost" onClick={() => resolveCommentMutation.mutate(comment.id)}>Resolver</Button>}</div><p className="mt-1 whitespace-pre-wrap">{comment.text}</p></div>)}</div></section>
+                      {selectedProject.modernization_plan?.status === "approved" && <CouncilPanel projectId={selectedProject.id} runs={councilQuery.data ?? []} loading={councilQuery.isLoading || councilMutation.isPending} onAction={(args) => councilMutation.mutate(args)} />}
                       {selectedProject.modernization_plan?.status === "approved" && <section className="no-print rounded-lg border border-kaizen/30 bg-kaizen/5 p-4"><p className="font-bold text-kaizen">Gerar conteúdo editorial</p><p className="mt-1 text-xs text-muted-foreground">Escolha uma aula, módulo ou vídeo. O resultado fica em draft e não é publicado no Workspace.</p><div className="mt-3 flex flex-wrap gap-3"><select aria-label="Item para geração" value={contentTarget} onChange={(event) => setContentTarget(event.target.value)} className="h-10 min-w-64 rounded-md border border-input bg-background px-3 text-sm"><option value="">Selecione um item</option>{contentTargets(selectedProject).map((target: { value: string; label: string }) => <option key={target.value} value={target.value}>{target.label}</option>)}</select><Button disabled={!contentTarget || generateItemMutation.isPending} onClick={() => generateItemMutation.mutate()}><Sparkles />Gerar conteúdo</Button></div></section>}
                       {!!selectedProject.content_package?.generated_items?.length && <section className="rounded-lg border border-kaizen/30 bg-kaizen/5 p-4"><p className="font-bold text-kaizen">Conteúdos em draft</p><div className="mt-4 space-y-4">{selectedProject.content_package.generated_items.map((item: any) => <article key={item.id ?? `${item.target_type}-${item.target_id}-${item.generation}`} className="rounded-lg border bg-background p-4"><Badge variant="outline">{item.target_type} {item.target_index + 1} · plano v{item.plan_version ?? "legado"} · geração {item.generation ?? "legada"}</Badge><div className="mt-3"><EditorialContentRenderer value={item.content} /></div></article>)}</div></section>}
                     </div>
@@ -486,6 +507,31 @@ export default function ContentStudio() {
 
 function JsonSummary({ title, value }: { title: string; value: unknown }) {
   return <div className="mt-3"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{title}</p><pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-background/70 p-3 text-xs">{JSON.stringify(value, null, 2)}</pre></div>;
+}
+
+const councilRoleLabels: Record<string, string> = {
+  technical: "Técnico", pedagogy: "Pedagogia", learning_science: "Ciência da aprendizagem",
+  technical_content: "Conteúdo técnico", youtube: "YouTube", social_media: "Redes sociais",
+  seo: "SEO", fact_checker: "Fact-checking",
+};
+
+function CouncilPanel({ projectId, runs, loading, onAction }: { projectId: number; runs: CouncilRun[]; loading: boolean; onAction: (args: { action: "run" | "approve" | "revision"; runId?: number; projectId: number }) => void }) {
+  const latest = runs[0];
+  const awaitingDecision = latest?.status === "awaiting_human_approval";
+  const active = latest && ["queued", "running", "reviewing"].includes(latest.status);
+  return <section className="no-print rounded-lg border border-primary/30 bg-primary/5 p-4" aria-labelledby="editorial-council-title">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h4 id="editorial-council-title" className="font-bold">CONSELHO EDITORIAL</h4><p className="mt-1 text-xs text-muted-foreground">O Sensei Editorial coordena especialistas. A IA propõe e revisa; somente uma pessoa aprova.</p></div>
+      <Button disabled={loading || Boolean(active)} onClick={() => onAction({ action: "run", projectId })}>{loading ? <LoaderCircle className="animate-spin" /> : <Sparkles />}{latest ? "Executar novo Conselho" : "Executar Conselho"}</Button>
+    </div>
+    {!latest ? <p className="mt-4 rounded-md border border-dashed p-4 text-sm text-muted-foreground">Nenhuma análise executada para este projeto.</p> : <div className="mt-4 space-y-4">
+      <div className="flex flex-wrap gap-2"><Badge>{latest.status}</Badge><Badge variant="outline">Plano v{latest.plan_version}</Badge><span className="text-xs text-muted-foreground">{new Date(latest.created_at).toLocaleString("pt-BR")}</span></div>
+      <div className="grid gap-3 sm:grid-cols-2">{latest.agent_runs.map((agent) => <article key={agent.id} className="rounded-md border bg-background p-3"><div className="flex items-center justify-between gap-2"><strong className="text-sm">{councilRoleLabels[agent.role] ?? agent.role}</strong><Badge variant={agent.status === "failed" ? "destructive" : "outline"}>{agent.status}</Badge></div>{agent.error_code ? <p className="mt-2 text-xs text-destructive">Falha segura: {agent.error_code}</p> : Object.keys(agent.output_payload ?? {}).length > 0 ? <div className="mt-2"><EditorialContentRenderer value={agent.output_payload} /></div> : <p className="mt-2 text-xs text-muted-foreground">Parecer ainda não disponível.</p>}</article>)}</div>
+      {Object.keys(latest.final_synthesis ?? {}).length > 0 && <div className="rounded-md border border-kaizen/30 bg-background p-4"><p className="font-bold text-kaizen">Síntese final do Sensei Editorial</p><div className="mt-3"><EditorialContentRenderer value={latest.final_synthesis} /></div></div>}
+      {awaitingDecision && <div className="flex flex-wrap gap-2"><Button disabled={loading} onClick={() => onAction({ action: "approve", runId: latest.id, projectId })}><CheckCircle2 />Aprovar</Button><Button disabled={loading} variant="outline" onClick={() => onAction({ action: "revision", runId: latest.id, projectId })}>Solicitar revisão</Button></div>}
+      {runs.length > 1 && <details><summary className="cursor-pointer text-sm font-bold">Histórico das execuções ({runs.length})</summary><div className="mt-2 space-y-2">{runs.map((run) => <details key={run.id} className="rounded-md border bg-background p-3"><summary className="cursor-pointer text-sm">Conselho #{run.id} · plano v{run.plan_version} · {run.status}</summary><JsonSummary title="Síntese" value={run.final_synthesis} /></details>)}</div></details>}
+    </div>}
+  </section>;
 }
 
 function contentTargets(project: StudioProject) {

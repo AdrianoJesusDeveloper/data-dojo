@@ -5,7 +5,7 @@ from django.conf import settings
 from rest_framework import serializers
 
 from .models import (
-    Book, ContentPackage, EditorialComment, EditorialPlanVersion, GeneratedScript,
+    Book, ContentPackage, EditorialAgentRun, EditorialComment, EditorialCouncilRun, EditorialPlanVersion, GeneratedScript,
     LibrarySource, ModernizationPlan, SourceCitation, StudioApproval, StudioProject, Trilha,
 )
 
@@ -163,6 +163,22 @@ class ContentPackageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContentPackage
         exclude = ("raw_response",)
+
+
+class EditorialAgentRunSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EditorialAgentRun
+        fields = ("id", "role", "status", "provider", "model", "output_payload", "rag_sources", "prompt_version", "started_at", "completed_at", "error_code")
+        read_only_fields = fields
+
+
+class EditorialCouncilRunSerializer(serializers.ModelSerializer):
+    agent_runs = EditorialAgentRunSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = EditorialCouncilRun
+        fields = ("id", "project", "plan_version", "status", "final_synthesis", "error_code", "started_at", "heartbeat_at", "lease_expires_at", "completed_at", "created_at", "updated_at", "agent_runs")
+        read_only_fields = fields
 
 
 class StudioProjectSerializer(serializers.ModelSerializer):

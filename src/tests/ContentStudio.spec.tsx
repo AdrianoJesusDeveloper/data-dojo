@@ -186,4 +186,62 @@ describe("ContentStudio catalog actions", () => {
       source: 7,
     }));
   });
+
+  it("renders the coordinated council and keeps approval explicitly human", async () => {
+    const project = {
+      id: 88, title: "Projeto Conselho", theme: "Dados", objective: "Revisar", project_type: "premium", status: "approved", books: [1], citations: [], editorial_comments: [], is_archived: false,
+      modernization_plan: { status: "approved", version: 4, proposed_architecture: { title: "Plano do Conselho", modules: [] } },
+    };
+    const run = {
+      id: 9, plan_version: 4, status: "awaiting_human_approval", created_at: "2026-08-28T12:00:00Z",
+      final_synthesis: { summary: "Síntese coordenada", findings: [], recommendations: [], risks: [] },
+      agent_runs: [{ id: 1, role: "technical", status: "completed", provider: "test", model: "", output_payload: { summary: "Parecer técnico" }, error_code: "" }],
+    };
+    get.mockImplementation((url: string) => {
+      if (url.endsWith("studio/status/")) return Promise.resolve({ data: { enabled: true, local_only: true, sources: 0, supported: 0, unsupported: 0, missing: 0, books: 0, ready_books: 0, scripts: 0 } });
+      if (url.endsWith("studio/projects/")) return Promise.resolve({ data: { results: [project] } });
+      if (url.endsWith("council-runs/")) return Promise.resolve({ data: [run] });
+      if (url.endsWith("sources/")) return Promise.resolve({ data: { count: 0, results: [] } });
+      return Promise.resolve({ data: { results: [] } });
+    });
+    post.mockResolvedValue({ data: { ...run, status: "approved" } });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><ContentStudio /></QueryClientProvider>);
+
+    expect(await screen.findByText("CONSELHO EDITORIAL")).toBeInTheDocument();
+    expect(await screen.findByText("Parecer técnico")).toBeInTheDocument();
+    expect(screen.getByText("Síntese coordenada")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Aprovar" }));
+    await waitFor(() => expect(post).toHaveBeenCalledWith("/api/library/studio/council-runs/9/approve/", {}));
+  });
+
+  it("keeps the clicked run id for revision across reorder and project switch", async () => {
+    const projects = [88, 89].map((id) => ({
+      id, title: `Projeto ${id}`, theme: "Dados", objective: "Revisar", project_type: "premium", status: "approved", books: [1], citations: [], editorial_comments: [], is_archived: false,
+      modernization_plan: { status: "approved", version: 4, proposed_architecture: { title: `Plano ${id}`, modules: [] } },
+    }));
+    const run9 = { id: 9, plan_version: 4, status: "awaiting_human_approval", created_at: "2026-08-28T12:00:00Z", final_synthesis: {}, agent_runs: [] };
+    const run8 = { ...run9, id: 8, created_at: "2026-08-27T12:00:00Z" };
+    let councilRuns = [run9, run8];
+    get.mockImplementation((url: string) => {
+      if (url.endsWith("studio/status/")) return Promise.resolve({ data: { enabled: true, local_only: true, sources: 0, supported: 0, unsupported: 0, missing: 0, books: 0, ready_books: 0, scripts: 0 } });
+      if (url.endsWith("studio/projects/")) return Promise.resolve({ data: { results: projects } });
+      if (url.includes("/projects/88/council-runs/")) return Promise.resolve({ data: councilRuns });
+      if (url.includes("/projects/89/council-runs/")) return Promise.resolve({ data: [] });
+      if (url.endsWith("sources/")) return Promise.resolve({ data: { count: 0, results: [] } });
+      return Promise.resolve({ data: { results: [] } });
+    });
+    let finishRequest!: () => void;
+    post.mockImplementation(() => new Promise((resolve) => { finishRequest = () => resolve({ data: { ...run9, status: "revision_requested" } }); }));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><ContentStudio /></QueryClientProvider>);
+
+    await screen.findByText("Plano 88");
+    fireEvent.click(await screen.findByRole("button", { name: "Solicitar revisão" }));
+    councilRuns = [run8, run9];
+    await queryClient.invalidateQueries({ queryKey: ["content-studio-council", 88] });
+    fireEvent.change(screen.getByRole("combobox", { name: "Projeto editorial" }), { target: { value: "89" } });
+    expect(post).toHaveBeenCalledWith("/api/library/studio/council-runs/9/request-revision/", {});
+    finishRequest();
+  });
 });

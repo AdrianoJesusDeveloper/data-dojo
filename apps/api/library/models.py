@@ -225,3 +225,58 @@ class ContentPackage(models.Model):
     publication_status = models.CharField(max_length=20, default="draft")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class EditorialCouncilRun(models.Model):
+    STATUS_CHOICES = [(value, value.replace("_", " ").title()) for value in (
+        "draft", "queued", "running", "reviewing", "awaiting_human_approval",
+        "approved", "revision_requested", "failed", "cancelled",
+    )]
+    project = models.ForeignKey(StudioProject, on_delete=models.CASCADE, related_name="council_runs")
+    plan_version = models.PositiveIntegerField()
+    status = models.CharField(max_length=40, choices=STATUS_CHOICES, default="draft", db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    input_snapshot = models.JSONField(default=dict)
+    final_synthesis = models.JSONField(default=dict, blank=True)
+    error_code = models.CharField(max_length=80, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    heartbeat_at = models.DateTimeField(null=True, blank=True)
+    lease_expires_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["project", "status", "lease_expires_at"], name="council_active_lease_idx")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project"],
+                condition=models.Q(status__in=("queued", "running", "reviewing")),
+                name="unique_active_council_per_project",
+            ),
+        ]
+
+
+class EditorialAgentRun(models.Model):
+    ROLE_CHOICES = [(value, value.replace("_", " ").title()) for value in (
+        "technical", "pedagogy", "learning_science", "technical_content",
+        "youtube", "social_media", "seo", "fact_checker",
+    )]
+    STATUS_CHOICES = [(value, value.title()) for value in ("pending", "running", "completed", "failed", "skipped")]
+    council_run = models.ForeignKey(EditorialCouncilRun, on_delete=models.CASCADE, related_name="agent_runs")
+    role = models.CharField(max_length=40, choices=ROLE_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    provider = models.CharField(max_length=80, blank=True)
+    model = models.CharField(max_length=120, blank=True)
+    input_payload = models.JSONField(default=dict)
+    output_payload = models.JSONField(default=dict, blank=True)
+    rag_sources = models.JSONField(default=list, blank=True)
+    prompt_version = models.CharField(max_length=40, default="editorial-council-v1")
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    error_code = models.CharField(max_length=80, blank=True)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [models.UniqueConstraint(fields=["council_run", "role"], name="unique_council_role")]
