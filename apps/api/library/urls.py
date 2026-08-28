@@ -2,20 +2,28 @@ from django.urls import path
 
 from .views import (
     BookProcessView, BookStatusView, BookUploadView, LibraryScanView,
-    LibrarySourceListView, ScriptDetailView, ScriptGenerateView,
-    ScriptListView, StudioApprovalView, StudioGenerateContentView,
-    StudioGeneratePlanView, StudioProjectDetailView, StudioProjectListCreateView,
-    StudioStatusView, TrilhaListView,
+    LibrarySourceListView, LibrarySourceProcessView, ScriptDetailView, ScriptGenerateView,
+    ScriptListView, StudioApprovalView, StudioArchiveView, StudioCommentListCreateView,
+    StudioCommentResolveView, StudioGenerateContentView, StudioGeneratePlanView,
+    StudioPermanentDeleteView, StudioPlanEditView, StudioPlanVersionListView,
+    StudioProjectDetailView, StudioProjectListCreateView, StudioStatusView, TrilhaListView,
 )
 
 urlpatterns = [
     path("studio/status/", StudioStatusView.as_view(), name="library-studio-status"),
     path("studio/scan/", LibraryScanView.as_view(), name="library-studio-scan"),
     path("sources/", LibrarySourceListView.as_view(), name="library-source-list"),
+    path("sources/<int:pk>/process/", LibrarySourceProcessView.as_view(), name="library-source-process"),
     path("studio/projects/", StudioProjectListCreateView.as_view(), name="library-studio-projects"),
     path("studio/projects/<int:pk>/", StudioProjectDetailView.as_view(), name="library-studio-project-detail"),
     path("studio/projects/<int:pk>/generate-plan/", StudioGeneratePlanView.as_view(), name="library-studio-generate-plan"),
     path("studio/projects/<int:pk>/approve/", StudioApprovalView.as_view(), name="library-studio-approve"),
+    path("studio/projects/<int:pk>/plan/", StudioPlanEditView.as_view(), name="library-studio-plan-edit"),
+    path("studio/projects/<int:pk>/plan/versions/", StudioPlanVersionListView.as_view(), name="library-studio-plan-versions"),
+    path("studio/projects/<int:pk>/comments/", StudioCommentListCreateView.as_view(), name="library-studio-comments"),
+    path("studio/projects/<int:pk>/comments/<int:comment_pk>/resolve/", StudioCommentResolveView.as_view(), name="library-studio-comment-resolve"),
+    path("studio/projects/<int:pk>/archive/", StudioArchiveView.as_view(), name="library-studio-archive"),
+    path("studio/projects/<int:pk>/permanent-delete/", StudioPermanentDeleteView.as_view(), name="library-studio-permanent-delete"),
     path("studio/projects/<int:pk>/generate-content/", StudioGenerateContentView.as_view(), name="library-studio-generate-content"),
     path("books/", BookUploadView.as_view(), name="library-book-upload"),
     path("books/<int:pk>/process/", BookProcessView.as_view(), name="library-book-process"),

@@ -27,6 +27,20 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def resolve_library_file(root: Path, candidate: Path) -> Path:
+    """Resolve a file fail-closed and prove containment before any file I/O."""
+    canonical_root = root.expanduser().resolve(strict=True)
+    unresolved = candidate if candidate.is_absolute() else canonical_root / candidate
+    resolved = unresolved.resolve(strict=True)
+    try:
+        resolved.relative_to(canonical_root)
+    except ValueError as exc:
+        raise ValueError("Arquivo fora da raiz permitida.") from exc
+    if not resolved.is_file():
+        raise ValueError("Arquivo indisponÃ­vel.")
+    return resolved
+
+
 @transaction.atomic
 def scan_library() -> dict:
     root = library_root()
@@ -35,11 +49,15 @@ def scan_library() -> dict:
     hashes = {}
     existing_by_path = {item.relative_path: item for item in LibrarySource.objects.all()}
 
-    for path in root.rglob("*"):
-        if not path.is_file() or path.name.startswith("~$"):
+    for discovered in root.rglob("*"):
+        if discovered.name.startswith("~$"):
             continue
-        extension = path.suffix.lower()
+        extension = discovered.suffix.lower()
         if extension not in CATALOG_EXTENSIONS:
+            continue
+        try:
+            path = resolve_library_file(root, discovered)
+        except (OSError, RuntimeError, ValueError):
             continue
         relative = path.relative_to(root).as_posix()
         seen.add(relative)

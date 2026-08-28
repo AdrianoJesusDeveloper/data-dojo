@@ -4,10 +4,24 @@ from tempfile import TemporaryDirectory
 from django.test import TestCase, override_settings
 
 from library.models import LibrarySource
-from library.services.catalog import scan_library
+from library.services.catalog import resolve_library_file, scan_library
 
 
 class CatalogTests(TestCase):
+    def test_resolver_rejects_traversal_absolute_external_and_missing(self):
+        with TemporaryDirectory() as folder:
+            base = Path(folder)
+            root = base / "library"
+            root.mkdir()
+            inside = root / "inside.pdf"
+            outside = base / "outside.pdf"
+            inside.write_bytes(b"inside")
+            outside.write_bytes(b"outside")
+            self.assertEqual(resolve_library_file(root, Path("inside.pdf")), inside.resolve())
+            for candidate in (Path("../outside.pdf"), outside.resolve(), Path("missing.pdf")):
+                with self.subTest(candidate=candidate), self.assertRaises((ValueError, FileNotFoundError)):
+                    resolve_library_file(root, candidate)
+
     def test_catalogs_supported_files_and_detects_duplicates(self):
         with TemporaryDirectory() as folder:
             root = Path(folder)

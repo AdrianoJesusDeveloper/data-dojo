@@ -9,7 +9,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from library.models import Book, ModernizationPlan, StudioProject
+from library.models import Book, LibrarySource, ModernizationPlan, StudioProject
 
 
 @override_settings(
@@ -49,6 +49,12 @@ class LibraryApiSecurityTests(APITestCase):
             ("post", reverse("library-studio-generate-plan", kwargs={"pk": 999999}), {}),
             ("post", reverse("library-studio-approve", kwargs={"pk": 999999}), {"decision": "approved"}),
             ("post", reverse("library-studio-generate-content", kwargs={"pk": 999999}), {}),
+            ("put", reverse("library-studio-plan-edit", kwargs={"pk": 999999}), {"plan": {}}),
+            ("get", reverse("library-studio-plan-versions", kwargs={"pk": 999999}), None),
+            ("post", reverse("library-studio-comments", kwargs={"pk": 999999}), {"text": "Teste"}),
+            ("post", reverse("library-studio-comment-resolve", kwargs={"pk": 999999, "comment_pk": 999999}), {}),
+            ("post", reverse("library-studio-archive", kwargs={"pk": 999999}), {"archived": True}),
+            ("delete", reverse("library-studio-permanent-delete", kwargs={"pk": 999999}), {"confirmation": "EXCLUIR DEFINITIVAMENTE"}),
             ("get", reverse("library-book-upload"), None),
             ("post", reverse("library-book-upload"), {}),
             ("post", reverse("library-book-process", kwargs={"pk": 999999}), {}),
@@ -174,6 +180,39 @@ class LibraryApiSecurityTests(APITestCase):
         project = StudioProject.objects.get(pk=created.data["id"])
         self.assertEqual(project.created_by, self.admin)
 
+    def test_project_with_processed_book_persists_its_catalog_source(self):
+        source = LibrarySource.objects.create(
+            relative_path="series/livro.pdf",
+            filename="livro.pdf",
+            extension="pdf",
+            sha256="source-project",
+            status="supported",
+        )
+        book = Book.objects.create(
+            title="Séries temporais",
+            file="library/books/livro.pdf",
+            status="ready",
+            source=source,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.request(
+            "post",
+            reverse("library-studio-projects"),
+            {
+                "title": "Projeto com fonte",
+                "theme": "Séries temporais",
+                "objective": "Ensinar fundamentos",
+                "source": source.id,
+                "books": [book.id],
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        project = StudioProject.objects.get(pk=response.data["id"])
+        self.assertEqual(project.source_id, source.id)
+        self.assertEqual(list(project.books.values_list("id", flat=True)), [book.id])
+
     def test_other_staff_user_cannot_read_update_or_run_owner_workflow(self):
         project = StudioProject.objects.create(
             title="Privado", theme="Tema", objective="Objetivo", created_by=self.admin
@@ -230,12 +269,12 @@ class LibraryApiSecurityTests(APITestCase):
                 response = self.request("post", reverse(name, kwargs={"pk": project.pk}), {"decision": "approved"})
                 self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("library.views.generate_content_package")
+    @patch("library.views.generate_content_item")
     def test_authorized_owner_can_approve_and_generate_content(self, generate_content):
         project = StudioProject.objects.create(
             title="Workflow", theme="Tema", objective="Objetivo", created_by=self.admin
         )
-        ModernizationPlan.objects.create(project=project, status="review")
+        ModernizationPlan.objects.create(project=project, status="review", proposed_architecture={"modules": [{"title": "MÃ³dulo", "lessons": [{"title": "Aula"}]}]})
         self.client.force_authenticate(self.admin)
         approval = self.request(
             "post",
@@ -244,29 +283,26 @@ class LibraryApiSecurityTests(APITestCase):
         )
         self.assertEqual(approval.status_code, status.HTTP_200_OK)
 
-        generate_content.return_value = (
-            {"study_plan": {}, "lesson": {}, "kata": {}, "video_script": {}, "article": "", "linkedin_post": ""},
-            "raw-private-provider-response",
-        )
+        generate_content.return_value = ({"objective": "ConteÃºdo seguro"}, "raw-private-provider-response")
         content = self.request(
-            "post", reverse("library-studio-generate-content", kwargs={"pk": project.pk}), {}
+            "post", reverse("library-studio-generate-content", kwargs={"pk": project.pk}), {"target_type": "lesson", "target_index": 0}
         )
         self.assertEqual(content.status_code, status.HTTP_200_OK)
         self.assertNotIn("raw_response", content.data)
         self.assertNotIn("raw-private-provider-response", json.dumps(content.data))
 
-    @patch("library.views.generate_content_package")
+    @patch("library.views.generate_content_item")
     def test_provider_failure_does_not_expose_secret_or_server_path(self, generate_content):
         project = StudioProject.objects.create(
             title="Workflow", theme="Tema", objective="Objetivo", created_by=self.admin
         )
-        ModernizationPlan.objects.create(project=project, status="approved")
+        ModernizationPlan.objects.create(project=project, status="approved", proposed_architecture={"modules": [{"title": "MÃ³dulo", "lessons": [{"title": "Aula"}]}]})
         generate_content.side_effect = RuntimeError(
             "OPENAI_API_KEY=private em C:\\private\\provider.json"
         )
         self.client.force_authenticate(self.admin)
         response = self.request(
-            "post", reverse("library-studio-generate-content", kwargs={"pk": project.pk}), {}
+            "post", reverse("library-studio-generate-content", kwargs={"pk": project.pk}), {"target_type": "lesson", "target_index": 0}
         )
         self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
         payload = json.dumps(response.data)

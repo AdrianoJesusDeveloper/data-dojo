@@ -49,6 +49,13 @@ class Book(models.Model):
 
     title = models.CharField(max_length=255)
     author = models.CharField(max_length=255, blank=True)
+    source = models.OneToOneField(
+        LibrarySource,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="book",
+    )
     trilha = models.ForeignKey(Trilha, on_delete=models.SET_NULL, null=True, related_name="books")
     tecnologias = models.JSONField(default=list, blank=True)
     file = models.FileField(upload_to="library/books/")
@@ -97,6 +104,7 @@ class GeneratedScript(models.Model):
 
 
 class StudioProject(models.Model):
+    PROJECT_TYPES = [("youtube", "Trilha YouTube"), ("premium", "Formação Premium")]
     STATUS_CHOICES = [
         ("draft", "Rascunho"),
         ("planning", "Planejamento"),
@@ -111,12 +119,15 @@ class StudioProject(models.Model):
     title = models.CharField(max_length=255)
     theme = models.CharField(max_length=500)
     objective = models.TextField()
+    project_type = models.CharField(max_length=20, choices=PROJECT_TYPES, default="premium")
     source = models.ForeignKey(LibrarySource, on_delete=models.SET_NULL, null=True, blank=True, related_name="projects")
     books = models.ManyToManyField(Book, blank=True, related_name="studio_projects")
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default="draft")
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="studio_projects")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_archived = models.BooleanField(default=False, db_index=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-updated_at"]
@@ -142,6 +153,39 @@ class ModernizationPlan(models.Model):
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class EditorialPlanVersion(models.Model):
+    ORIGIN_CHOICES = [("ai", "IA"), ("human_edit", "EdiÃ§Ã£o humana"), ("revision", "RevisÃ£o")]
+    project = models.ForeignKey(StudioProject, on_delete=models.CASCADE, related_name="plan_versions")
+    version = models.PositiveIntegerField()
+    content = models.JSONField(default=dict)
+    project_type = models.CharField(max_length=20, choices=StudioProject.PROJECT_TYPES)
+    origin = models.CharField(max_length=20, choices=ORIGIN_CHOICES)
+    state = models.CharField(max_length=20, choices=ModernizationPlan.STATUS_CHOICES)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-version"]
+        constraints = [models.UniqueConstraint(fields=["project", "version"], name="unique_project_plan_version")]
+
+
+class EditorialComment(models.Model):
+    TARGET_CHOICES = [(value, value.title()) for value in ("plan", "module", "lesson", "video", "project", "section")]
+    project = models.ForeignKey(StudioProject, on_delete=models.CASCADE, related_name="editorial_comments")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    text = models.TextField()
+    target = models.CharField(max_length=255, default="plan")
+    target_type = models.CharField(max_length=20, choices=TARGET_CHOICES, default="plan")
+    target_id = models.CharField(max_length=255, blank=True)
+    plan_version = models.PositiveIntegerField(null=True, blank=True)
+    resolved = models.BooleanField(default=False)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["resolved", "-created_at"]
 
 
 class SourceCitation(models.Model):
@@ -177,5 +221,7 @@ class ContentPackage(models.Model):
     article = models.TextField(blank=True)
     linkedin_post = models.TextField(blank=True)
     raw_response = models.TextField(blank=True)
+    generated_items = models.JSONField(default=list, blank=True)
+    publication_status = models.CharField(max_length=20, default="draft")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

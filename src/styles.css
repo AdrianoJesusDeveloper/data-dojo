@@ -2,6 +2,16 @@
 @source "../src";
 @import "tw-animate-css";
 
+@media print {
+  body * { visibility: hidden !important; }
+  .editorial-print-area, .editorial-print-area * { visibility: visible !important; }
+  .editorial-print-area { position: absolute; inset: 0; width: 100%; background: white; color: black; }
+  .no-print, nav, header, button { display: none !important; }
+  pre, table, article, section { break-inside: avoid; }
+  details > * { visibility: visible !important; }
+  details { display: block !important; }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
