@@ -279,6 +279,7 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 - Sensei coordenador e mentores especializados em dados, engenharia de IA, cloud, carreira, marketing e YouTube;
 - AI Sales público e agentes educacionais protegidos por autenticação;
 - conversas persistidas com histórico e isolamento por usuário;
+- continuidade de conversa pelo `conversation_id` retornado pela API; conversas anônimas usam identificador público e token privado, sem permitir reutilização por outro cliente;
 - suporte configurável a OpenAI, Gemini, DeepSeek e endpoint compatível com GitHub Copilot;
 - fallback controlado entre provedores e limites de uso por usuário.
 
@@ -299,9 +300,32 @@ O produto está sendo estruturado como uma plataforma de **Learning Experience +
 - processamento assíncrono com Celery e Redis;
 - geração de roteiros estruturados a partir das fontes recuperadas;
 - catálogo privado com indexação recursiva do acervo local e detecção de duplicidades;
-- **DDJ Content Studio** com projetos, plano de modernização, aprovação humana e pacote de conteúdo;
+- **DDJ Content Studio** com projetos editoriais dos tipos **Formação Premium** e **Trilha YouTube**;
+- planos editoriais estruturados, edição humana e histórico imutável por versão;
+- comentários editoriais vinculados ao plano, projeto, módulo, aula, vídeo ou seção;
+- geração seletiva de conteúdo por módulo, aula ou vídeo, sempre mantida como draft;
+- visão editorial legível, visão técnica em JSON, impressão/exportação e prévia como aluno;
+- fluxo explícito de aprovação humana, solicitação de revisão, arquivamento e exclusão confirmada;
+- **Conselho Editorial Multiagente** coordenado pelo Sensei Editorial, com pareceres especializados, Fact Checker e síntese final aguardando decisão humana;
 - proteção por feature flag, acesso administrativo e restrição ao ambiente local;
 - desativação obrigatória do Studio na configuração de produção.
+
+#### Conselho Editorial e segurança operacional
+
+O Conselho não é um conjunto de chats independentes. Uma execução versionada coordena sequencialmente os papéis `technical`, `pedagogy`, `learning_science`, `technical_content`, `youtube`, `social_media`, `seo` e `fact_checker`, preserva proveniência das fontes e termina em `awaiting_human_approval`. A IA propõe, debate e sintetiza; somente uma pessoa pode aprovar ou solicitar revisão. Não existe publicação automática no Workspace, YouTube ou redes sociais.
+
+As fronteiras implementadas incluem isolamento por proprietário do projeto, exigência de usuário `is_staff`, opção de acesso somente por loopback, payloads limitados, erros sanitizados e tratamento de fontes RAG e pareceres anteriores como dados não confiáveis. Runs ativas usam heartbeat/lease, são revalidadas contra a versão e o estado aprovado do plano e não podem ser retomadas depois de expiradas. O histórico expõe as 50 execuções mais recentes em ordem determinística.
+
+#### Fluxo do operador
+
+1. Examinar o acervo privado e processar um PDF elegível para RAG.
+2. Criar uma Formação Premium ou Trilha YouTube e gerar o plano editorial.
+3. Revisar fontes, editar o plano, consultar versões e registrar comentários estruturados.
+4. Aprovar explicitamente o plano antes de gerar um módulo, aula ou vídeo em draft.
+5. Conferir a visão editorial, a visão técnica e a prévia não publicada do aluno.
+6. Executar o Conselho Editorial e decidir humanamente entre aprovação e nova revisão.
+
+Os endpoints administrativos ficam sob `/api/library/`: projetos e planos em `studio/projects/`, versões em `studio/projects/<id>/plan/versions/`, comentários em `studio/projects/<id>/comments/`, geração seletiva em `studio/projects/<id>/generate-content/` e Conselho em `studio/projects/<id>/council-runs/`. As decisões do Conselho usam `studio/council-runs/<id>/approve/` e `studio/council-runs/<id>/request-revision/`.
 
 ### 📊 Dashboard
 
@@ -494,7 +518,7 @@ Resumo das URLs recomendadas:
 | Dojo Command Center | `http://127.0.0.1:8501/` |
 | API dos agentes | `http://127.0.0.1:8000/api/ai/` |
 | API da Biblioteca | `http://127.0.0.1:8000/api/library/` |
-| DDJ Content Studio (MVP local) | `http://127.0.0.1:8080/content-studio` |
+| DDJ Content Studio (administrativo local) | `http://127.0.0.1:8080/content-studio` |
 
 ### Qualidade antes de publicar
 
@@ -504,6 +528,17 @@ npm.cmd run typecheck
 npm.cmd test -- --run
 npm.cmd run build
 ```
+
+Para a descoberta completa dos testes Django, execute os comandos a partir de `apps/api`:
+
+```powershell
+Set-Location apps/api
+..\..\.venv\Scripts\python.exe manage.py check
+..\..\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run
+..\..\.venv\Scripts\python.exe manage.py test
+```
+
+As migrations da Biblioteca chegam atualmente a `0009_editorial_council`. Revise o plano de migração e faça backup do banco antes de aplicar migrations em qualquer ambiente persistente.
 
 ---
 
