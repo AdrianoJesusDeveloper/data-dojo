@@ -4,6 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework.views import APIView
@@ -12,8 +13,9 @@ from rest_framework import viewsets, permissions, generics, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.pagination import PageNumberPagination
 
-from .models import Course, Module, Lesson, ForumTopic, ForumComment, Certificate, StudentProject
+from .models import Course, Module, Lesson, Exercise, ForumTopic, ForumComment, Certificate, StudentProject, ExerciseAttempt
 from .serializers import (
     CourseSerializer, 
     LessonSerializer, 
@@ -24,7 +26,10 @@ from .serializers import (
     CertificateSerializer,
     UserSerializer,
     StudentProjectSerializer,
+    ExerciseAttemptInputSerializer,
+    ExerciseAttemptSerializer,
 )
+from .services import AttemptConflictError, AttemptPersistenceError, create_exercise_attempt
 
 
 class OwnerWritePermission(permissions.BasePermission):
@@ -210,6 +215,52 @@ class ModuleViewSet(viewsets.ModelViewSet):
 class LessonViewSet(viewsets.ModelViewSet):
     queryset = Lesson.objects.order_by('order')
     serializer_class = LessonSerializer
+
+
+class ExerciseAttemptListCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, exercise_id):
+        get_object_or_404(Exercise, pk=exercise_id)
+        attempts = ExerciseAttempt.objects.filter(
+            user=request.user,
+            exercise_id=exercise_id,
+        ).order_by("-attempt_number")
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(attempts, request, view=self)
+        serializer = ExerciseAttemptSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    def post(self, request, exercise_id):
+        input_serializer = ExerciseAttemptInputSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+
+        try:
+            attempt, created = create_exercise_attempt(
+                user=request.user,
+                exercise_id=exercise_id,
+                **input_serializer.validated_data,
+            )
+        except Exercise.DoesNotExist:
+            return Response(
+                {"detail": "Exercício não encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except AttemptConflictError:
+            return Response(
+                {"detail": "A chave de idempotência já foi usada em outra submissão."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except AttemptPersistenceError:
+            return Response(
+                {"detail": "Não foi possível registrar a tentativa agora."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return Response(
+            ExerciseAttemptSerializer(attempt).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
 
 class PasswordResetRequestView(APIView):

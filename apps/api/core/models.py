@@ -1,7 +1,12 @@
 import re
 
+from django.conf import settings
+from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+
+
+MAX_SUBMITTED_ANSWER_LENGTH = 20_000
 
 
 # ============================================================
@@ -225,8 +230,11 @@ class Exercise(models.Model):
         Avalia a resposta enviada pelo aluno.
         """
 
-        if not answer:
+        if not isinstance(answer, str) or not answer.strip():
             return False
+
+        if self.evaluation_mode not in dict(self.EVALUATION_MODES):
+            raise ValueError("Invalid exercise evaluation mode.")
 
         normalized_answer = re.sub(
             r"\s+",
@@ -268,6 +276,52 @@ class Exercise(models.Model):
             keyword in normalized_answer
             for keyword in keywords
         )
+
+
+class ExerciseAttempt(models.Model):
+    """Immutable, server-evaluated answer submitted by a student."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="exercise_attempts",
+        on_delete=models.CASCADE,
+    )
+    exercise = models.ForeignKey(
+        Exercise,
+        related_name="attempts",
+        on_delete=models.PROTECT,
+    )
+    idempotency_key = models.UUIDField()
+    submitted_answer = models.TextField(
+        validators=[MaxLengthValidator(MAX_SUBMITTED_ANSWER_LENGTH)]
+    )
+    attempt_number = models.PositiveIntegerField()
+    passed = models.BooleanField(default=False, db_index=True)
+    feedback = models.JSONField(default=dict)
+    evaluation_version = models.CharField(max_length=32, default="v1")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-attempt_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "exercise", "attempt_number"],
+                name="unique_user_exercise_attempt_number",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "idempotency_key"],
+                name="unique_user_attempt_idempotency_key",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["user", "exercise", "-created_at"],
+                name="attempt_user_exercise_date_idx",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user_id}:{self.exercise_id}#{self.attempt_number}"
 
 
 # ============================================================

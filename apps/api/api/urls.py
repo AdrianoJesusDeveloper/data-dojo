@@ -13,6 +13,7 @@ router.register(r'modules', views.ModuleViewSet, basename='module')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('exercises/<int:exercise_id>/attempts/', views.ExerciseAttemptListCreateView.as_view(), name='exercise-attempt-list'),
     path('user/profile/', views.UserProfileUpdateView.as_view(), name='user-profile'),
     path('auth/password-reset/', views.PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('auth/password-reset/confirm/', views.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),

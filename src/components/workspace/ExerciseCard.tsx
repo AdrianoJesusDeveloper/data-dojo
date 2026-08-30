@@ -2,7 +2,6 @@ interface Exercise {
   title: string;
   answer_type: string;
   statement: string;
-  expected_keywords: string[];
 }
 
 interface ExerciseCardProps {
@@ -24,11 +23,6 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
         {exercise.statement}
       </div>
 
-      {exercise.expected_keywords.length > 0 && (
-        <div className="mt-3 text-xs text-muted-foreground">
-          Critérios: {exercise.expected_keywords.join(", ")}
-        </div>
-      )}
     </div>
   );
 }

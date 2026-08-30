@@ -1,13 +1,8 @@
 import { api } from "@/lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { DojoHeader } from "@/components/DojoHeader";
-import { useDojo, useHydrated } from "@/lib/dojo-store";
-import {
-  celebratePromotion,
-  celebrateXp,
-} from "@/lib/celebrate";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast, Toaster } from "sonner";
 
 import { LessonPlayer } from "@/components/workspace/LessonPlayer";
@@ -22,10 +17,22 @@ interface Exercise {
   title:string;
   statement:string;
   answer_type:string;
-  expected_answer:string;
-  expected_keywords:string[];
-  evaluation_mode:string;
   points:number;
+  submission:{
+    format:string;
+    max_length:number;
+    automated_evaluation:boolean;
+  };
+}
+
+interface ExerciseAttempt {
+  id:number;
+  exercise:number;
+  attempt_number:number;
+  passed:boolean;
+  feedback:{code:string;message:string};
+  evaluation_version:string;
+  created_at:string;
 }
 
 
@@ -65,10 +72,6 @@ interface PaginatedResponse<T>{
 }
  export default function Workspace(){
 
-const {state, submitChallenge}=useDojo();
-const hydrated=useHydrated();
-
-
 const [course,setCourse]=useState<Course|null>(null);
 const [currentLesson,setCurrentLesson]=useState<Lesson|null>(null);
 
@@ -81,6 +84,11 @@ const [lines,setLines]=useState<string[]>([
 ]);
 
 const [running,setRunning]=useState(false);
+const pendingSubmission=useRef<{
+exerciseId:number;
+answer:string;
+key:string;
+}|null>(null);
 
 
 
@@ -151,68 +159,60 @@ line
 const compileAndSubmit=async()=>{
 
 
-if(!currentLesson)
+if(!currentLesson?.exercise || running)
 return;
 
 
 setRunning(true);
 
 
-append(
-"$ dojo-cli submit desafio.sql"
+append("$ dojo-cli submit desafio.sql");
+
+const activeSubmission =
+pendingSubmission.current?.exerciseId === currentLesson.exercise.id
+&& pendingSubmission.current.answer === code
+? pendingSubmission.current
+: {
+exerciseId:currentLesson.exercise.id,
+answer:code,
+key:crypto.randomUUID(),
+};
+pendingSubmission.current=activeSubmission;
+
+try{
+const response=await api.post<ExerciseAttempt>(
+`/api/exercises/${activeSubmission.exerciseId}/attempts/`,
+{
+submitted_answer:activeSubmission.answer,
+idempotency_key:activeSubmission.key,
+}
 );
 
-
-await new Promise(
-r=>setTimeout(r,500)
-);
-
-
-
-const points=
-currentLesson.exercise?.points ?? 120;
-
-
-
-const result =
-submitChallenge(
-currentLesson.title,
-points,
-1.5
-);
-
-
-
-append(
-`✓ DESAFIO APROVADO +${points} XP`
-);
-
-
-
-if(result.promoted){
-
-celebratePromotion(
-result.newBelt.color
-);
-
-toast.success(
-`🥋 PROMOVIDO ${result.newBelt.name}`
-);
-
-
-}else{
-
-
-celebrateXp();
-
-toast.success(
-`+${points} XP`
-);
-
+const attempt=response.data;
+if(
+!attempt
+|| typeof attempt.passed!=="boolean"
+|| !attempt.feedback
+|| typeof attempt.feedback.message!=="string"
+){
+throw new Error("Malformed exercise attempt response");
 }
 
+pendingSubmission.current=null;
 
+if(attempt.passed){
+append("✓ DESAFIO APROVADO");
+toast.success(attempt.feedback.message);
+}else{
+append(`✗ ${attempt.feedback.message}`);
+toast.error(attempt.feedback.message);
+}
+}catch{
+append("✗ Não foi possível enviar a tentativa. Tente novamente.");
+toast.error("Não foi possível enviar a tentativa. Tente novamente.");
+}finally{
 setRunning(false);
+}
 
 
 };

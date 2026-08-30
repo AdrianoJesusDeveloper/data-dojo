@@ -1,7 +1,18 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from .models import Course, Module, Lesson, Exercise, ForumTopic, ForumComment, Certificate, StudentProject
+from .models import (
+    Certificate,
+    Course,
+    Exercise,
+    ExerciseAttempt,
+    ForumComment,
+    ForumTopic,
+    Lesson,
+    MAX_SUBMITTED_ANSWER_LENGTH,
+    Module,
+    StudentProject,
+)
 
 User = get_user_model()
 
@@ -171,6 +182,8 @@ class StudentProjectSerializer(serializers.ModelSerializer):
 # SERIALIZERS JÁ EXISTENTES DA PLATAFORMA
 # =====================================================================
 class ExerciseSerializer(serializers.ModelSerializer):
+    submission = serializers.SerializerMethodField()
+
     class Meta:
         model = Exercise
         fields = [
@@ -179,11 +192,52 @@ class ExerciseSerializer(serializers.ModelSerializer):
             "title",
             "statement",
             "answer_type",
-            "expected_answer",
-            "expected_keywords",
-            "evaluation_mode",
             "points",
+            "submission",
         ]
+
+    def get_submission(self, obj):
+        return {
+            "format": "text",
+            "max_length": MAX_SUBMITTED_ANSWER_LENGTH,
+            "automated_evaluation": True,
+        }
+
+
+class ExerciseAttemptInputSerializer(serializers.Serializer):
+    submitted_answer = serializers.CharField(
+        allow_blank=False,
+        trim_whitespace=False,
+        max_length=MAX_SUBMITTED_ANSWER_LENGTH,
+    )
+    idempotency_key = serializers.UUIDField()
+
+    def validate(self, attrs):
+        if not isinstance(self.initial_data.get("submitted_answer"), str):
+            raise serializers.ValidationError(
+                {"submitted_answer": "A resposta deve ser um texto."}
+            )
+        return attrs
+
+    def validate_submitted_answer(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("A resposta não pode estar vazia.")
+        return value
+
+
+class ExerciseAttemptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExerciseAttempt
+        fields = [
+            "id",
+            "exercise",
+            "attempt_number",
+            "passed",
+            "feedback",
+            "evaluation_version",
+            "created_at",
+        ]
+        read_only_fields = fields
 
 
 class LessonSerializer(serializers.ModelSerializer):
