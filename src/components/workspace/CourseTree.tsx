@@ -53,9 +53,7 @@ return (
 key={lesson.id}
 onClick={()=>{
 setCurrentLesson(lesson);
-if(lesson.body){
-setCode(lesson.body);
-}
+setCode(lesson.content_type==="ARTICLE"?"":lesson.body||"");
 }}
 className={`w-full text-left text-sm px-3 py-2 rounded transition ${
 currentLesson?.id===lesson.id

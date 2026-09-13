@@ -4,7 +4,19 @@ from copy import deepcopy
 from uuid import UUID, uuid4
 
 
-PROJECT_TYPES = ("youtube", "premium")
+PROJECT_TYPES = ("content", "formation")
+LEGACY_PROJECT_TYPE_ALIASES = {
+    "youtube": "content",
+    "premium": "formation",
+}
+
+
+def normalize_project_type(project_type: str) -> str:
+    """Return the canonical semantic editorial flow while accepting legacy values."""
+    normalized = LEGACY_PROJECT_TYPE_ALIASES.get(project_type, project_type)
+    if normalized not in PROJECT_TYPES:
+        raise ValueError("Tipo editorial inválido.")
+    return normalized
 
 AI_PEDAGOGY_POLICY = {
     "principle": "A IA é amplificador cognitivo e nunca substitui o raciocínio do aluno.",
@@ -44,8 +56,8 @@ EVIDENCE_POLICY = {
 }
 
 EDITORIAL_CONTRACTS = {
-    "youtube": {
-        "label": "Trilha YouTube",
+    "content": {
+        "label": "Conteúdo Editorial",
         "plan_required_fields": [
             "title", "objective", "target_audience", "level", "prerequisites",
             "playlist_description", "competencies", "tools", "video_count",
@@ -63,7 +75,7 @@ EDITORIAL_CONTRACTS = {
             "timestamps", "thumbnail", "keywords",
         ],
     },
-    "premium": {
+    "formation": {
         "label": "Formação Premium",
         "plan_required_fields": [
             "title", "general_objective", "professional_objective", "specific_objectives",
@@ -79,7 +91,7 @@ EDITORIAL_CONTRACTS = {
             "kata", "practical_project", "assessment",
         ],
         "lesson_required_fields": [
-            "objective", "concepts", "practice", "tools", "ai_integration",
+            "title", "objective", "concepts", "practice", "tools", "ai_integration",
             "human_reasoning", "validation", "reflection", "authorship_challenge",
             "without_ai_challenge", "sources", "expected_result",
         ],
@@ -87,7 +99,65 @@ EDITORIAL_CONTRACTS = {
 }
 
 
+# Types are part of the editorial contract, not implicit prompt assumptions.
+# These groups also drive validation and the provider's canonical JSON Schema.
+for _kind, _contract in EDITORIAL_CONTRACTS.items():
+    _contract["plan_string_fields"] = ["title", "level", "target_audience", "ai_policy"] + (
+        ["objective", "playlist_description", "estimated_total_duration"] if _kind == "content" else
+        ["general_objective", "professional_objective", "total_workload", "methodology", "final_project", "completion_requirements", "certification_requirements"]
+    )
+    _contract["plan_list_fields"] = ["prerequisites", "competencies", "sources"] + (
+        ["tools"] if _kind == "content" else ["specific_objectives", "technology_stack", "practical_projects", "assessment_criteria", "materials"]
+    )
+    _contract["lesson_string_fields"] = ["title", "objective", "ai_integration", "human_reasoning", "validation", "reflection", "without_ai_challenge", "practice"] + (
+        ["theme", "practical_demo", "exercise"] if _kind == "content" else ["expected_result"]
+    )
+    _contract["lesson_list_fields"] = ["concepts", "tools", "rag_sources" if _kind == "content" else "sources"]
+    if _kind == "formation":
+        _contract["module_string_fields"] = ["title", "objective", "workload"]
+        _contract["module_list_fields"] = ["competencies", "exercises"]
+        _contract["module_content_fields"] = ["kata", "practical_project", "assessment"]
+
+
+# Compatibilidade temporária: alguns testes e serviços ainda acessam
+# EDITORIAL_CONTRACTS diretamente pelas chaves legadas.
+EDITORIAL_CONTRACTS["youtube"] = EDITORIAL_CONTRACTS["content"]
+EDITORIAL_CONTRACTS["premium"] = EDITORIAL_CONTRACTS["formation"]
+
+
+def editorial_plan_schema(project_type: str) -> dict:
+    """Canonical provider representation; legacy rich JSON remains readable."""
+    project_type = normalize_project_type(project_type)
+    contract = get_editorial_contract(project_type)
+    text = {"type": "string", "minLength": 1}
+    texts = {"type": "array", "items": text, "minItems": 1}
+
+    def object_schema(properties):
+        return {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
+
+    lesson = {field: deepcopy(text) for field in contract["lesson_string_fields"]}
+    lesson.update({field: deepcopy(texts) for field in contract["lesson_list_fields"]})
+    lesson["authorship_challenge"] = object_schema({field: deepcopy(text) for field in AUTHORSHIP_CHALLENGE_SCHEMA["required_fields"]})
+    if project_type == "content":
+        lesson["order"] = {"type": "integer", "minimum": 0}
+        lesson["code"] = {"anyOf": [deepcopy(text), object_schema({"language": deepcopy(text), "code": deepcopy(text)})]}
+        item = object_schema(lesson)
+    else:
+        module = {field: deepcopy(text) for field in contract["module_string_fields"]}
+        module.update({field: deepcopy(texts) for field in contract["module_list_fields"]})
+        module.update({field: {"anyOf": [deepcopy(text), deepcopy(texts)]} for field in contract["module_content_fields"]})
+        module["lessons"] = {"type": "array", "items": object_schema(lesson), "minItems": 1}
+        item = object_schema(module)
+    properties = {field: deepcopy(text) for field in contract["plan_string_fields"]}
+    properties.update({field: deepcopy(texts) for field in contract["plan_list_fields"]})
+    properties[contract["content_collection"]] = {"type": "array", "items": item, "minItems": 1}
+    for field in (["video_count"] if project_type == "content" else ["module_count", "lesson_count"]):
+        properties[field] = {"type": "integer", "minimum": 1}
+    return object_schema(properties)
+
+
 def get_editorial_contract(project_type: str) -> dict:
+    project_type = normalize_project_type(project_type)
     if project_type not in EDITORIAL_CONTRACTS:
         raise ValueError("Tipo editorial inválido.")
     contract = deepcopy(EDITORIAL_CONTRACTS[project_type])
@@ -99,34 +169,29 @@ def get_editorial_contract(project_type: str) -> dict:
 
 
 def validate_editorial_plan(project_type: str, payload: dict, previous_plan: dict | None = None) -> dict:
+    project_type = normalize_project_type(project_type)
     if not isinstance(payload, dict):
         raise ValueError("O plano editorial deve ser um objeto JSON.")
     contract = get_editorial_contract(project_type)
     missing = set(contract["plan_required_fields"]) - payload.keys()
     if missing:
         raise ValueError(f"Campos obrigatórios ausentes: {sorted(missing)}")
-    string_fields = ["title", "level", "target_audience", "ai_policy"]
-    string_fields += ["objective", "playlist_description", "estimated_total_duration"] if project_type == "youtube" else ["general_objective", "professional_objective", "total_workload", "methodology", "final_project", "completion_requirements", "certification_requirements"]
-    _require_non_empty_strings(payload, string_fields, "Plano editorial")
-    list_fields = ["prerequisites", "competencies", "sources"]
-    list_fields += ["tools"] if project_type == "youtube" else ["specific_objectives", "technology_stack", "practical_projects", "assessment_criteria", "materials"]
-    _require_non_empty_lists(payload, list_fields, "Plano editorial")
+    _require_non_empty_strings(payload, contract["plan_string_fields"], "Plano editorial")
+    _require_non_empty_lists(payload, contract["plan_list_fields"], "Plano editorial")
     collection = payload[contract["content_collection"]]
     if not isinstance(collection, list) or not collection:
         raise ValueError(f"{contract['content_collection']} deve ser uma lista não vazia.")
-    _reconcile_editorial_ids(project_type, collection, previous_plan or {})
     required = set(contract["content_required_fields"])
     seen_editorial_ids = set()
     for item in collection:
         if not isinstance(item, dict) or not required.issubset(item):
             raise ValueError("Item editorial incompleto.")
-        _claim_editorial_id(item, seen_editorial_ids)
         _require_non_empty_strings(item, ["title", "objective"], "Item editorial")
-        if project_type == "premium":
+        if project_type == "formation":
             _require_non_empty_strings(item, ["workload"], "MÃ³dulo editorial")
             _require_non_empty_lists(item, ["competencies", "exercises"], "MÃ³dulo editorial")
             _require_present_content(item, ["kata", "practical_project", "assessment"], "MÃ³dulo editorial")
-        lessons = [item] if project_type == "youtube" else item["lessons"]
+        lessons = [item] if project_type == "content" else item["lessons"]
         if not isinstance(lessons, list) or not lessons:
             raise ValueError("O item editorial deve conter aulas.")
         lesson_required = set(contract.get("lesson_required_fields", contract["content_required_fields"]))
@@ -134,11 +199,9 @@ def validate_editorial_plan(project_type: str, payload: dict, previous_plan: dic
         for lesson in lessons:
             if not isinstance(lesson, dict) or not lesson_required.issubset(lesson):
                 raise ValueError("Aula editorial incompleta.")
-            if project_type != "youtube":
-                _claim_editorial_id(lesson, seen_editorial_ids)
-            _require_non_empty_strings(lesson, ["title", "objective", "ai_integration", "human_reasoning", "validation", "reflection", "without_ai_challenge"], "Aula editorial")
-            _require_non_empty_lists(lesson, ["concepts", "tools"], "Aula editorial")
-            if project_type == "youtube":
+            _require_non_empty_strings(lesson, contract["lesson_string_fields"], "Aula editorial")
+            _require_non_empty_lists(lesson, contract["lesson_list_fields"], "Aula editorial")
+            if project_type == "content":
                 _require_non_empty_strings(lesson, ["theme", "practical_demo", "practice", "exercise"], "VÃ­deo editorial")
                 _require_non_empty_lists(lesson, ["rag_sources"], "VÃ­deo editorial")
                 order = lesson.get("order")
@@ -151,17 +214,26 @@ def validate_editorial_plan(project_type: str, payload: dict, previous_plan: dic
             if not isinstance(challenge, dict) or not challenge_required.issubset(challenge):
                 raise ValueError("Desafio de Autoria incompleto.")
             _require_non_empty_strings(challenge, challenge_required, "Desafio de Autoria")
-    if project_type == "premium":
+    if project_type == "formation":
         _require_count(payload, "module_count", len(collection))
         _require_count(payload, "lesson_count", sum(len(module["lessons"]) for module in collection))
     else:
         _require_count(payload, "video_count", len(collection))
+    # Identity reconciliation assumes dictionaries and collections. Validate
+    # provider structure first so malformed input fails closed with ValueError.
+    _reconcile_editorial_ids(project_type, collection, previous_plan or {})
+    for item in collection:
+        _claim_editorial_id(item, seen_editorial_ids)
+        if project_type == "formation":
+            for lesson in item["lessons"]:
+                _claim_editorial_id(lesson, seen_editorial_ids)
     return payload
 
 
 def _reconcile_editorial_ids(project_type: str, collection: list, previous_plan: dict):
     """Preserve identity only for deterministic, unambiguous structural matches."""
-    previous_collection = previous_plan.get("videos" if project_type == "youtube" else "modules", [])
+    project_type = normalize_project_type(project_type)
+    previous_collection = previous_plan.get("videos" if project_type == "content" else "modules", [])
     historical_editorial_ids = _historical_editorial_ids(project_type, previous_collection)
     used = set()
     for index, item in enumerate(collection):
@@ -170,7 +242,7 @@ def _reconcile_editorial_ids(project_type: str, collection: list, previous_plan:
             item.get("editorial_id"), previous_item, used, historical_editorial_ids
         )
         used.add(item["editorial_id"])
-        if project_type == "premium":
+        if project_type == "formation":
             previous_lessons = previous_item.get("lessons", []) if previous_item else []
             for lesson_index, lesson in enumerate(item.get("lessons", [])):
                 previous_lesson = _match_previous(lesson, lesson_index, previous_lessons, used)
@@ -181,12 +253,13 @@ def _reconcile_editorial_ids(project_type: str, collection: list, previous_plan:
 
 
 def _historical_editorial_ids(project_type: str, collection: list) -> set[str]:
+    project_type = normalize_project_type(project_type)
     historical = set()
     for item in collection:
         editorial_id = _valid_editorial_id(item.get("editorial_id"))
         if editorial_id:
             historical.add(editorial_id)
-        if project_type == "premium":
+        if project_type == "formation":
             for lesson in item.get("lessons", []):
                 lesson_id = _valid_editorial_id(lesson.get("editorial_id"))
                 if lesson_id:
@@ -257,7 +330,8 @@ def _require_count(payload: dict, field: str, actual: int):
 
 
 def _require_present_content(payload: dict, fields, label: str):
-    invalid = [field for field in fields if payload.get(field) in (None, "", [], {})]
+    invalid = [field for field in fields if not isinstance(payload.get(field), (str, list, dict))
+               or not payload[field] or (isinstance(payload[field], str) and not payload[field].strip())]
     if invalid:
         raise ValueError(f"{label}: conteÃºdo obrigatÃ³rio invÃ¡lido: {sorted(invalid)}")
 

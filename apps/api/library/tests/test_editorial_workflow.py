@@ -71,12 +71,12 @@ class EditorialWorkflowTests(APITestCase):
         self.assertEqual(current.version, 2)
 
     def test_project_type_becomes_immutable_after_first_plan(self):
-        before = self.request("patch", reverse("library-studio-project-detail", kwargs={"pk": self.project.pk}), {"project_type": "youtube"})
+        before = self.request("patch", reverse("library-studio-project-detail", kwargs={"pk": self.project.pk}), {"project_type": "content"})
         self.assertEqual(before.status_code, status.HTTP_200_OK)
         self.project.refresh_from_db()
-        self.assertEqual(self.project.project_type, "youtube")
+        self.assertEqual(self.project.project_type, "content")
         ModernizationPlan.objects.create(project=self.project)
-        after = self.request("patch", reverse("library-studio-project-detail", kwargs={"pk": self.project.pk}), {"project_type": "premium"})
+        after = self.request("patch", reverse("library-studio-project-detail", kwargs={"pk": self.project.pk}), {"project_type": "formation"})
         self.assertEqual(after.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_comments_are_private_to_owner_and_can_be_resolved(self):

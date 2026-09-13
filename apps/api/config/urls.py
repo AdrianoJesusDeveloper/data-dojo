@@ -22,6 +22,7 @@ urlpatterns = [
     path("api/", include("api.urls")),
     path("api/ai/", include("ai.urls")),
     path("api/store/", include("store.urls")),
+    path("api/professional/", include("professional.urls")),
 ]
 
 if settings.DDJ_CONTENT_STUDIO_ENABLED:

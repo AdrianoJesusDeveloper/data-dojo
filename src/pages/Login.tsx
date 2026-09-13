@@ -25,6 +25,15 @@ export default function Login() {
       const token = response.data.key;
       if (!token) throw new Error("Servidor não retornou um token.");
       useAuthStore.getState().login(token);
+      try {
+        const profile = await api.get<{ is_staff: boolean; is_superuser: boolean }>("/api/user/profile/");
+        useAuthStore.getState().setAdministrativeAccess(
+          profile.data.is_staff,
+          profile.data.is_superuser,
+        );
+      } catch {
+        // The shared route guard retries the authenticated profile lookup.
+      }
       navigate({ to: redirect, replace: true });
     } catch (err: any) {
       const data = err?.response?.data;

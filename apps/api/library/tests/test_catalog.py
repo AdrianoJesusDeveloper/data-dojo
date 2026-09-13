@@ -32,7 +32,8 @@ class CatalogTests(TestCase):
             with override_settings(LOCAL_LIBRARY_PATH=root):
                 result = scan_library()
 
-        self.assertEqual(result["total"], 3)
+        self.assertEqual(result["total"], 2)
         self.assertEqual(result["duplicates"], 1)
         self.assertEqual(LibrarySource.objects.filter(status="supported").count(), 2)
-        self.assertEqual(LibrarySource.objects.filter(status="unsupported").count(), 1)
+        self.assertEqual(LibrarySource.objects.filter(status="unsupported").count(), 0)
+        self.assertFalse(LibrarySource.objects.filter(relative_path="livro-b.pdf").exists())

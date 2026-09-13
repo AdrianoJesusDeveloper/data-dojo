@@ -11,6 +11,9 @@ router.register(r'portfolio/projects', views.StudentProjectViewSet, basename='st
 
 # ESSAS DUAS LINHAS REGISTRAM AS ROTAS QUE O SEU WORKSPACE PRECISA:
 router.register(r'courses', views.CourseViewSet, basename='course')
+router.register(r'enrollments', views.EnrollmentViewSet, basename='enrollment')
+router.register(r'course-progress', views.CourseProgressViewSet, basename='course-progress')
+router.register(r'lesson-progress', views.LessonProgressViewSet, basename='lesson-progress')
 router.register(r'modules', views.ModuleViewSet, basename='module')
 
 urlpatterns = [
@@ -19,4 +22,6 @@ urlpatterns = [
     
     # Rota separada para a atualização de perfil do samurai
     path('user/profile/', views.UserProfileUpdateView.as_view(), name='user-profile'),
+    path('exercise-evidence/', views.ExerciseEvidenceListView.as_view(), name='exercise-evidence-list'),
+    path('learning/continue/', views.LearningContinuityView.as_view(), name='learning-continuity'),
 ]

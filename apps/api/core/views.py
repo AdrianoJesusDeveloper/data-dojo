@@ -3,7 +3,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
+from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -15,7 +17,8 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 
-from .models import Course, Module, Lesson, Exercise, ForumTopic, ForumComment, Certificate, StudentProject, ExerciseAttempt
+from .models import Course, Module, Lesson, Exercise, ForumTopic, ForumComment, Certificate, StudentProject, ExerciseAttempt, Enrollment, CourseProgress, LessonProgress
+from .permissions import IsAdministrativeUserOrReadOnly
 from .serializers import (
     CourseSerializer, 
     LessonSerializer, 
@@ -28,8 +31,22 @@ from .serializers import (
     StudentProjectSerializer,
     ExerciseAttemptInputSerializer,
     ExerciseAttemptSerializer,
+    EnrollmentSerializer,
+    CourseProgressSerializer,
+    LessonProgressSerializer,
 )
-from .services import AttemptConflictError, AttemptPersistenceError, create_exercise_attempt
+from .services import (
+    AcademicAccessError,
+    AttemptConflictError,
+    AttemptPersistenceError,
+    CourseCompletionError,
+    LessonTransitionError,
+    complete_course,
+    complete_lesson,
+    create_exercise_attempt,
+    resolve_learning_continuity,
+    start_lesson,
+)
 
 
 class OwnerWritePermission(permissions.BasePermission):
@@ -203,11 +220,277 @@ class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
 # VIEWS JÁ EXISTENTES DA PLATAFORMA DE CURSOS
 # =====================================================================
 class CourseViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAdministrativeUserOrReadOnly]
     queryset = Course.objects.prefetch_related('modules__lessons').order_by('-created_at')
     serializer_class = CourseSerializer
 
 
+class EnrollmentViewSet(viewsets.ModelViewSet):
+    """Authenticated, owner-scoped and idempotent course enrollments."""
+
+    serializer_class = EnrollmentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ["get", "post", "patch", "head", "options"]
+
+    def get_queryset(self):
+        queryset = Enrollment.objects.filter(user=self.request.user).select_related("course")
+        course_id = self.request.query_params.get("course")
+        if course_id:
+            queryset = queryset.filter(course_id=course_id)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        course = serializer.validated_data["course"]
+
+        try:
+            with transaction.atomic():
+                enrollment, created = Enrollment.objects.get_or_create(
+                    user=request.user,
+                    course=course,
+                    defaults={"status": Enrollment.STATUS_ACTIVE},
+                )
+        except IntegrityError:
+            enrollment = Enrollment.objects.get(user=request.user, course=course)
+            created = False
+
+        if enrollment.status == Enrollment.STATUS_CANCELLED:
+            enrollment.status = Enrollment.STATUS_ACTIVE
+            enrollment.enrolled_at = timezone.now()
+            enrollment.save(update_fields=["status", "enrolled_at", "updated_at"])
+
+        output = self.get_serializer(enrollment)
+        return Response(
+            output.data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        unexpected = set(request.data) - {"status"}
+        if unexpected:
+            return Response(
+                {"detail": "Somente o status da matrícula pode ser alterado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().partial_update(request, *args, **kwargs)
+
+    @action(detail=False, methods=["get"])
+    def courses(self, request):
+        courses = Course.objects.filter(
+            enrollments__user=request.user,
+            enrollments__status=Enrollment.STATUS_ACTIVE,
+        ).prefetch_related("modules__lessons").order_by("-enrollments__enrolled_at")
+        page = self.paginate_queryset(courses)
+        serializer = CourseSerializer(page, many=True, context=self.get_serializer_context())
+        return self.get_paginated_response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="access")
+    def access(self, request):
+        """Resolve course access without conflating staff access with enrollment."""
+
+        if request.user.is_staff or request.user.is_superuser:
+            access_type = "administrative"
+            courses = Course.objects.all()
+        else:
+            access_type = "enrollment"
+            courses = Course.objects.filter(
+                enrollments__user=request.user,
+                enrollments__status=Enrollment.STATUS_ACTIVE,
+            )
+            if not courses.exists():
+                access_type = "none"
+
+        courses = courses.prefetch_related("modules__lessons").order_by("-created_at")
+        return Response(
+            {
+                "access_type": access_type,
+                "courses": CourseSerializer(
+                    courses,
+                    many=True,
+                    context=self.get_serializer_context(),
+                ).data,
+            }
+        )
+
+
+class CourseProgressViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only progress derived from the authenticated user's active enrollments."""
+
+    serializer_class = CourseProgressSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return CourseProgress.objects.filter(
+            enrollment__user=self.request.user,
+            enrollment__status=Enrollment.STATUS_ACTIVE,
+        ).select_related("enrollment__course")
+
+    def _active_enrollments(self):
+        enrollments = Enrollment.objects.filter(
+            user=self.request.user,
+            status=Enrollment.STATUS_ACTIVE,
+        ).select_related("course")
+        course_id = self.request.query_params.get("course")
+        if course_id:
+            enrollments = enrollments.filter(course_id=course_id)
+        return enrollments
+
+    def list(self, request, *args, **kwargs):
+        progress_items = [
+            CourseProgress.objects.get_or_create(enrollment=enrollment)[0]
+            for enrollment in self._active_enrollments()
+        ]
+        page = self.paginate_queryset(progress_items)
+        serializer = self.get_serializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path=r"by-course/(?P<course_id>[^/.]+)")
+    def by_course(self, request, course_id=None):
+        enrollment = get_object_or_404(
+            Enrollment,
+            user=request.user,
+            course_id=course_id,
+            status=Enrollment.STATUS_ACTIVE,
+        )
+        progress, _ = CourseProgress.objects.get_or_create(enrollment=enrollment)
+        return Response(self.get_serializer(progress).data)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path=r"by-course/(?P<course_id>[^/.]+)/complete",
+    )
+    def complete(self, request, course_id=None):
+        if request.data:
+            return Response(
+                {"detail": "Esta operação não aceita estado, percentual ou data do cliente."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            progress, _ = complete_course(user=request.user, course_id=course_id)
+        except AcademicAccessError:
+            return Response(
+                {"detail": "Curso não encontrado para uma matrícula ativa."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except CourseCompletionError as error:
+            return Response(
+                {
+                    "detail": "O curso ainda não atende aos requisitos acadêmicos de conclusão.",
+                    "requirements": error.args[0],
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(self.get_serializer(progress).data)
+
+
+class LearningContinuityView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        step = resolve_learning_continuity(user=request.user)
+        payload = {"type": step["type"]}
+        course = step.get("course")
+        progress = step.get("course_progress")
+        enrollment = step.get("enrollment")
+        lesson = step.get("lesson")
+        if enrollment:
+            payload["enrollment"] = {
+                "id": enrollment.id,
+                "status": enrollment.status,
+            }
+        if course:
+            payload["course"] = {
+                "id": course.id,
+                "title": course.title,
+                "description": course.description,
+            }
+        if progress:
+            payload["course_progress"] = {
+                "id": progress.id,
+                "percentage": str(progress.percentage),
+                "academic_state": progress.academic_state,
+                "last_activity_at": progress.last_activity_at,
+                "completed_at": progress.completed_at,
+            }
+        if lesson:
+            payload["lesson"] = {
+                "id": lesson.id,
+                "title": lesson.title,
+                "order": lesson.order,
+                "module": {
+                    "id": lesson.module.id,
+                    "title": lesson.module.title,
+                    "order": lesson.module.order,
+                },
+            }
+        return Response(payload)
+
+
+class LessonProgressViewSet(viewsets.ReadOnlyModelViewSet):
+    """Owner-scoped lesson state with semantic transition endpoints only."""
+
+    serializer_class = LessonProgressSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = LessonProgress.objects.filter(
+            course_progress__enrollment__user=self.request.user,
+            course_progress__enrollment__status=Enrollment.STATUS_ACTIVE,
+        ).select_related(
+            "course_progress__enrollment__course",
+            "lesson__module__course",
+        )
+        course_id = self.request.query_params.get("course")
+        if course_id:
+            queryset = queryset.filter(course_progress__enrollment__course_id=course_id)
+        return queryset
+
+    @action(detail=False, methods=["get"], url_path=r"by-lesson/(?P<lesson_id>[^/.]+)")
+    def by_lesson(self, request, lesson_id=None):
+        progress = get_object_or_404(self.get_queryset(), lesson_id=lesson_id)
+        return Response(self.get_serializer(progress).data)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path=r"by-lesson/(?P<lesson_id>[^/.]+)/start",
+    )
+    def start(self, request, lesson_id=None):
+        return self._transition(request, lesson_id, start_lesson)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path=r"by-lesson/(?P<lesson_id>[^/.]+)/complete",
+    )
+    def complete(self, request, lesson_id=None):
+        return self._transition(request, lesson_id, complete_lesson)
+
+    def _transition(self, request, lesson_id, transition):
+        if request.data:
+            return Response(
+                {"detail": "Esta operação não aceita estado ou percentual do cliente."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            lesson_progress, _ = transition(user=request.user, lesson_id=lesson_id)
+        except (Lesson.DoesNotExist, AcademicAccessError):
+            return Response(
+                {"detail": "Aula não encontrada para uma matrícula ativa."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except LessonTransitionError:
+            return Response(
+                {"detail": "A aula precisa ser iniciada antes de ser concluída."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        lesson_progress.refresh_from_db()
+        return Response(self.get_serializer(lesson_progress).data)
+
 class ModuleViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAdministrativeUserOrReadOnly]
     queryset = Module.objects.prefetch_related('lessons').order_by('order')
     serializer_class = ModuleSerializer
 
@@ -246,6 +529,11 @@ class ExerciseAttemptListCreateView(APIView):
                 {"detail": "Exercício não encontrado."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        except AcademicAccessError:
+            return Response(
+                {"detail": "É necessária uma matrícula ativa no curso do exercício."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         except AttemptConflictError:
             return Response(
                 {"detail": "A chave de idempotência já foi usada em outra submissão."},
@@ -261,6 +549,73 @@ class ExerciseAttemptListCreateView(APIView):
             ExerciseAttemptSerializer(attempt).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+
+class ExerciseEvidenceListView(APIView):
+    """Read-only aggregate of the authenticated student's attempt evidence."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        attempts = ExerciseAttempt.objects.filter(
+            user=request.user,
+            exercise__lesson__module__course__enrollments__user=request.user,
+        ).select_related("exercise__lesson__module__course").distinct()
+
+        filter_map = {
+            "exercise": "exercise_id",
+            "lesson": "exercise__lesson_id",
+            "course": "exercise__lesson__module__course_id",
+        }
+        for parameter, field in filter_map.items():
+            value = request.query_params.get(parameter)
+            if value:
+                if not value.isdigit():
+                    return Response(
+                        {parameter: ["Informe um identificador válido."]},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                attempts = attempts.filter(**{field: value})
+
+        enrollment_id = request.query_params.get("enrollment")
+        if enrollment_id:
+            if not enrollment_id.isdigit():
+                return Response(
+                    {"enrollment": ["Informe um identificador válido."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            enrollment = Enrollment.objects.filter(
+                pk=enrollment_id,
+                user=request.user,
+            ).first()
+            if enrollment is None:
+                attempts = attempts.none()
+            else:
+                attempts = attempts.filter(
+                    exercise__lesson__module__course_id=enrollment.course_id
+                )
+
+        evidence = []
+        for exercise_id in attempts.order_by().values_list("exercise_id", flat=True).distinct():
+            exercise_attempts = attempts.filter(exercise_id=exercise_id).order_by(
+                "-attempt_number"
+            )
+            latest = exercise_attempts.first()
+            course = latest.exercise.lesson.module.course
+            enrollment = Enrollment.objects.get(user=request.user, course=course)
+            evidence.append(
+                {
+                    "exercise": exercise_id,
+                    "lesson": latest.exercise.lesson_id,
+                    "course": course.id,
+                    "enrollment": enrollment.id,
+                    "attempt_count": exercise_attempts.count(),
+                    "best_passed": exercise_attempts.filter(passed=True).exists(),
+                    "latest_attempt_at": latest.created_at,
+                    "latest_attempt": ExerciseAttemptSerializer(latest).data,
+                }
+            )
+        return Response(evidence)
 
 
 class PasswordResetRequestView(APIView):

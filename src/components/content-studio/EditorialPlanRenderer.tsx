@@ -3,13 +3,17 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  isFormationFlow,
+  type EditorialProjectType,
+} from "@/lib/editorial-project-type";
 
 type JsonObject = Record<string, unknown>;
 export type EditorialCitation = { id: number; book_title: string; page_number: number | null; excerpt: string };
 
 type Props = {
   plan: JsonObject;
-  projectType: "youtube" | "premium";
+  projectType: EditorialProjectType;
   citations?: EditorialCitation[];
 };
 
@@ -95,14 +99,19 @@ function AuthorshipChallenge({ value }: { value: unknown }) {
   return <section className="rounded-xl border-2 border-kaizen/35 bg-kaizen/5 p-4"><h5 className="flex items-center gap-2 font-display font-bold"><Sparkles className="h-4 w-4 text-kaizen" />Desafio de Autoria</h5><div className="mt-3"><ContentBlock value={value} /></div></section>;
 }
 
-function Lesson({ lesson, index, youtube = false }: { lesson: JsonObject; index: number; youtube?: boolean }) {
-  return <article id={slug(youtube ? "video" : "aula", index)} className="scroll-mt-24 rounded-xl border bg-card p-5 shadow-sm">
-    <div className="flex gap-3"><Badge variant="secondary">{youtube ? `Vídeo ${index + 1}` : `Aula ${index + 1}`}</Badge><h4 className="font-display text-lg font-bold">{text(pick(lesson, "title", "theme")) || "Aula"}</h4></div>
-    <div className="mt-4 grid gap-4 sm:grid-cols-2"><Field title="Objetivo" value={lesson.objective} /><Field title="Conceitos" value={lesson.concepts} /><Field title="Ferramentas" value={lesson.tools} /><Field title="Resultado esperado" value={lesson.expected_result} /><Field title="Prática" value={pick(lesson, "practice", "practical_demo")} /><Field title="Exercício" value={lesson.exercise} /></div>
-    <div className="mt-5"><Policy lesson={lesson} /></div>
-    <div className="mt-4"><AuthorshipChallenge value={lesson.authorship_challenge} /></div>
-    <div className="mt-4"><Field title="Reflexão" value={lesson.reflection} /></div>
-  </article>;
+function Lesson({ lesson, index, youtube = false, expanded }: { lesson: JsonObject; index: number; youtube?: boolean; expanded: boolean }) {
+  return <details id={slug(youtube ? "video" : "aula", index)} open={expanded} className="group scroll-mt-24 rounded-xl border bg-card shadow-sm">
+    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
+      <div className="flex min-w-0 items-center gap-3"><Badge variant="secondary">{youtube ? `Vídeo ${index + 1}` : `Aula ${index + 1}`}</Badge><h4 className="truncate font-display text-base font-bold">{text(pick(lesson, "title", "theme")) || "Aula"}</h4></div>
+      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition group-open:rotate-180" />
+    </summary>
+    <div className="border-t p-4">
+      <div className="grid gap-4 sm:grid-cols-2"><Field title="Objetivo" value={lesson.objective} /><Field title="Conceitos" value={lesson.concepts} /><Field title="Ferramentas" value={lesson.tools} /><Field title="Resultado esperado" value={lesson.expected_result} /><Field title="Prática" value={pick(lesson, "practice", "practical_demo")} /><Field title="Exercício" value={lesson.exercise} /></div>
+      <div className="mt-5"><Policy lesson={lesson} /></div>
+      <div className="mt-4"><AuthorshipChallenge value={lesson.authorship_challenge} /></div>
+      <div className="mt-4"><Field title="Reflexão" value={lesson.reflection} /></div>
+    </div>
+  </details>;
 }
 
 function Sources({ sources, citations }: { sources: unknown; citations: EditorialCitation[] }) {
@@ -112,19 +121,20 @@ function Sources({ sources, citations }: { sources: unknown; citations: Editoria
 }
 
 export function EditorialPlanRenderer({ plan, projectType, citations = [] }: Props) {
+  const [expanded, setExpanded] = useState(false);
   const nested = pick(plan, "editorial_plan", "proposed_architecture");
   const persistedPlan = "proposed_architecture" in plan || "source_summary" in plan;
   const isV1 = isObject(nested) && nested.contract_version === "editorial-plan-v1";
   if (persistedPlan && !isV1) return <LegacyPlanFallback plan={plan} citations={citations} />;
   const editorial = isV1 ? nested : plan;
-  const premium = projectType === "premium";
+  const premium = isFormationFlow(projectType);
   const modules = list(editorial.modules).filter(isObject);
   const videos = list(pick(editorial, "videos", "lessons")).filter(isObject);
   const nav = premium ? [["visao-geral", "Visão geral"], ["modulos", "Módulos"], ["aulas", "Aulas"], ["projeto-final", "Projeto final"], ["fontes", "Fontes"]] : [["visao-geral", "Visão geral"], ["videos", "Vídeos"], ["fontes", "Fontes"]];
-  return <div className="space-y-8">
-    <nav aria-label="Índice do plano" className="sticky top-2 z-10 flex flex-wrap gap-2 rounded-xl border bg-background/95 p-3 shadow-sm backdrop-blur">{nav.map(([id, title]) => <a key={id} href={`#${id}`} className="rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground">{title}</a>)}</nav>
+  return <div className="space-y-6">
+    <nav aria-label="Índice do plano" className="sticky top-2 z-10 flex flex-wrap items-center gap-2 rounded-xl border bg-background/95 p-3 shadow-sm backdrop-blur">{nav.map(([id, title]) => <a key={id} href={`#${id}`} className="rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground">{title}</a>)}<span className="ml-auto flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => setExpanded(true)}>Expandir tudo</Button><Button type="button" size="sm" variant="outline" onClick={() => setExpanded(false)}>Recolher tudo</Button></span></nav>
     <section id="visao-geral" className="scroll-mt-24 rounded-xl border bg-gradient-to-br from-kaizen/10 to-background p-6"><Badge>{premium ? "Formação Premium" : "Trilha YouTube"}</Badge><h2 className="mt-3 font-display text-3xl font-extrabold">{text(editorial.title) || "Plano editorial"}</h2><dl className="mt-6 grid gap-5 md:grid-cols-2"><Field title={premium ? "Objetivo geral" : "Objetivo"} value={pick(editorial, "general_objective", "objective")} />{premium && <Field title="Objetivo profissional" value={editorial.professional_objective} />}<Field title="Objetivos específicos" value={editorial.specific_objectives} /><Field title="Público" value={editorial.target_audience} /><Field title="Nível" value={editorial.level} /><Field title="Pré-requisitos" value={editorial.prerequisites} /><Field title={premium ? "Carga horária" : "Duração estimada"} value={pick(editorial, "total_workload", "estimated_total_duration")} /><Field title="Competências" value={editorial.competencies} /><Field title="Stack / ferramentas" value={pick(editorial, "technology_stack", "tools")} />{!premium && <Field title="Quantidade de vídeos" value={editorial.video_count ?? videos.length} />}</dl></section>
-    {premium ? <PremiumBody editorial={editorial} modules={modules} /> : <section id="videos" className="scroll-mt-24 space-y-4"><div><h3 className="font-display text-2xl font-bold">Aulas / vídeos</h3><p className="text-sm text-muted-foreground">1 tema = 1 aula = 1 vídeo</p></div>{videos.map((video, index) => <Lesson key={index} lesson={video} index={index} youtube />)}</section>}
+    {premium ? <PremiumBody editorial={editorial} modules={modules} expanded={expanded} /> : <section id="videos" className="scroll-mt-24 space-y-4"><div><h3 className="font-display text-2xl font-bold">Aulas / vídeos</h3><p className="text-sm text-muted-foreground">1 tema = 1 aula = 1 vídeo</p></div>{videos.map((video, index) => <Lesson key={index} lesson={video} index={index} youtube expanded={expanded} />)}</section>}
     <Sources sources={editorial.sources} citations={citations} />
   </div>;
 }
@@ -141,9 +151,30 @@ function LegacyPlanFallback({ plan, citations }: { plan: JsonObject; citations: 
   </div>;
 }
 
-function PremiumBody({ editorial, modules }: { editorial: JsonObject; modules: JsonObject[] }) {
+function PremiumBody({ editorial, modules, expanded }: { editorial: JsonObject; modules: JsonObject[]; expanded: boolean }) {
   let lessonIndex = 0;
-  return <><section id="modulos" className="scroll-mt-24 space-y-5"><h3 className="font-display text-2xl font-bold">Módulos</h3>{modules.map((module, moduleIndex) => <article key={moduleIndex} className="rounded-xl border bg-secondary/15 p-5"><h4 className="font-display text-xl font-bold">Módulo {moduleIndex + 1} · {text(module.title)}</h4><div className="mt-3 grid gap-3 sm:grid-cols-2"><Field title="Objetivo" value={module.objective} /><Field title="Competências" value={module.competencies} /><Field title="Carga horária" value={module.workload} /></div><div id={moduleIndex === 0 ? "aulas" : undefined} className="mt-5 space-y-4">{list(module.lessons).filter(isObject).map((lesson) => <Lesson key={lessonIndex} lesson={lesson} index={lessonIndex++} />)}</div><div className="mt-5 grid gap-4 md:grid-cols-2"><Field title="Exercícios" value={module.exercises} /><Field title="Kata" value={module.kata} /><Field title="Projeto prático" value={module.practical_project} /><Field title="Avaliação" value={module.assessment} /></div></article>)}</section><section id="projeto-final" className="scroll-mt-24 rounded-xl border p-5"><h3 className="font-display text-2xl font-bold">Projeto final e certificação</h3><div className="mt-4 grid gap-5 md:grid-cols-2"><Field title="Projetos" value={editorial.practical_projects} /><Field title="Projeto final" value={editorial.final_project} /><Field title="Avaliações" value={editorial.assessment_criteria} /><Field title="Requisitos de conclusão" value={editorial.completion_requirements} /><Field title="Certificação" value={editorial.certification_requirements} /></div></section></>;
+  return <>
+    <section id="modulos" className="scroll-mt-24 space-y-3">
+      <div><h3 className="font-display text-2xl font-bold">Módulos</h3><p className="text-sm text-muted-foreground">Abra somente o módulo que deseja revisar.</p></div>
+      {modules.map((module, moduleIndex) => (
+        <details key={moduleIndex} open={expanded} className="group rounded-xl border bg-secondary/10">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
+            <div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Módulo {moduleIndex + 1}</p><h4 className="truncate font-display text-lg font-bold">{text(module.title)}</h4></div>
+            <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition group-open:rotate-180" />
+          </summary>
+          <div className="border-t p-4">
+            <div className="grid gap-3 sm:grid-cols-3"><Field title="Objetivo" value={module.objective} /><Field title="Competências" value={module.competencies} /><Field title="Carga horária" value={module.workload} /></div>
+            <div id={moduleIndex === 0 ? "aulas" : undefined} className="mt-5 space-y-3">{list(module.lessons).filter(isObject).map((lesson) => <Lesson key={lessonIndex} lesson={lesson} index={lessonIndex++} expanded={expanded} />)}</div>
+            <div className="mt-5 grid gap-4 md:grid-cols-2"><Field title="Exercícios" value={module.exercises} /><Field title="Kata" value={module.kata} /><Field title="Projeto prático" value={module.practical_project} /><Field title="Avaliação" value={module.assessment} /></div>
+          </div>
+        </details>
+      ))}
+    </section>
+    <details id="projeto-final" open={expanded} className="group scroll-mt-24 rounded-xl border">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4"><h3 className="font-display text-xl font-bold">Projeto final e certificação</h3><ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition group-open:rotate-180" /></summary>
+      <div className="border-t p-4"><div className="grid gap-5 md:grid-cols-2"><Field title="Projetos" value={editorial.practical_projects} /><Field title="Projeto final" value={editorial.final_project} /><Field title="Avaliações" value={editorial.assessment_criteria} /><Field title="Requisitos de conclusão" value={editorial.completion_requirements} /><Field title="Certificação" value={editorial.certification_requirements} /></div></div>
+    </details>
+  </>;
 }
 
 function label(value: string) { return value.replaceAll("_", " "); }

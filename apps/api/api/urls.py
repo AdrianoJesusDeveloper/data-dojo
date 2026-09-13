@@ -9,11 +9,16 @@ router.register(r'community/comments', views.ForumCommentViewSet, basename='foru
 router.register(r'certificates', views.CertificateViewSet, basename='certificate')
 router.register(r'portfolio/projects', views.StudentProjectViewSet, basename='student-project')
 router.register(r'courses', views.CourseViewSet, basename='course')
+router.register(r'enrollments', views.EnrollmentViewSet, basename='enrollment')
+router.register(r'course-progress', views.CourseProgressViewSet, basename='course-progress')
+router.register(r'lesson-progress', views.LessonProgressViewSet, basename='lesson-progress')
 router.register(r'modules', views.ModuleViewSet, basename='module')
 
 urlpatterns = [
     path('', include(router.urls)),
     path('exercises/<int:exercise_id>/attempts/', views.ExerciseAttemptListCreateView.as_view(), name='exercise-attempt-list'),
+    path('exercise-evidence/', views.ExerciseEvidenceListView.as_view(), name='exercise-evidence-list'),
+    path('learning/continue/', views.LearningContinuityView.as_view(), name='learning-continuity'),
     path('user/profile/', views.UserProfileUpdateView.as_view(), name='user-profile'),
     path('auth/password-reset/', views.PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('auth/password-reset/confirm/', views.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),

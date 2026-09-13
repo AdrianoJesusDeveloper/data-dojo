@@ -15,6 +15,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as ProfessionalStudioRouteImport } from './routes/professional-studio'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -24,6 +25,7 @@ import { Route as CommunityRouteImport } from './routes/community'
 import { Route as AiSalesRouteImport } from './routes/ai-sales'
 import { Route as AiRouteImport } from './routes/ai'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProfessionalStudioOpportunitiesOpportunityIdBriefingRouteImport } from './routes/professional-studio.opportunities.$opportunityId.briefing'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -53,6 +55,11 @@ const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfessionalStudioRoute = ProfessionalStudioRouteImport.update({
+  id: '/professional-studio',
+  path: '/professional-studio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortfolioRoute = PortfolioRouteImport.update({
@@ -100,6 +107,12 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute =
+  ProfessionalStudioOpportunitiesOpportunityIdBriefingRouteImport.update({
+    id: '/opportunities/$opportunityId/briefing',
+    path: '/opportunities/$opportunityId/briefing',
+    getParentRoute: () => ProfessionalStudioRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -111,12 +124,14 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
+  '/professional-studio': typeof ProfessionalStudioRouteWithChildren
   '/profile': typeof ProfileRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/store': typeof StoreRoute
   '/workspace': typeof WorkspaceRoute
+  '/professional-studio/opportunities/$opportunityId/briefing': typeof ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -128,12 +143,14 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
+  '/professional-studio': typeof ProfessionalStudioRouteWithChildren
   '/profile': typeof ProfileRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/store': typeof StoreRoute
   '/workspace': typeof WorkspaceRoute
+  '/professional-studio/opportunities/$opportunityId/briefing': typeof ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -146,12 +163,14 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
+  '/professional-studio': typeof ProfessionalStudioRouteWithChildren
   '/profile': typeof ProfileRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/store': typeof StoreRoute
   '/workspace': typeof WorkspaceRoute
+  '/professional-studio/opportunities/$opportunityId/briefing': typeof ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -165,12 +184,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/portfolio'
+    | '/professional-studio'
     | '/profile'
     | '/recuperar-senha'
     | '/register'
     | '/reset-password'
     | '/store'
     | '/workspace'
+    | '/professional-studio/opportunities/$opportunityId/briefing'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -182,12 +203,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/portfolio'
+    | '/professional-studio'
     | '/profile'
     | '/recuperar-senha'
     | '/register'
     | '/reset-password'
     | '/store'
     | '/workspace'
+    | '/professional-studio/opportunities/$opportunityId/briefing'
   id:
     | '__root__'
     | '/'
@@ -199,12 +222,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/portfolio'
+    | '/professional-studio'
     | '/profile'
     | '/recuperar-senha'
     | '/register'
     | '/reset-password'
     | '/store'
     | '/workspace'
+    | '/professional-studio/opportunities/$opportunityId/briefing'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -217,6 +242,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   PortfolioRoute: typeof PortfolioRoute
+  ProfessionalStudioRoute: typeof ProfessionalStudioRouteWithChildren
   ProfileRoute: typeof ProfileRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   RegisterRoute: typeof RegisterRoute
@@ -267,6 +293,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/professional-studio': {
+      id: '/professional-studio'
+      path: '/professional-studio'
+      fullPath: '/professional-studio'
+      preLoaderRoute: typeof ProfessionalStudioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/portfolio': {
@@ -332,8 +365,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/professional-studio/opportunities/$opportunityId/briefing': {
+      id: '/professional-studio/opportunities/$opportunityId/briefing'
+      path: '/opportunities/$opportunityId/briefing'
+      fullPath: '/professional-studio/opportunities/$opportunityId/briefing'
+      preLoaderRoute: typeof ProfessionalStudioOpportunitiesOpportunityIdBriefingRouteImport
+      parentRoute: typeof ProfessionalStudioRoute
+    }
   }
 }
+
+interface ProfessionalStudioRouteChildren {
+  ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute: typeof ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute
+}
+
+const ProfessionalStudioRouteChildren: ProfessionalStudioRouteChildren = {
+  ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute:
+    ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute,
+}
+
+const ProfessionalStudioRouteWithChildren =
+  ProfessionalStudioRoute._addFileChildren(ProfessionalStudioRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -345,6 +397,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   PortfolioRoute: PortfolioRoute,
+  ProfessionalStudioRoute: ProfessionalStudioRouteWithChildren,
   ProfileRoute: ProfileRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   RegisterRoute: RegisterRoute,

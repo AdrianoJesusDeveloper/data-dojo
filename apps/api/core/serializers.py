@@ -4,11 +4,14 @@ from django.contrib.auth import get_user_model
 from .models import (
     Certificate,
     Course,
+    CourseProgress,
     Exercise,
     ExerciseAttempt,
+    Enrollment,
     ForumComment,
     ForumTopic,
     Lesson,
+    LessonProgress,
     MAX_SUBMITTED_ANSWER_LENGTH,
     Module,
     StudentProject,
@@ -25,8 +28,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "studentName", "email", "profile_picture", "xp_points", "github_url", "linkedin_url", "instagram_url", "website_url"]
-        read_only_fields = ["id", "xp_points"]
+        fields = ["id", "username", "studentName", "email", "profile_picture", "xp_points", "github_url", "linkedin_url", "instagram_url", "website_url", "is_staff", "is_superuser"]
+        read_only_fields = ["id", "xp_points", "is_staff", "is_superuser"]
 
     def to_representation(self, instance):
         """ Garante o envio do link absoluto completo mesmo sendo um campo editável """
@@ -295,3 +298,78 @@ class CourseSerializer(serializers.ModelSerializer):
             "created_at",
             "modules",
         ]
+
+
+class EnrollmentSerializer(serializers.ModelSerializer):
+    course = CourseSerializer(read_only=True)
+    course_id = serializers.PrimaryKeyRelatedField(
+        source="course",
+        queryset=Course.objects.all(),
+        write_only=True,
+    )
+
+    class Meta:
+        model = Enrollment
+        fields = [
+            "id",
+            "course",
+            "course_id",
+            "enrolled_at",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "enrolled_at", "created_at", "updated_at"]
+
+    def validate_status(self, value):
+        if self.instance is None and value != Enrollment.STATUS_ACTIVE:
+            raise serializers.ValidationError("Uma nova matrícula deve iniciar ativa.")
+        return value
+
+
+class CourseProgressSerializer(serializers.ModelSerializer):
+    enrollment = serializers.IntegerField(source="enrollment_id", read_only=True)
+    course = CourseSerializer(source="enrollment.course", read_only=True)
+
+    class Meta:
+        model = CourseProgress
+        fields = [
+            "id",
+            "enrollment",
+            "course",
+            "percentage",
+            "academic_state",
+            "first_activity_at",
+            "last_activity_at",
+            "completed_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class LessonProgressSerializer(serializers.ModelSerializer):
+    course_progress = serializers.IntegerField(source="course_progress_id", read_only=True)
+    lesson = LessonSerializer(read_only=True)
+    course_progress_percentage = serializers.DecimalField(
+        source="course_progress.percentage",
+        max_digits=5,
+        decimal_places=2,
+        read_only=True,
+    )
+
+    class Meta:
+        model = LessonProgress
+        fields = [
+            "id",
+            "course_progress",
+            "course_progress_percentage",
+            "lesson",
+            "status",
+            "started_at",
+            "last_activity_at",
+            "completed_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields

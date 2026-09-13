@@ -36,6 +36,13 @@ class LibraryApiSecurityTests(APITestCase):
             password="dojo-test-password",
             is_staff=True,
         )
+        self.superuser = users.create_user(
+            email="superuser-library@example.com",
+            username="superuser_library",
+            password="dojo-test-password",
+            is_superuser=True,
+            is_staff=False,
+        )
 
     @staticmethod
     def protected_requests():
@@ -92,6 +99,11 @@ class LibraryApiSecurityTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["enabled"])
         self.assertTrue(response.data["local_only"])
+
+    def test_superuser_without_staff_flag_can_access_local_studio_when_enabled(self):
+        self.client.force_authenticate(self.superuser)
+        response = self.request("get", reverse("library-studio-status"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     @override_settings(DDJ_CONTENT_STUDIO_ENABLED=False)
     def test_studio_fails_closed_when_feature_flag_is_disabled(self):

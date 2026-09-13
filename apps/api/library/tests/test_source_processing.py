@@ -7,14 +7,14 @@ from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APITransactionTestCase
 
 from library.models import Book, BookChunk, LibrarySource
 from library.tasks import process_book
 
 
 @override_settings(DDJ_CONTENT_STUDIO_ENABLED=True, DDJ_CONTENT_STUDIO_LOCAL_ONLY=True)
-class LibrarySourceProcessingTests(APITestCase):
+class LibrarySourceProcessingTests(APITransactionTestCase):
     def setUp(self):
         self.admin = get_user_model().objects.create_user(
             email="source-admin@example.com",
@@ -94,7 +94,7 @@ class LibrarySourceProcessingTests(APITestCase):
             status="missing",
         )
         unsupported = self.create_source(
-            "notas.epub", extension="epub", status="unsupported", sha256="unsupported-hash"
+            "notas.docx", extension="docx", status="unsupported", sha256="unsupported-hash"
         )
 
         self.assertEqual(self.request_process(duplicate).status_code, status.HTTP_409_CONFLICT)
@@ -143,7 +143,7 @@ class LibrarySourceProcessingTests(APITestCase):
 
     @patch("library.views.process_book.delay")
     @patch("library.tasks.generate_embeddings", return_value=[[0.1], [0.2]])
-    @patch("library.tasks.extract_text_by_page", return_value=[(1, "conteudo da primeira pagina")])
+    @patch("library.tasks.extract_document", return_value=[(1, "conteudo da primeira pagina")])
     @patch("library.tasks.chunk_text", return_value=[
         {"chunk_index": 0, "page_number": 1, "content": "primeiro"},
         {"chunk_index": 1, "page_number": 1, "content": "segundo"},
@@ -164,7 +164,7 @@ class LibrarySourceProcessingTests(APITestCase):
         extract.assert_called_once_with(book.file.path)
         embeddings.assert_called_once_with(["primeiro", "segundo"])
 
-    @patch("library.tasks.extract_text_by_page")
+    @patch("library.tasks.extract_document")
     def test_task_is_idempotent_when_book_is_not_processing(self, extract):
         source = self.create_source("ready.pdf")
         book = Book.objects.create(source=source, title="Ready", file="books/ready.pdf", status="ready")
@@ -173,7 +173,7 @@ class LibrarySourceProcessingTests(APITestCase):
         extract.assert_not_called()
 
     @patch("library.tasks.generate_embeddings", return_value=[])
-    @patch("library.tasks.extract_text_by_page", return_value=[(1, "novo")])
+    @patch("library.tasks.extract_document", return_value=[(1, "novo")])
     @patch("library.tasks.chunk_text", return_value=[{"chunk_index": 0, "page_number": 1, "content": "novo"}])
     def test_embedding_mismatch_preserves_existing_chunks(self, chunk, extract, embeddings):
         source = self.create_source("mismatch.pdf")
@@ -184,3 +184,26 @@ class LibrarySourceProcessingTests(APITestCase):
         book.refresh_from_db()
         self.assertEqual(book.status, "error")
         self.assertTrue(BookChunk.objects.filter(pk=prior.pk, content="anterior").exists())
+        
+    @patch("library.views.process_book.delay")
+    def test_missing_duplicate_does_not_block_processing(self, delay):
+        delay.return_value.id = "task-123"
+
+        source = self.create_source("principal.pdf")
+
+        LibrarySource.objects.create(
+        relative_path="antigo/principal.pdf",
+        filename="principal.pdf",
+        extension="pdf",
+        size_bytes=123,
+        sha256=source.sha256,
+        status="missing",
+    )
+
+        response = self.request_process(source)
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertTrue(Book.objects.filter(source=source).exists())
+        delay.assert_called_once()
+        
+        

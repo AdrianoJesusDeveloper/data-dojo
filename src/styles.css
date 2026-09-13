@@ -10,6 +10,8 @@
   pre, table, article, section { break-inside: avoid; }
   details > * { visibility: visible !important; }
   details { display: block !important; }
+  .briefing-print-area, .briefing-print-area * { visibility: visible !important; }
+  .briefing-print-area { position: absolute; inset: 0; width: 100%; border: 0 !important; box-shadow: none !important; background: white !important; color: black !important; }
 }
 
 @custom-variant dark (&:is(.dark *));

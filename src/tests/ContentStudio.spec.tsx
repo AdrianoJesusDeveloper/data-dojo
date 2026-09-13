@@ -3,11 +3,11 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import "@testing-library/jest-dom/vitest";
 import { describe, expect, it, vi } from "vitest";
 
-const { get, post, put } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn() }));
+const { get, post, put, patch } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn() }));
 
 vi.mock("@/lib/api", () => ({
   API_ORIGIN: "http://127.0.0.1:8000",
-  api: { get, post, put },
+  api: { get, post, put, patch },
 }));
 
 vi.mock("@/components/DojoHeader", () => ({ DojoHeader: () => <div>Header</div> }));
@@ -31,9 +31,60 @@ const source = (id: number, overrides = {}) => ({
 });
 
 describe("ContentStudio catalog actions", () => {
+  it("keeps generation history without labeling an approved artifact as draft", async () => {
+    const project = {
+      id: 95, title: "Histórico editorial", objective: "Ensinar", project_type: "content", citations: [], editorial_comments: [],
+      modernization_plan: { status: "approved", proposed_architecture: { title: "Plano", videos: [] } },
+      artifacts: [{ id: 10, artifact_type: "YOUTUBE_PACKAGE", target_type: "video", status: "APPROVED", plan_version: 1, generation: 1, content: { text: "Roteiro aprovado" } }],
+      content_package: { generated_items: [{ id: "original", target_type: "video", target_index: 0, status: "draft", plan_version: 1, generation: 1, content: { text: "Geração original preservada" } }] },
+    };
+    get.mockImplementation((url: string) => Promise.resolve({ data: { results: url.endsWith("studio/projects/") ? [project] : [], count: 0 } }));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><ContentStudio /></QueryClientProvider>);
+    expect(await screen.findByText("Histórico de gerações")).toBeInTheDocument();
+    expect(screen.getByText("Geração original preservada")).toBeInTheDocument();
+    expect(screen.getByText("APPROVED")).toBeInTheDocument();
+    expect(screen.queryByText("Conteúdos em draft")).not.toBeInTheDocument();
+  });
+
+  it("downloads backend plan formats with loading, filenames and errors", async () => {
+    const project = { id: 91, title: "Plano exportável", objective: "Ensinar", project_type: "youtube", citations: [], editorial_comments: [], modernization_plan: { status: "draft", proposed_architecture: { title: "Plano exportável", videos: [] } } };
+    let finishPdf: (value: unknown) => void = () => {};
+    const pendingPdf = new Promise((resolve) => { finishPdf = resolve; });
+    const createObjectURL = vi.fn(() => "blob:test");
+    const revokeObjectURL = vi.fn();
+    const NativeURL = URL;
+    vi.stubGlobal("URL", class extends NativeURL { static createObjectURL = createObjectURL; static revokeObjectURL = revokeObjectURL; });
+    const filenames: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) { filenames.push(this.download); });
+    get.mockImplementation((url: string) => {
+      if (url.endsWith("studio/projects/")) return Promise.resolve({ data: { results: [project] } });
+      if (url.endsWith("/plan/export/pdf/")) return pendingPdf;
+      if (url.includes("/plan/export/")) return Promise.resolve({ data: new Blob(["file"]), headers: { "content-disposition": `attachment; filename="backend.${url.includes("docx") ? "docx" : "pptx"}"` } });
+      return Promise.resolve({ data: { results: [], count: 0 } });
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><ContentStudio /></QueryClientProvider>);
+    fireEvent.click(await screen.findByRole("button", { name: /^PDF$/ }));
+    expect(screen.getByRole("button", { name: /^DOCX$/ })).toBeDisabled();
+    finishPdf({ data: new Blob(["pdf"]), headers: { "content-disposition": "attachment; filename*=UTF-8''plano%20final.pdf" } });
+    await waitFor(() => expect(filenames).toContain("plano final.pdf"));
+    for (const format of ["DOCX", "PPTX"]) {
+      await waitFor(() => expect(screen.getByRole("button", { name: new RegExp(`^${format}$`) })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${format}$`) }));
+      await waitFor(() => expect(filenames).toContain(`backend.${format.toLowerCase()}`));
+    }
+    expect(revokeObjectURL).toHaveBeenCalledTimes(3);
+    get.mockRejectedValueOnce({ response: { status: 503 } });
+    fireEvent.click(screen.getByRole("button", { name: /^PDF$/ }));
+    expect(await screen.findByText("Não foi possível exportar o plano.")).toBeInTheDocument();
+    click.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
   it("edits with save/cancel, comments, prints, previews and generates a selected draft", async () => {
     const plan = { contract_version: "editorial-plan-v1", title: "Plano editável", general_objective: "Formar", professional_objective: "Atuar", specific_objectives: ["Criar"], target_audience: "Analistas", level: "Básico", prerequisites: ["Lógica"], total_workload: "10h", competencies: ["Dados"], technology_stack: ["Python"], module_count: 1, lesson_count: 1, methodology: "Dojô", modules: [{ title: "Módulo teste", objective: "Base", competencies: ["Análise"], workload: "10h", lessons: [{ title: "Aula teste", objective: "Aprender", concepts: ["Conceito"], practice: "Prática", tools: ["Python"], ai_integration: "Apoiar", human_reasoning: "Pensar", validation: "Testar", reflection: "Explicar", authorship_challenge: { independent_explanation: "Explicar", practical_challenge: "Criar", portfolio_artifact: "Notebook", reflection_question: "Por quê?", comprehension_criteria: "Defender", responsible_ai_use: "Registrar", must_not_delegate_to_ai: "Pensar", expected_result: "Entrega", private_submission_option: "Privado" }, sources: ["Livro"], expected_result: "Entrega" }], exercises: ["Exercício"], kata: "Kata", practical_project: "Projeto", assessment: "Rubrica" }], practical_projects: ["Projeto"], final_project: "Final", assessment_criteria: ["Qualidade"], materials: ["Livro"], completion_requirements: "Concluir", certification_requirements: "Aprovar", sources: ["Livro"] };
-    const project = { id: 77, title: "Projeto Marco 3", theme: "Dados", objective: "Ensinar", project_type: "premium", status: "approved", books: [1], citations: [], modernization_plan: { status: "approved", proposed_architecture: plan }, editorial_comments: [], is_archived: false, content_package: { generated_items: [{ id: "stable-generated-id", target_type: "lesson", target_id: "stable-lesson-id", target_index: 0, plan_version: 2, generation: 3, content: { text: "Conteúdo persistido" } }] } };
+    const project = { id: 77, title: "Projeto Marco 3", theme: "Dados", objective: "Ensinar", project_type: "formation", status: "approved", books: [1], citations: [], modernization_plan: { status: "approved", proposed_architecture: plan }, editorial_comments: [], is_archived: false, content_package: { generated_items: [{ id: "stable-generated-id", target_type: "lesson", target_id: "stable-lesson-id", target_index: 0, plan_version: 2, generation: 3, content: { text: "Conteúdo persistido" } }] } };
     get.mockImplementation((url: string) => {
       if (url.endsWith("studio/status/")) return Promise.resolve({ data: { enabled: true, local_only: true, sources: 0, supported: 0, unsupported: 0, missing: 0, books: 0, ready_books: 0, scripts: 0 } });
       if (url.endsWith("studio/projects/")) return Promise.resolve({ data: { results: [project] } });
@@ -49,18 +100,20 @@ describe("ContentStudio catalog actions", () => {
     await screen.findByText("Plano editável");
     expect(screen.getByText(/plano v2 .* geração 3/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Editar plano" }));
+    expect(screen.getByRole("button", { name: "Salvar" })).toBeDisabled();
     fireEvent.change(screen.getByDisplayValue("Plano editável"), { target: { value: "Alteração cancelada" } });
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.getByRole("button", { name: "Salvar" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar edição" }));
     expect(put).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Editar plano" }));
     fireEvent.change(screen.getByDisplayValue("Plano editável"), { target: { value: "Plano v2" } });
-    fireEvent.click(screen.getByRole("button", { name: "Salvar nova versão" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
     await waitFor(() => expect(put).toHaveBeenCalledWith("/api/library/studio/projects/77/plan/", { plan: expect.objectContaining({ title: "Plano v2" }) }));
 
     fireEvent.change(screen.getByPlaceholderText("Adicionar comentário"), { target: { value: "Revisar a aula" } });
     fireEvent.click(screen.getByRole("button", { name: "Adicionar comentário" }));
     await waitFor(() => expect(post).toHaveBeenCalledWith("/api/library/studio/projects/77/comments/", { text: "Revisar a aula", target_type: "plan", target_id: "" }));
-    fireEvent.click(screen.getByRole("button", { name: "Imprimir / Exportar PDF" }));
+    fireEvent.click(screen.getByRole("button", { name: "Imprimir" }));
     expect(print).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Visualizar como aluno" }));
     expect(screen.getByText("Prévia do aluno · não publicada")).toBeInTheDocument();
@@ -153,10 +206,10 @@ describe("ContentStudio catalog actions", () => {
     render(<QueryClientProvider client={queryClient}><ContentStudio /></QueryClientProvider>);
 
     const eligibleRow = (await screen.findAllByText("livro-1.pdf"))[0].closest("tr")!;
-    expect(within(eligibleRow).getByRole("button", { name: "Processar para RAG" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Processar para RAG" })).toHaveLength(1);
-    expect(screen.getByText("Duplicado / não disponível")).toBeInTheDocument();
-    expect(screen.getByText("Pronto para RAG")).toBeInTheDocument();
+    expect(within(eligibleRow).getByRole("button", { name: "Processar RAG" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Processar RAG" })).toHaveLength(1);
+    expect(screen.getByText("Duplicado")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reprocessar" })).toBeInTheDocument();
     expect(screen.getAllByText("Não disponível")).toHaveLength(2);
   });
 
@@ -172,6 +225,7 @@ describe("ContentStudio catalog actions", () => {
     render(<QueryClientProvider client={queryClient}><ContentStudio /></QueryClientProvider>);
 
     fireEvent.change(await screen.findByPlaceholderText("Nome do projeto modernizado"), { target: { value: "Projeto temporal" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Intenção original" }), { target: { value: "Quero ensinar séries temporais" } });
     fireEvent.change(screen.getByPlaceholderText("Tema ou problema real"), { target: { value: "Séries temporais" } });
     fireEvent.change(screen.getByPlaceholderText("Objetivo, público e resultado esperado"), { target: { value: "Ensinar fundamentos" } });
     fireEvent.change(await screen.findByDisplayValue("Selecione um livro processado"), { target: { value: "11" } });
@@ -181,7 +235,11 @@ describe("ContentStudio catalog actions", () => {
       title: "Projeto temporal",
       theme: "Séries temporais",
       objective: "Ensinar fundamentos",
-      project_type: "premium",
+      original_intent: "Quero ensinar séries temporais",
+      project_type: "formation",
+      production_channel: "premium",
+      production_format: "premium_formation",
+      research_policy: "ACERVO_ONLY",
       books: [11],
       source: 7,
     }));
@@ -243,5 +301,141 @@ describe("ContentStudio catalog actions", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Projeto editorial" }), { target: { value: "89" } });
     expect(post).toHaveBeenCalledWith("/api/library/studio/council-runs/9/request-revision/", {});
     finishRequest();
+  });
+});
+
+describe("ContentStudio Sensei formation foundation", () => {
+  it("clears the selected study unit when formation changes and keeps the previous modal closed", async () => {
+    const ai = { id: 501, title: "Engenharia de IA Aplicada e Arquitetura de Sistemas Inteligentes", slug: "engenharia-ia-arquitetura-sistemas-inteligentes", description: "IA", objective: "Formar em IA", status: "ACTIVE", level: "Progressivo", module_count: 1, competency_count: 1, progress: null };
+    const marketing = { id: 502, title: "Marketing Digital, Performance e Gestão de Tráfego Pago", slug: "marketing-digital-performance-gestao-trafego-pago", description: "Autoral DDJ", objective: "Formar em performance", status: "ACTIVE", level: "Progressivo", module_count: 16, competency_count: 32, progress: null };
+    const aiStudyPlan = { unit: 10, learning_objectives: ["Compreender tipos"], prerequisites: [], related_competencies: [{ id: 1, title: "Competência IA", expected_level_label: "Debuga" }], practices: ["Implementar exemplos"], expected_evidence: ["Código"], completion_criteria: ["Explica"], guidance: "Raciocinar", curated_sources: [{ id: 1, category_label: "Fundacional", source_type_label: "Livro técnico", title: "Aprendendo Python", reference: "Biblioteca local", location: "Seções sobre tipos", objective: "Fundamentar Python", priority: 1, notes: "", is_required: true, url: "", justification: "Fundamental", confidence: null }], source_proposals: [], source_gap: null, notes: [], study_progress: { status: "NOT_STARTED" } };
+    const marketingStudyPlan = { unit: 20, learning_objectives: ["Explicar aquisição"], prerequisites: [], related_competencies: [{ id: 2, title: "Diagnosticar fundamentos de aquisição para um negócio", expected_level_label: "Debuga" }], practices: [], expected_evidence: [], completion_criteria: [], guidance: "Raciocinar", curated_sources: [], source_proposals: [], source_gap: { status: "OPEN", reason: "NEEDS_SOURCE: fonte adequada ainda não foi curada.", requirements: [] }, notes: [], study_progress: { status: "NOT_STARTED" } };
+    let resolveAiPlan!: (value: any) => void;
+    let resolveMarketingPlan!: (value: any) => void;
+    const aiPlanPromise = new Promise((resolve) => { resolveAiPlan = resolve; });
+    const marketingPlanPromise = new Promise((resolve) => { resolveMarketingPlan = resolve; });
+    get.mockImplementation((url: string) => {
+      if (url.endsWith("studio/status/")) return Promise.resolve({ data: { enabled: true, local_only: true, sources: 0, supported: 0, unsupported: 0, missing: 0, books: 0, ready_books: 0, scripts: 0 } });
+      if (url === "/api/library/sensei-formations/") return Promise.resolve({ data: [ai, marketing] });
+      if (url === "/api/library/sensei-formations/501/modules/") return Promise.resolve({ data: [{ id: 1, title: "Fundamentos de IA", description: "IA", order: 0, unit_count: 1, study_units: [{ id: 10, title: "Python, tipos e estruturas de dados", objective: "Python", order: 0, status: "ACTIVE" }] }] });
+      if (url === "/api/library/sensei-formations/501/competencies/") return Promise.resolve({ data: [{ id: 1, module: 1, title: "Competência IA", description: "IA", expected_level: 4, expected_level_label: "Debuga", mastery_criteria: [], evidence_count: 0, progress: null }] });
+      if (url === "/api/library/sensei-formations/502/modules/") return Promise.resolve({ data: [{ id: 2, title: "Fundamentos de Marketing e Tráfego", description: "Marketing", order: 0, unit_count: 1, study_units: [{ id: 20, title: "Marketing, aquisição e geração de valor", objective: "Aquisição", order: 0, status: "ACTIVE" }] }] });
+      if (url === "/api/library/sensei-formations/502/competencies/") return Promise.resolve({ data: [{ id: 2, module: 2, title: "Diagnosticar fundamentos de aquisição para um negócio", description: "Marketing", expected_level: 4, expected_level_label: "Debuga", mastery_criteria: [], evidence_count: 0, progress: null }] });
+      if (url.endsWith("/progress/")) return Promise.resolve({ data: { percentage: "0.00", state: "NOT_STARTED" } });
+      if (url === "/api/library/sensei-units/10/study-plan/") return aiPlanPromise.then((data) => ({ data }));
+      if (url === "/api/library/sensei-units/20/study-plan/") return marketingPlanPromise.then((data) => ({ data }));
+      if (url.endsWith("sources/")) return Promise.resolve({ data: { count: 0, previous: null, next: null, results: [] } });
+      return Promise.resolve({ data: [] });
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><ContentStudio /></QueryClientProvider>);
+
+    const aiCard = (await screen.findByText(ai.title)).closest("article")!;
+    fireEvent.click(within(aiCard).getByRole("button", { name: "Abrir formação" }));
+    await waitFor(() => expect(get).toHaveBeenCalledWith("/api/library/sensei-formations/501/modules/"));
+    fireEvent.click(await screen.findByRole("button", { name: "Abrir plano de estudo: Python, tipos e estruturas de dados" }));
+    expect(screen.getByText(/Plano de estudo do Sensei/)).toBeInTheDocument();
+
+    const marketingCard = (await screen.findByText(marketing.title)).closest("article")!;
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByText(/Plano de estudo do Sensei/)).not.toBeInTheDocument());
+    fireEvent.click(within(marketingCard).getByRole("button", { name: "Abrir formação" }));
+    await waitFor(() => expect(get).toHaveBeenCalledWith("/api/library/sensei-formations/502/modules/"));
+    expect(screen.queryByText("Python, tipos e estruturas de dados")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Plano de estudo do Sensei/)).not.toBeInTheDocument();
+
+    resolveAiPlan(aiStudyPlan);
+    resolveMarketingPlan(marketingStudyPlan);
+    await waitFor(() => expect(screen.getByText(/Marketing, aquisição e geração de valor/)).toBeInTheDocument());
+    expect(screen.queryByText("Aprendendo Python")).not.toBeInTheDocument();
+  });
+
+  it("does not mask request errors as a missing plan when the formation changes", async () => {
+    const ai = { id: 501, title: "Engenharia de IA Aplicada e Arquitetura de Sistemas Inteligentes", slug: "engenharia-ia-arquitetura-sistemas-inteligentes", description: "IA", objective: "Formar em IA", status: "ACTIVE", level: "Progressivo", module_count: 1, competency_count: 1, progress: null };
+    get.mockImplementation((url: string) => {
+      if (url.endsWith("studio/status/")) return Promise.resolve({ data: { enabled: true, local_only: true, sources: 0, supported: 0, unsupported: 0, missing: 0, books: 0, ready_books: 0, scripts: 0 } });
+      if (url === "/api/library/sensei-formations/") return Promise.resolve({ data: [ai] });
+      if (url === "/api/library/sensei-formations/501/modules/") return Promise.resolve({ data: [{ id: 1, title: "Fundamentos de IA", description: "IA", order: 0, unit_count: 1, study_units: [{ id: 10, title: "Python, tipos e estruturas de dados", objective: "Python", order: 0, status: "ACTIVE" }] }] });
+      if (url === "/api/library/sensei-formations/501/competencies/") return Promise.resolve({ data: [{ id: 1, module: 1, title: "Competência IA", description: "IA", expected_level: 4, expected_level_label: "Debuga", mastery_criteria: [], evidence_count: 0, progress: null }] });
+      if (url === "/api/library/sensei-formations/501/progress/") return Promise.resolve({ data: { percentage: "0.00", state: "NOT_STARTED" } });
+      if (url === "/api/library/sensei-units/10/study-plan/") return Promise.reject({ response: { status: 500, data: { detail: "network error" } } });
+      if (url.endsWith("sources/")) return Promise.resolve({ data: { count: 0, previous: null, next: null, results: [] } });
+      return Promise.resolve({ data: [] });
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><ContentStudio /></QueryClientProvider>);
+
+    const aiCard = (await screen.findByText(ai.title)).closest("article")!;
+    fireEvent.click(within(aiCard).getByRole("button", { name: "Abrir formação" }));
+    await waitFor(() => expect(get).toHaveBeenCalledWith("/api/library/sensei-formations/501/modules/"));
+    fireEvent.click(await screen.findByRole("button", { name: "Abrir plano de estudo: Python, tipos e estruturas de dados" }));
+    expect(await screen.findByText("Não foi possível carregar o plano desta unidade neste momento. Tente novamente.")).toBeInTheDocument();
+    expect(screen.queryByText("Esta unidade ainda não possui plano ou fonte curada.")).not.toBeInTheDocument();
+  });
+
+  it("switches between formations without mixing maps and shows the marketing source gap", async () => {
+    const ai = { id: 501, title: "Engenharia de IA Aplicada e Arquitetura de Sistemas Inteligentes", slug: "engenharia-ia-arquitetura-sistemas-inteligentes", description: "IA", objective: "Formar em IA", status: "ACTIVE", level: "Progressivo", module_count: 1, competency_count: 1, progress: null };
+    const marketing = { id: 502, title: "Marketing Digital, Performance e Gestão de Tráfego Pago", slug: "marketing-digital-performance-gestao-trafego-pago", description: "Autoral DDJ", objective: "Formar em performance", status: "ACTIVE", level: "Progressivo", module_count: 16, competency_count: 32, progress: null };
+    get.mockImplementation((url: string) => {
+      if (url.endsWith("studio/status/")) return Promise.resolve({ data: { enabled: true, local_only: true, sources: 0, supported: 0, unsupported: 0, missing: 0, books: 0, ready_books: 0, scripts: 0 } });
+      if (url === "/api/library/sensei-formations/") return Promise.resolve({ data: [ai, marketing] });
+      if (url === "/api/library/sensei-formations/501/modules/") return Promise.resolve({ data: [{ id: 1, title: "Fundamentos de IA", description: "IA", order: 0, unit_count: 1, study_units: [{ id: 10, title: "Python, tipos e estruturas de dados", objective: "Python", order: 0, status: "ACTIVE" }] }] });
+      if (url === "/api/library/sensei-formations/501/competencies/") return Promise.resolve({ data: [{ id: 1, module: 1, title: "Competência IA", description: "IA", expected_level: 4, expected_level_label: "Debuga", mastery_criteria: [], evidence_count: 0, progress: null }] });
+      if (url === "/api/library/sensei-formations/502/modules/") return Promise.resolve({ data: [{ id: 2, title: "Fundamentos de Marketing e Tráfego", description: "Marketing", order: 0, unit_count: 1, study_units: [{ id: 20, title: "Marketing, aquisição e geração de valor", objective: "Aquisição", order: 0, status: "ACTIVE" }] }] });
+      if (url === "/api/library/sensei-formations/502/competencies/") return Promise.resolve({ data: [{ id: 2, module: 2, title: "Diagnosticar fundamentos de aquisição para um negócio", description: "Marketing", expected_level: 4, expected_level_label: "Debuga", mastery_criteria: [], evidence_count: 0, progress: null }] });
+      if (url.endsWith("/progress/")) return Promise.resolve({ data: { percentage: "0.00", state: "NOT_STARTED" } });
+      if (url === "/api/library/sensei-units/20/study-plan/") return Promise.resolve({ data: { unit: 20, learning_objectives: ["Explicar aquisição"], prerequisites: [], related_competencies: [{ id: 2, title: "Diagnosticar fundamentos de aquisição para um negócio", expected_level_label: "Debuga" }], practices: [], expected_evidence: [], completion_criteria: [], guidance: "Raciocinar", curated_sources: [], source_proposals: [], source_gap: { status: "OPEN", reason: "NEEDS_SOURCE: fonte adequada ainda não foi curada.", requirements: [] }, notes: [], study_progress: { status: "NOT_STARTED" } } });
+      if (url.endsWith("sources/")) return Promise.resolve({ data: { count: 0, previous: null, next: null, results: [] } });
+      return Promise.resolve({ data: [] });
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><ContentStudio /></QueryClientProvider>);
+    const aiCard = (await screen.findByText(ai.title)).closest("article")!;
+    const marketingCard = (await screen.findByText(marketing.title)).closest("article")!;
+    fireEvent.click(within(aiCard).getByRole("button", { name: "Abrir formação" }));
+    await waitFor(() => expect(get).toHaveBeenCalledWith("/api/library/sensei-formations/501/modules/"));
+    expect(await screen.findByRole("button", { name: "Abrir plano de estudo: Python, tipos e estruturas de dados" })).toBeInTheDocument();
+    fireEvent.click(within(marketingCard).getByRole("button", { name: "Abrir formação" }));
+    expect(await screen.findByText(/Marketing, aquisição e geração de valor/)).toBeInTheDocument();
+    expect(screen.queryByText("Python, tipos e estruturas de dados")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Abrir plano de estudo: Marketing, aquisição e geração de valor" }));
+    expect(await screen.findByText("Fontes em curadoria.")).toBeInTheDocument();
+    expect(screen.getAllByText(/NEEDS_SOURCE/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Pedro Sobral|Comunidade Subido/)).not.toBeInTheDocument();
+  });
+
+  it("lists and opens a formation with modules, competencies, progress and evidence counts", async () => {
+    const formation = { id: 501, title: "Engenharia de IA Aplicada e Arquitetura de Sistemas Inteligentes", slug: "engenharia-ia-arquitetura-sistemas-inteligentes", description: "Formação progressiva", objective: "Demonstrar competência real", status: "DRAFT", level: "Progressivo", module_count: 1, competency_count: 1, progress: null };
+    get.mockImplementation((url: string) => {
+      if (url.endsWith("studio/status/")) return Promise.resolve({ data: { enabled: true, local_only: true, sources: 0, supported: 0, unsupported: 0, missing: 0, books: 0, ready_books: 0, scripts: 0 } });
+      if (url === "/api/library/sensei-formations/501/modules/") return Promise.resolve({ data: [{ id: 1, title: "Fundamentos", description: "Base", order: 0, unit_count: 1, study_units: [{ id: 10, title: "Python, tipos e estruturas de dados", objective: "Compreender Python", order: 0, status: "ACTIVE" }] }] });
+      if (url === "/api/library/sensei-formations/501/competencies/") return Promise.resolve({ data: [{ id: 2, title: "Arquitetura", description: "Projetar", expected_level: 6, expected_level_label: "Ensina", mastery_criteria: ["Defender decisões"], evidence_count: 3, progress: { current_level: 5, current_level_label: "Justifica decisões", state: "PRACTICING" } }] });
+      if (url === "/api/library/sensei-formations/501/progress/") return Promise.resolve({ data: { percentage: "0.00", state: "IN_PROGRESS" } });
+      if (url === "/api/library/sensei-formations/501/study-journey/") return Promise.resolve({ data: { id: null, formation: 501, status: "NOT_STARTED", started_at: null, current_unit: { id: 10, title: "Python, tipos e estruturas de dados", objective: "Compreender Python", order: 0, status: "ACTIVE" }, last_position: {} } });
+      if (url === "/api/library/sensei-units/10/study-plan/") return Promise.resolve({ data: { unit: 10, learning_objectives: ["Compreender tipos"], prerequisites: [], related_competencies: [{ id: 2, title: "Arquitetura", expected_level_label: "Ensina" }], practices: ["Implementar exemplos"], expected_evidence: ["Código e testes"], completion_criteria: ["Explica e justifica"], guidance: "Produzir evidência própria", curated_sources: [{ id: 1, category_label: "Fundacional", source_type_label: "Livro técnico", title: "Aprendendo Python", reference: "Biblioteca local", location: "Seções sobre tipos", objective: "Fundamentar Python", priority: 1, notes: "Paginação pendente", is_required: true, url: "" }], notes: [], study_progress: { status: "NOT_STARTED" } } });
+      if (url === "/api/library/sensei-formations/") return Promise.resolve({ data: [formation] });
+      if (url.endsWith("sources/")) return Promise.resolve({ data: { count: 0, previous: null, next: null, results: [] } });
+      return Promise.resolve({ data: { results: [] } });
+    });
+    post.mockResolvedValue({ data: { id: 1, formation: 501, status: "IN_PROGRESS", started_at: "2026-09-03T12:00:00Z", current_unit: { id: 10, title: "Python, tipos e estruturas de dados", objective: "Compreender Python", order: 0, status: "ACTIVE" }, last_position: {} } });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><ContentStudio /></QueryClientProvider>);
+
+    expect(await screen.findByText("FORMAÇÃO DO SENSEI")).toBeInTheDocument();
+    expect(await screen.findByText(formation.title)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Abrir formação" }));
+    await waitFor(() => expect(get).toHaveBeenCalledWith("/api/library/sensei-formations/501/modules/"));
+    await waitFor(() => expect(get).toHaveBeenCalledWith("/api/library/sensei-formations/501/competencies/"));
+    await waitFor(() => expect(get).toHaveBeenCalledWith("/api/library/sensei-formations/501/progress/"));
+    expect(await screen.findByText(/Fundamentos/)).toBeInTheDocument();
+    expect(screen.getByText("Arquitetura")).toBeInTheDocument();
+    expect(screen.getByText(/Meta: Ensina · Atual: Justifica decisões/)).toBeInTheDocument();
+    expect(screen.getByText("Evidências registradas: 3")).toBeInTheDocument();
+    expect(screen.getByText("Baseado em competências demonstradas, não em aulas abertas.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "INICIAR FORMAÇÃO" }));
+    await waitFor(() => expect(post).toHaveBeenCalledWith("/api/library/sensei-formations/501/study-journey/", {}));
+    expect(await screen.findByText("Aprendendo Python")).toBeInTheDocument();
+    expect(screen.getByText("Implementar exemplos")).toBeInTheDocument();
+    expect(screen.getByText(/concluir a unidade não demonstra competência/i)).toBeInTheDocument();
   });
 });

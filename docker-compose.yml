@@ -30,11 +30,13 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
-    restart: unless-stopped
+    restart: unless-stopped    
     environment:
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DEBUG: ${DEBUG:-False}
-      ENVIRONMENT: ${ENVIRONMENT:-docker}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DDJ_CONTENT_STUDIO_ENABLED: ${DDJ_CONTENT_STUDIO_ENABLED:-true}
+      DDJ_CONTENT_STUDIO_TRUSTED_IPS: ${DDJ_CONTENT_STUDIO_TRUSTED_IPS:-127.0.0.1,::1,172.19.0.1}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,api}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8080}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:5173,http://localhost:8080}
@@ -49,6 +51,17 @@ services:
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
       AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-gemini}
       AI_FALLBACK_PROVIDERS: ${AI_FALLBACK_PROVIDERS:-gemini,deepseek}
+      LOCAL_LIBRARY_PATH: /library
+      HF_HOME: /app/media/model-cache/huggingface
+      SENTENCE_TRANSFORMERS_HOME: /app/media/model-cache/sentence-transformers
+    volumes:
+      - type: bind
+        source: C:/livros
+        target: /library
+        read_only: true
+      - type: volume
+        source: media_data
+        target: /app/media
     command: >-
       sh -c "python manage.py migrate && python manage.py collectstatic --noinput &&
       gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"
@@ -64,11 +77,13 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
-    restart: unless-stopped
+    restart: unless-stopped    
     environment:
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DEBUG: ${DEBUG:-False}
-      ENVIRONMENT: ${ENVIRONMENT:-docker}
+      DDJ_CONTENT_STUDIO_ENABLED: ${DDJ_CONTENT_STUDIO_ENABLED:-true}
+      DDJ_CONTENT_STUDIO_TRUSTED_IPS: ${DDJ_CONTENT_STUDIO_TRUSTED_IPS:-127.0.0.1,::1,172.19.0.1}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,api}
       DATABASE_URL: postgres://${POSTGRES_USER:-dojo}:${POSTGRES_PASSWORD:-dojo_dev_password}@db:5432/${POSTGRES_DB:-dojo_db}
       REDIS_URL: redis://redis:6379/0
@@ -81,6 +96,17 @@ services:
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
       AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-gemini}
       AI_FALLBACK_PROVIDERS: ${AI_FALLBACK_PROVIDERS:-gemini,deepseek}
+      LOCAL_LIBRARY_PATH: /library
+      HF_HOME: /app/media/model-cache/huggingface
+      SENTENCE_TRANSFORMERS_HOME: /app/media/model-cache/sentence-transformers
+    volumes:
+      - type: bind
+        source: C:/livros
+        target: /library
+        read_only: true
+      - type: volume
+        source: media_data
+        target: /app/media
     command: ["celery", "-A", "config", "worker", "--loglevel=INFO"]
     depends_on:
       db:
@@ -101,3 +127,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  media_data:

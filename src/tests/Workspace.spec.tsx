@@ -10,20 +10,21 @@ const apiMocks = vi.hoisted(() => ({
 vi.mock("@/lib/api", () => ({ api: apiMocks }));
 vi.mock("@/components/DojoHeader", () => ({ DojoHeader: () => <div>Header</div> }));
 vi.mock("@/components/workspace/LessonPlayer", () => ({
-  LessonPlayer: ({ course, setCurrentLesson, setCode }: {
+  LessonPlayer: ({ course, setCurrentLesson, setCode, onCourseProgressChange }: {
     course: typeof courseResponse.data.results[number] | null;
     setCurrentLesson: (lesson: unknown) => void;
     setCode: (code: string) => void;
+    onCourseProgressChange: (percentage: string) => void;
   }) => {
     const alternative = course?.modules[0]?.lessons[1];
-    return alternative ? (
+    return <div>{alternative ? (
       <button onClick={() => {
         setCurrentLesson(alternative);
         setCode(alternative.body);
       }}>
         {alternative.title}
       </button>
-    ) : <div>Lesson</div>;
+    ) : <div>Lesson</div>}<button onClick={() => onCourseProgressChange("50.00")}>Simular conclusão</button></div>;
   },
 }));
 vi.mock("@/components/workspace/DojoTerminal", () => ({
@@ -108,12 +109,33 @@ const courseResponse = {
   },
 };
 
-function attempt(passed: boolean, message: string) {
+const enrolledAccessResponse = {
+  data: {
+    access_type: "enrollment",
+    courses: courseResponse.data.results,
+  },
+};
+
+const defaultProgressResponse = {
+  data: {
+    id: 20,
+    enrollment: 9,
+    course: courseResponse.data.results[0],
+    percentage: "0.00",
+    academic_state: "not_started",
+    first_activity_at: null,
+    last_activity_at: null,
+    created_at: "2026-08-31T12:00:00Z",
+    updated_at: "2026-08-31T12:00:00Z",
+  },
+};
+
+function attempt(passed: boolean, message: string, attemptNumber = 1) {
   return {
     data: {
       id: 10,
       exercise: 4,
-      attempt_number: 1,
+      attempt_number: attemptNumber,
       passed,
       feedback: { code: passed ? "accepted" : "not_accepted", message },
       evaluation_version: "v1",
@@ -146,7 +168,11 @@ describe("Workspace server-side exercise submission", () => {
     vi.stubGlobal("crypto", {
       randomUUID: vi.fn(() => `00000000-0000-4000-8000-${String(++uuidIndex).padStart(12, "0")}`),
     });
-    apiMocks.get.mockResolvedValue(courseResponse);
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === "/api/enrollments/access/") return Promise.resolve(enrolledAccessResponse);
+      if (url.startsWith("/api/course-progress/")) return Promise.resolve(defaultProgressResponse);
+      return Promise.resolve(courseResponse);
+    });
   });
 
   it("sends the edited code and shows analyzing while preventing duplicate clicks", async () => {
@@ -164,9 +190,13 @@ describe("Workspace server-side exercise submission", () => {
       "/api/exercises/4/attempts/",
       expect.objectContaining({ submitted_answer: "SELECT name FROM customers" }),
     );
+    expect(apiMocks.post.mock.calls[0][1]).not.toHaveProperty("passed");
+    expect(apiMocks.post.mock.calls[0][1]).not.toHaveProperty("correct");
+    expect(apiMocks.post.mock.calls[0][1]).not.toHaveProperty("score");
 
     pending.resolve(attempt(true, "Resposta aprovada."));
     expect(await screen.findByText("✓ DESAFIO APROVADO")).toBeInTheDocument();
+    expect(screen.getByText("↳ Tentativa #1 registrada.")).toBeInTheDocument();
     expect(screen.queryByText(/XP/)).not.toBeInTheDocument();
   });
 
@@ -273,5 +303,121 @@ describe("ExerciseCard public contract", () => {
     expect(screen.getByText("Consulta")).toBeInTheDocument();
     expect(screen.getByText("Selecione os nomes.")).toBeInTheDocument();
     expect(screen.queryByText(/Critérios:/)).not.toBeInTheDocument();
+  });
+});
+
+describe("Workspace enrollment contract", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("shows the course catalog when the user has no active enrollment", async () => {
+    apiMocks.get
+      .mockResolvedValueOnce(courseResponse)
+      .mockResolvedValueOnce({ data: { access_type: "none", courses: [] } });
+
+    render(<Workspace />);
+
+    expect(await screen.findByText("Escolha sua formação")).toBeInTheDocument();
+    expect(screen.getByText("SQL")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Matricular-se" })).toBeInTheDocument();
+    expect(apiMocks.get).toHaveBeenNthCalledWith(2, "/api/enrollments/access/");
+  });
+
+  it("enrolls using only course_id and opens the existing workspace", async () => {
+    apiMocks.get
+      .mockResolvedValueOnce(courseResponse)
+      .mockResolvedValueOnce({ data: { access_type: "none", courses: [] } })
+      .mockResolvedValueOnce(defaultProgressResponse);
+    apiMocks.post.mockResolvedValue({ data: { id: 9, status: "active" } });
+
+    render(<Workspace />);
+    fireEvent.click(await screen.findByRole("button", { name: "Matricular-se" }));
+
+    await waitFor(() => {
+      expect(apiMocks.post).toHaveBeenCalledWith("/api/enrollments/", { course_id: 1 });
+    });
+    expect(await screen.findByRole("button", { name: "⚔ Compilar desafio" })).toBeInTheDocument();
+  });
+
+  it("renders an explicit enrollment loading error with retry", async () => {
+    apiMocks.get.mockRejectedValue(new Error("unauthorized"));
+    render(<Workspace />);
+    expect(await screen.findByText("Não foi possível carregar o Workspace.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
+  });
+
+  it("opens courses with an administrative access indicator and no enrollment prompt", async () => {
+    apiMocks.get
+      .mockResolvedValueOnce(courseResponse)
+      .mockResolvedValueOnce({
+        data: { access_type: "administrative", courses: courseResponse.data.results },
+      });
+
+    render(<Workspace />);
+
+    expect(await screen.findByText("Acesso administrativo")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "⚔ Compilar desafio" })).not.toBeInTheDocument();
+    expect(screen.getByText("Prévia administrativa: submissões acadêmicas desativadas.")).toBeInTheDocument();
+    expect(screen.queryByText("Matricule-se para acessar o conteúdo no Workspace.")).not.toBeInTheDocument();
+    expect(apiMocks.post).not.toHaveBeenCalledWith(
+      "/api/enrollments/",
+      expect.anything(),
+    );
+    expect(apiMocks.get).not.toHaveBeenCalledWith(expect.stringContaining("/api/course-progress/"));
+  });
+
+  it("shows a safe zero state for an enrolled course without activity", async () => {
+    apiMocks.get
+      .mockResolvedValueOnce(courseResponse)
+      .mockResolvedValueOnce(enrolledAccessResponse)
+      .mockResolvedValueOnce(defaultProgressResponse);
+
+    render(<Workspace />);
+
+    expect(await screen.findByText("Progresso: 0%")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "⚔ Compilar desafio" })).toBeInTheDocument();
+  });
+
+  it("shows persisted progress without accepting a frontend percentage", async () => {
+    apiMocks.get
+      .mockResolvedValueOnce(courseResponse)
+      .mockResolvedValueOnce(enrolledAccessResponse)
+      .mockResolvedValueOnce({
+        data: { ...defaultProgressResponse.data, percentage: "35.00" },
+      });
+
+    render(<Workspace />);
+
+    expect(await screen.findByText("Progresso: 35%")).toBeInTheDocument();
+    expect(apiMocks.post).not.toHaveBeenCalledWith(
+      expect.stringContaining("course-progress"),
+      expect.anything(),
+    );
+  });
+
+  it("keeps the workspace usable when progress loading fails", async () => {
+    apiMocks.get
+      .mockResolvedValueOnce(courseResponse)
+      .mockResolvedValueOnce(enrolledAccessResponse)
+      .mockRejectedValueOnce(new Error("progress unavailable"));
+
+    render(<Workspace />);
+
+    expect(await screen.findByText("Progresso indisponível.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "⚔ Compilar desafio" })).toBeInTheDocument();
+  });
+
+  it("shows the course percentage recalculated after a lesson transition", async () => {
+    apiMocks.get
+      .mockResolvedValueOnce(courseResponse)
+      .mockResolvedValueOnce(enrolledAccessResponse)
+      .mockResolvedValueOnce(defaultProgressResponse);
+    render(<Workspace />);
+    await screen.findByText("Progresso: 0%");
+
+    fireEvent.click(screen.getByRole("button", { name: "Simular conclusão" }));
+
+    expect(await screen.findByText("Progresso: 50%")).toBeInTheDocument();
   });
 });

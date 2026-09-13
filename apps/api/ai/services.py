@@ -1,16 +1,49 @@
 import os
 import logging
 
+from django.conf import settings
+
+
+class AIProviderError(RuntimeError):
+    """A safe, classified failure returned by an external AI provider."""
+
+    SAFE_MESSAGES = {
+        "unavailable": "O provedor de IA está temporariamente indisponível.",
+        "timeout": "O provedor de IA excedeu o tempo limite.",
+        "rate_limit": "O limite de uso do provedor de IA foi atingido.",
+        "authentication": "O provedor de IA não está configurado corretamente.",
+        "invalid_request": "O provedor de IA rejeitou a solicitação ou o modelo.",
+        "invalid_response": "O provedor de IA retornou uma resposta inválida.",
+        "unknown": "O provedor de IA falhou de forma inesperada.",
+    }
+
+    def __init__(self, code, provider):
+        self.code = code if code in self.SAFE_MESSAGES else "unknown"
+        self.provider = provider
+        super().__init__(self.SAFE_MESSAGES[self.code])
+
+
+# Adapters import AIProviderError from this module. Keep these imports after the
+# exception definition so the shared error type is available during import.
 from .agent_registry import get_agent
 from .orchestrator import build_sensei_prompt, route_message
 from .providers.openai_provider import OpenAIProvider
 from .providers.gemini_provider import GeminiProvider
 from .providers.deepseek_provider import DeepSeekProvider
 from .providers.copilot_provider import GitHubCopilotProvider
+from .providers.groq_provider import GroqProvider
 
 
 WHATSAPP_URL = "https://wa.me/5521972663791"
 logger = logging.getLogger("ai")
+
+SENSEI_PROVIDER_CATALOG = {
+    "openai": {"label": "OpenAI", "aliases": ("openai", "chatgpt"), "required": ("OPENAI_API_KEY",)},
+    "gemini": {"label": "Gemini", "aliases": ("gemini",), "required": ("GEMINI_API_KEY",)},
+    "deepseek": {"label": "DeepSeek", "aliases": ("deepseek",), "required": ("DEEPSEEK_API_KEY",)},
+    "groq": {"label": "Groq", "aliases": ("groq",), "required": ("GROQ_API_KEY",)},
+    "copilot": {"label": "GitHub Copilot", "aliases": ("copilot",), "required": ("COPILOT_API_URL", "COPILOT_API_TOKEN")},
+}
 
 
 def ai_is_enabled():
@@ -31,19 +64,63 @@ def _provider(name):
         "openai": OpenAIProvider,
         "gemini": GeminiProvider,
         "deepseek": DeepSeekProvider,
-        "copilot": GitHubCopilotProvider,
+        "groq": GroqProvider,
+        "copilot": GitHubCopilotProvider,        
     }
     try:
         return providers[name]()
     except KeyError as exc:
-        raise ValueError("Provedor de IA não encontrado") from exc
+        raise AIProviderError("invalid_request", name or "unknown") from exc
 
 
-def chat_with_provider(provider_name, messages):
+def chat_with_provider(provider_name, messages, response_schema=None):
     """Executa um provedor configurado sem expor credenciais ao chamador."""
     if not ai_is_enabled():
         raise RuntimeError("Os agentes de IA estão desabilitados neste ambiente.")
-    return _provider(provider_name).chat(messages)
+    provider = _provider(provider_name)
+    if response_schema is not None:
+        return provider.chat(messages, response_schema=response_schema)
+    return provider.chat(messages)
+
+
+def get_provider_model(provider_name):
+    """Resolve safe model metadata from the same source used by each adapter."""
+
+    provider = (provider_name or "").strip().lower()
+    if provider in {"chatgpt", "openai"}:
+        return str(getattr(settings, "OPENAI_AI_MODEL", "gpt-4.1-mini"))
+    if provider == "gemini":
+        return os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+    if provider == "deepseek":
+        return os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    if provider == "groq":
+        return os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+    if provider == "copilot":
+        return os.getenv("COPILOT_MODEL", "gpt-5.4")
+    return ""
+
+
+def canonical_provider_name(provider_name):
+    name = (provider_name or "").strip().lower()
+    for canonical, metadata in SENSEI_PROVIDER_CATALOG.items():
+        if name in metadata["aliases"]:
+            return canonical
+    return ""
+
+
+def provider_is_available(provider_name):
+    canonical = canonical_provider_name(provider_name)
+    if not canonical or not ai_is_enabled():
+        return False
+    return all(os.getenv(variable, "").strip() for variable in SENSEI_PROVIDER_CATALOG[canonical]["required"])
+
+
+def available_sensei_providers():
+    return [
+        {"id": provider, "label": metadata["label"], "available": True}
+        for provider, metadata in SENSEI_PROVIDER_CATALOG.items()
+        if provider_is_available(provider)
+    ]
 
 
 def _configured_provider(agent):
@@ -58,21 +135,9 @@ def _configured_provider(agent):
 def agent_runtime_status(agent):
     """Retorna metadados seguros de disponibilidade, sem expor credenciais."""
     provider = _configured_provider(agent)
-    required = {
-        "chatgpt": ("OPENAI_API_KEY",),
-        "openai": ("OPENAI_API_KEY",),
-        "gemini": ("GEMINI_API_KEY",),
-        "deepseek": ("DEEPSEEK_API_KEY",),
-        "copilot": ("COPILOT_API_URL", "COPILOT_API_TOKEN"),
-    }
-    variables = required.get(provider, ())
     return {
         "provider": provider,
-        "available": ai_is_enabled()
-        and (
-            (bool(variables) and all(os.getenv(variable, "").strip() for variable in variables))
-            or bool(os.getenv("GEMINI_API_KEY", "").strip())
-        ),
+        "available": provider_is_available(provider),
     }
 
 

@@ -12,6 +12,7 @@ from library.editorial_contracts import (
     AUTHORSHIP_CHALLENGE_SCHEMA,
     EDITORIAL_CONTRACTS,
     get_editorial_contract,
+    normalize_project_type,
     validate_editorial_plan,
 )
 from library.models import StudioProject
@@ -24,7 +25,7 @@ def challenge():
 
 
 def valid_plan(project_type):
-    if project_type == "youtube":
+    if normalize_project_type(project_type) == "content":
         return {
             "title": "valor", "objective": "Objetivo", "target_audience": "PÃºblico",
             "playlist_description": "Trilha prÃ¡tica", "level": "BÃ¡sico", "prerequisites": ["LÃ³gica"],
@@ -65,8 +66,8 @@ class EditorialContractTests(TestCase):
             email="editorial@example.com", username="editorial", password="test-password"
         )
 
-    def test_youtube_and_premium_projects_are_valid(self):
-        for project_type in ("youtube", "premium"):
+    def test_content_and_formation_projects_are_valid(self):
+        for project_type in ("content", "formation"):
             with self.subTest(project_type=project_type):
                 project = StudioProject(
                     title="Plano", theme="Tema", objective="Objetivo",
@@ -74,11 +75,17 @@ class EditorialContractTests(TestCase):
                 )
                 project.full_clean()
 
-    def test_legacy_project_defaults_to_premium(self):
+    def test_canonical_content_and_formation_contracts_are_valid(self):
+        for project_type in ("content", "formation"):
+            with self.subTest(project_type=project_type):
+                normalized = validate_editorial_plan(project_type, valid_plan(project_type))
+                self.assertEqual(normalized["title"], "valor")
+
+    def test_project_defaults_to_formation(self):
         project = StudioProject.objects.create(
             title="Projeto legado", theme="Tema", objective="Objetivo", created_by=self.user
         )
-        self.assertEqual(project.project_type, "premium")
+        self.assertEqual(project.project_type, "formation")
 
     def test_serializer_rejects_unknown_editorial_type(self):
         serializer = StudioProjectSerializer(data={
@@ -218,7 +225,7 @@ class EditorialContractTests(TestCase):
                 }
                 chat.return_value = json.dumps(response)
                 project = SimpleNamespace(
-                    title="Plano", theme="Tema", objective="Objetivo", project_type=project_type
+                    title="Plano", theme="Tema", objective="Objetivo", original_intent="Ensinar com autoria", project_type=project_type
                 )
                 generated, _ = generate_modernization_plan(project, [])
                 system_prompt = chat.call_args.args[1][0]["content"]
@@ -227,7 +234,7 @@ class EditorialContractTests(TestCase):
                 self.assertEqual(generated["proposed_architecture"]["contract_version"], "editorial-plan-v1")
                 collection = generated["proposed_architecture"][EDITORIAL_CONTRACTS[project_type]["content_collection"]]
                 self.assertTrue(collection)
-                lessons = collection if project_type == "youtube" else collection[0]["lessons"]
+                lessons = collection if normalize_project_type(project_type) == "content" else collection[0]["lessons"]
                 self.assertTrue(lessons)
                 self.assertIn("ai_integration", lessons[0])
                 self.assertIn("authorship_challenge", lessons[0])

@@ -2,8 +2,11 @@ import re
 
 from django.conf import settings
 from django.core.validators import MaxLengthValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
 
 
 MAX_SUBMITTED_ANSWER_LENGTH = 20_000
@@ -73,6 +76,97 @@ class Course(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Enrollment(models.Model):
+    """Persistent relationship between a student and a course."""
+
+    STATUS_ACTIVE = "active"
+    STATUS_CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (STATUS_ACTIVE, "Ativa"),
+        (STATUS_CANCELLED, "Cancelada"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="enrollments",
+        on_delete=models.CASCADE,
+    )
+    course = models.ForeignKey(
+        Course,
+        related_name="enrollments",
+        on_delete=models.PROTECT,
+    )
+    enrolled_at = models.DateTimeField(default=timezone.now)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_ACTIVE,
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-enrolled_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "course"],
+                name="unique_user_course_enrollment",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user_id}:{self.course_id} ({self.status})"
+
+
+class CourseProgress(models.Model):
+    """Server-owned academic progress state for one enrollment."""
+
+    STATE_NOT_STARTED = "not_started"
+    STATE_IN_PROGRESS = "in_progress"
+    STATE_COMPLETED = "completed"
+    ACADEMIC_STATE_CHOICES = [
+        (STATE_NOT_STARTED, "Não iniciado"),
+        (STATE_IN_PROGRESS, "Em andamento"),
+        (STATE_COMPLETED, "Concluído"),
+    ]
+
+    enrollment = models.OneToOneField(
+        Enrollment,
+        related_name="progress",
+        on_delete=models.CASCADE,
+    )
+    percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    academic_state = models.CharField(
+        max_length=20,
+        choices=ACADEMIC_STATE_CHOICES,
+        default=STATE_NOT_STARTED,
+        db_index=True,
+    )
+    first_activity_at = models.DateTimeField(blank=True, null=True)
+    last_activity_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(percentage__gte=0, percentage__lte=100),
+                name="course_progress_percentage_range",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.enrollment_id}: {self.percentage}%"
 
 
 # ============================================================
@@ -153,6 +247,66 @@ class Lesson(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class LessonProgress(models.Model):
+    """Server-owned state for one lesson within one course enrollment."""
+
+    STATUS_NOT_STARTED = "not_started"
+    STATUS_IN_PROGRESS = "in_progress"
+    STATUS_COMPLETED = "completed"
+    STATUS_CHOICES = [
+        (STATUS_NOT_STARTED, "Não iniciada"),
+        (STATUS_IN_PROGRESS, "Em andamento"),
+        (STATUS_COMPLETED, "Concluída"),
+    ]
+
+    course_progress = models.ForeignKey(
+        CourseProgress,
+        related_name="lesson_progress",
+        on_delete=models.CASCADE,
+    )
+    lesson = models.ForeignKey(
+        Lesson,
+        related_name="student_progress",
+        on_delete=models.PROTECT,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_NOT_STARTED,
+        db_index=True,
+    )
+    started_at = models.DateTimeField(blank=True, null=True)
+    last_activity_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-last_activity_at", "lesson_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["course_progress", "lesson"],
+                name="unique_course_progress_lesson",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        if (
+            self.course_progress_id
+            and self.lesson_id
+            and self.course_progress.enrollment.course_id != self.lesson.module.course_id
+        ):
+            raise ValidationError("A aula deve pertencer ao curso da matrícula.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.course_progress_id}:{self.lesson_id} ({self.status})"
 
 
 # ============================================================

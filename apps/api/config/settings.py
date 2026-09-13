@@ -22,7 +22,7 @@ ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "localhost,
 
 DJANGO_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles", "django.contrib.sites"]
 THIRD_PARTY_APPS = ["corsheaders", "rest_framework", "rest_framework.authtoken", "allauth", "allauth.account", "allauth.socialaccount", "dj_rest_auth", "dj_rest_auth.registration"]
-LOCAL_APPS = ["core", "ai", "store", "library"]
+LOCAL_APPS = ["core", "ai", "store", "library", "professional"]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = ["corsheaders.middleware.CorsMiddleware", "django.middleware.security.SecurityMiddleware", "whitenoise.middleware.WhiteNoiseMiddleware", "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware", "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware", "django.contrib.messages.middleware.MessageMiddleware", "django.middleware.clickjacking.XFrameOptionsMiddleware", "allauth.account.middleware.AccountMiddleware"]
@@ -85,8 +85,16 @@ DDJ_CONTENT_STUDIO_ENABLED = (
     and os.getenv("DDJ_CONTENT_STUDIO_ENABLED", "False").lower() == "true"
 )
 DDJ_CONTENT_STUDIO_LOCAL_ONLY = os.getenv("DDJ_CONTENT_STUDIO_LOCAL_ONLY", "True").lower() == "true"
+DDJ_CONTENT_STUDIO_TRUSTED_IPS = {
+    ip.strip()
+    for ip in os.getenv(
+        "DDJ_CONTENT_STUDIO_TRUSTED_IPS",
+        "127.0.0.1,::1",
+    ).split(",")
+    if ip.strip()
+}
 LOCAL_LIBRARY_PATH = Path(os.getenv("LOCAL_LIBRARY_PATH", r"C:\livros"))
-CONTENT_STUDIO_PROVIDER = os.getenv("CONTENT_STUDIO_PROVIDER", "gemini")
+CONTENT_STUDIO_PROVIDER = os.getenv("CONTENT_STUDIO_PROVIDER", "openai")
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 CELERY_BROKER_URL = REDIS_URL

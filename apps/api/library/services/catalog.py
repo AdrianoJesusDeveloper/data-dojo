@@ -9,7 +9,7 @@ from library.models import LibrarySource
 
 
 CATALOG_EXTENSIONS = {".pdf", ".epub", ".docx", ".ipynb", ".py", ".java", ".js", ".ts", ".md"}
-EXTRACTABLE_EXTENSIONS = {".pdf"}
+EXTRACTABLE_EXTENSIONS = {".pdf", ".epub"}
 
 
 def library_root() -> Path:
@@ -49,7 +49,10 @@ def scan_library() -> dict:
     hashes = {}
     existing_by_path = {item.relative_path: item for item in LibrarySource.objects.all()}
 
-    for discovered in root.rglob("*"):
+    for discovered in sorted(
+    root.rglob("*"),
+    key=lambda item: item.as_posix().lower(),
+):
         if discovered.name.startswith("~$"):
             continue
         extension = discovered.suffix.lower()
@@ -60,7 +63,6 @@ def scan_library() -> dict:
         except (OSError, RuntimeError, ValueError):
             continue
         relative = path.relative_to(root).as_posix()
-        seen.add(relative)
         stat = path.stat()
         existing = existing_by_path.get(relative)
         unchanged = (
@@ -71,10 +73,16 @@ def scan_library() -> dict:
             and bool(existing.sha256)
         )
         file_hash = existing.sha256 if unchanged else _sha256(path)
+
+        # O catálogo representa fontes únicas por conteúdo. A primeira ocorrência
+        # de um SHA-256 é mantida; cópias posteriores são ignoradas sem apagar
+        # nenhum arquivo físico do acervo.
         if file_hash in hashes:
             duplicates += 1
-        else:
-            hashes[file_hash] = relative
+            continue
+
+        hashes[file_hash] = relative
+        seen.add(relative)
         _, was_created = LibrarySource.objects.update_or_create(
             relative_path=relative,
             defaults={

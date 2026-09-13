@@ -284,7 +284,7 @@ class SandboxPaymentApproveView(APIView):
         if not gateway.sandbox:
             return Response({"detail": "Rota indisponível."}, status=status.HTTP_404_NOT_FOUND)
         order = generics.get_object_or_404(
-            Order.objects.select_for_update().select_related("payment"),
+            Order.objects.select_for_update().prefetch_related("payment"),
             pk=pk,
             user=request.user,
             status="pending",
