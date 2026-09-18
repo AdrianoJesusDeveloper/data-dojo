@@ -393,20 +393,25 @@ class ContentStudioProviderApiTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+    @patch("library.views.provider_is_available", return_value=True)
     @patch("library.views.buscar_chunks_relevantes")
     @patch("library.views.generate_modernization_plan")
-    def test_generate_plan_ignores_client_provider_and_model(self, generate, chunks):
+    def test_generate_plan_accepts_explicit_provider_and_ignores_client_model(
+        self, generate, chunks, _provider_available
+    ):
         chunks.return_value = [self.chunk]
         generate.return_value = self._generation_result()
         response = self.client.post(
             self.url,
-            {"provider": "gemini", "model": "client-controlled"},
+            {"provider": "groq", "model": "client-controlled"},
             format="json",
             REMOTE_ADDR="127.0.0.1",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         generate.assert_called_once()
         self.assertEqual(len(generate.call_args.args), 4)
+        self.assertEqual(generate.call_args.kwargs["provider_name"], "groq")
+        self.assertNotIn("model", generate.call_args.kwargs)
 
     @patch("library.views.buscar_chunks_relevantes")
     @patch(
@@ -422,28 +427,31 @@ class ContentStudioProviderApiTests(TestCase):
         payload = json.dumps(response.data)
         self.assertNotIn("API_KEY", payload)
         self.assertNotIn("traceback", payload.lower())
-        self.assertEqual(response.data["detail"], 'Não foi possível gerar o plano editorial. Consulte o log do servidor para identificar a causa técnica.')
+        self.assertEqual(
+            response.data["detail"],
+            "O provedor de IA está temporariamente indisponível.",
+        )
+        self.assertEqual(response.data["provider"], "openai")
+        self.assertEqual(response.data["error_code"], "unavailable")
 
     @override_settings(CONTENT_STUDIO_PROVIDER="gemini")
     @patch("ai.services.OpenAIProvider.chat")
-    @patch(
-        "ai.services.GeminiProvider.chat",
-        side_effect=AIProviderError("unavailable", "gemini"),
-    )
-    @patch("library.views.buscar_chunks_relevantes")
-    def test_gemini_failure_does_not_fallback_to_openai(
-        self, chunks, gemini, openai
+    @patch("ai.services.GeminiProvider.chat")
+    @patch("library.views.generate_modernization_plan")
+    def test_unsupported_gemini_is_rejected_before_provider_call(
+        self, generate, gemini, openai
     ):
-        chunks.return_value = [self.chunk]
         response = self.client.post(
             self.url, {}, format="json", REMOTE_ADDR="127.0.0.1"
         )
-        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
             response.data["detail"],
-            'Não foi possível gerar o plano editorial. Consulte o log do servidor para identificar a causa técnica.',
+            "Este provider ainda não está habilitado para geração estruturada de planos.",
         )
-        gemini.assert_called_once()
+        self.assertEqual(response.data["error_code"], "unsupported_for_plan")
+        generate.assert_not_called()
+        gemini.assert_not_called()
         openai.assert_not_called()
 
 

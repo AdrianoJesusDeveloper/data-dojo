@@ -92,7 +92,12 @@ class OpenAIProvider:
         except (InternalServerError, APIConnectionError) as exc:
             raise self._error("unavailable", exc) from exc
         except APIStatusError as exc:
-            code = "unavailable" if exc.status_code >= 500 else "unknown"
+            if exc.status_code == 413:
+                code = "payload_too_large"
+            elif exc.status_code >= 500:
+                code = "unavailable"
+            else:
+                code = "unknown"
             raise self._error(code, exc) from exc
 
     def _error(self, code, exc):

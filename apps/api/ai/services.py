@@ -14,6 +14,7 @@ class AIProviderError(RuntimeError):
         "authentication": "O provedor de IA não está configurado corretamente.",
         "invalid_request": "O provedor de IA rejeitou a solicitação ou o modelo.",
         "invalid_response": "O provedor de IA retornou uma resposta inválida.",
+        "payload_too_large": "O contexto enviado ao provedor de IA excede o limite permitido.",
         "unknown": "O provedor de IA falhou de forma inesperada.",
     }
 

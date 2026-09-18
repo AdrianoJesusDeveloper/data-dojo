@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from core.permissions import is_administrative_user
-from library.dossier_contracts import SCHEMA_VERSION
+from library.dossier_contracts import SCHEMA_VERSION, validate_dossier
 from library.models import SourceCitation, StudioDossierVersion, StudioProject, StudioResearchEvidence
 
 
@@ -70,6 +70,71 @@ def validate_reference_origins(project_id, references, based_on):
         row, build = rows[ref["id"]]
         if ref != build(row, ref["captured_at"]):
             raise ValidationError("A proveniência deve corresponder à fonte persistida.")
+
+
+def _research_editorial_content(dossier):
+    """Map only recognized text to editorial suggestions, never documentary facts.
+
+    Research evidence_id values are temporary ordinals with no persisted mapping.
+    They (and free-form citation markers) must never become reference_ids. Source
+    excerpts remain available separately in the existing evidence serializer.
+    Unknown fields/shapes are deliberately omitted, rather than stringified.
+    """
+    content = {}
+    if not isinstance(dossier, dict):
+        return content
+    mappings = (
+        ("thesis", "editorial_insights", "Hipótese da pesquisa a revisar", False),
+        ("arguments", "editorial_insights", "Argumento sugerido pela pesquisa a revisar", True),
+        ("counterpoints", "limitations", "Contraponto sugerido pela pesquisa a revisar", True),
+        ("interpretation_risks", "limitations", "Risco sugerido pela pesquisa a revisar", True),
+        ("examples", "examples", "Exemplo sugerido pela pesquisa a validar", True),
+        ("possible_demonstrations", "didactic_opportunities", "Demonstração sugerida pela pesquisa a validar", True),
+        ("dojo_connections", "didactic_opportunities", "Conexão didática sugerida pela pesquisa a revisar", True),
+    )
+    for source, target, label, is_list in mappings:
+        value = dossier.get(source)
+        if is_list:
+            items = value if isinstance(value, list) else []
+        else:
+            items = [value]
+        for item in items:
+            text = item.get("text") if isinstance(item, dict) else item
+            if isinstance(text, str) and text.strip():
+                content.setdefault(target, []).append({"text": f"{label}: {text.strip()}"})
+    return content
+
+
+@transaction.atomic
+def prepare_dossier_from_research(*, project_id, actor, evidence_ids=None):
+    """Read-only proposal; the user edits and POSTs through create_dossier_version.
+
+    The proposal selects current research only. It does not merge or overwrite
+    human content. inherit_references=False explicitly describes that selection;
+    the caller can instead choose to inherit historical references when saving.
+    """
+    project = _owned_project(project_id, actor)
+    context = getattr(project, "research_context", None)
+    if context is None or context.status not in {"ready", "gap"}:
+        raise ValidationError("Conclua a pesquisa antes de preparar o Dossiê.")
+    if context.policy != project.research_policy:
+        raise ValidationError("A pesquisa não corresponde à política atual; pesquise novamente.")
+    if evidence_ids is None:
+        evidence_ids = list(context.evidence.order_by("pk").values_list("pk", flat=True))
+    evidence, _ = _reference_rows(project.pk, evidence_ids, ())
+    evidence.sort(key=lambda row: row.pk)
+    references = [_evidence_reference(row, context.updated_at.isoformat()) for row in evidence]
+    content = _research_editorial_content(context.dossier)
+    # GAP is a research limitation, not a factual source.
+    gaps = [{"text": row.excerpt, "reference_ids": [f"evidence:{row.pk}"]}
+            for row in evidence if row.source_kind == "GAP" and row.excerpt.strip()]
+    if gaps:
+        content["research_gaps"] = gaps
+    validate_dossier(content, references, project.research_policy, SCHEMA_VERSION)
+    validate_reference_origins(project.pk, references, None)
+    latest = project.dossier_versions.first()
+    return {"content": content, "evidence_ids": [row.pk for row in evidence],
+            "expected_version": latest.version if latest else 0, "inherit_references": False}
 
 
 @transaction.atomic

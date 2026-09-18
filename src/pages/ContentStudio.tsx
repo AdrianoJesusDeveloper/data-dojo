@@ -104,11 +104,48 @@ type StudioProject = {
   artifacts?: Array<{ id: number; artifact_type: string; target_type: string; status: "DRAFT" | "REVIEW" | "APPROVED"; plan_version: number; generation: number; content: Record<string, unknown> }>;
   formation_link?: { formation: number; synced_plan_version: number; synced_at: string };
 };
+type ResearchEvidence = { id: number; source_kind: "ACERVO" | "WEB" | "GAP"; title: string; url: string; domain: string; excerpt: string; retrieved_at: string };
+type DossierPreparation = { content: Record<string, unknown>; evidence_ids: number[]; expected_version: number; inherit_references: boolean };
+type ResearchDetail = { status: string; policy: string; dossier: Record<string, unknown>; evidence: ResearchEvidence[]; dossier_preparation: DossierPreparation };
+type DossierVersion = { id: number; version: number; based_on: number | null; content: Record<string, unknown>; research_policy: string; references_snapshot: Array<Record<string, unknown>>; status: "DRAFT" | "REVIEW" | "APPROVED"; origin: string; created_at: string; reviewed_by: number | null; reviewed_at: string | null };
 type SenseiProgress = { percentage: string; state: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" };
 type SenseiFormation = { id: number; title: string; slug: string; description: string; objective: string; status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED"; level: string; module_count: number; competency_count: number; progress: SenseiProgress | null };
 type SenseiUnit = { id: number; title: string; objective: string; order: number; status: string };
 type SenseiModule = { id: number; title: string; description: string; order: number; unit_count: number; study_units: SenseiUnit[] };
 type SenseiCompetency = { id: number; module: number | null; title: string; description: string; expected_level: number; expected_level_label: string; mastery_criteria: string[]; evidence_count: number; progress: { current_level: number; current_level_label: string; state: string } | null };
+
+type StudioProvider = {
+  id: string;
+  label: string;
+  model: string;
+  available: boolean;
+  structured_output: boolean;
+  selectable_for_plan: boolean;
+};
+
+type StudioProviderCatalog = {
+  default_provider: string;
+  providers: StudioProvider[];
+};
+
+type PlanPreflight = {
+  operation: "generate_plan";
+  project_id: number;
+  ready: boolean;
+  provider: StudioProvider;
+  payload: {
+    generation_mode: "GROUNDED" | "UNSOURCED_DRAFT";
+    context_source: "grounded_context" | "chunks" | "none" | "editorial_guidance";
+    source_chunk_count: number;
+    context_chars: number;
+    prompt_chars: number;
+    schema_chars: number;
+    total_chars: number;
+    estimated_tokens: number;
+    estimate_note: string;
+  };
+  warnings: string[];
+};
 
 function localOrigin(value: string) {
   try {
@@ -201,6 +238,13 @@ export default function ContentStudio() {
   const [contentTarget, setContentTarget] = useState("");
   const [selectedFormationId, setSelectedFormationId] = useState<number | null>(null);
   const [selectedStudyUnit, setSelectedStudyUnit] = useState<SenseiUnit | null>(null);
+  const [dossierDraftText, setDossierDraftText] = useState("");
+  const [dossierEvidenceIds, setDossierEvidenceIds] = useState<number[]>([]);
+  const [dossierExpectedVersion, setDossierExpectedVersion] = useState(0);
+  const [dossierInheritReferences, setDossierInheritReferences] = useState(false);
+  const [dossierPreparedForProject, setDossierPreparedForProject] = useState<number | null>(null);
+  const [selectedPlanProvider, setSelectedPlanProvider] = useState("");
+  const [planPreflight, setPlanPreflight] = useState<PlanPreflight | null>(null);
   const isLocal = useMemo(() => localOrigin(API_ORIGIN), []);
 
   const openFormation = (formationId: number) => {
@@ -219,6 +263,14 @@ export default function ContentStudio() {
     retry: false,
   });
 
+  const providersQuery = useQuery({
+    queryKey: ["content-studio-providers"],
+    queryFn: async () => (await api.get<StudioProviderCatalog>("/api/library/studio/providers/")).data,
+    enabled: isLocal && statusQuery.isSuccess,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
   const sourcesQuery = useQuery({
     queryKey: ["content-studio-sources", search, sourcePage, sourcePageSize, ragStatus, sourceExtension],
     queryFn: async () => (
@@ -231,7 +283,8 @@ export default function ContentStudio() {
     ).data,
     enabled: isLocal && statusQuery.isSuccess,
     retry: false,
-    refetchInterval: (query) => query.state.data?.results.some((source) => source.book_status === "processing") ? 2000 : false,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   });
 
   const booksQuery = useQuery({
@@ -276,13 +329,42 @@ export default function ContentStudio() {
   });
 
   const selectedProject = projectsQuery.data?.find((project) => project.id === selectedProjectId) ?? projectsQuery.data?.[0];
+  const researchDetailQuery = useQuery({
+    queryKey: ["content-studio-research-detail", selectedProject?.id],
+    queryFn: async () => (await api.get<ResearchDetail>(`/api/library/studio/projects/${selectedProject!.id}/research/`)).data,
+    enabled: Boolean(selectedProject?.id && selectedProject?.research_context), retry: false,
+  });
+  const dossierVersionsQuery = useQuery({
+    queryKey: ["content-studio-dossier-versions", selectedProject?.id],
+    queryFn: async () => (await api.get<DossierVersion[]>(`/api/library/studio/projects/${selectedProject!.id}/dossier/`)).data,
+    enabled: Boolean(selectedProject?.id), retry: false,
+  });
+  const latestDossierVersion = dossierVersionsQuery.data?.[0] ?? null;
   const teleprompterArtifact = selectedProject?.artifacts?.find((artifact) => artifact.id === teleprompterId && ["REVIEW", "APPROVED"].includes(artifact.status));
   useEffect(() => {
-    setTeleprompterId(null);
-    setEditingPlan(null);
-    setReadingMode(false);
+    setTeleprompterId(null); setEditingPlan(null); setReadingMode(false);
+    setDossierDraftText(""); setDossierEvidenceIds([]); setDossierExpectedVersion(0);
+    setDossierInheritReferences(false); setDossierPreparedForProject(null);
+    setSelectedPlanProvider("");
+    setPlanPreflight(null);
   }, [selectedProject?.id]);
+
+  useEffect(() => {
+    const preparation = researchDetailQuery.data?.dossier_preparation;
+    if (!selectedProject?.id || !preparation || dossierPreparedForProject === selectedProject.id) return;
+    setDossierDraftText(JSON.stringify(preparation.content, null, 2));
+    setDossierEvidenceIds(preparation.evidence_ids ?? []);
+    setDossierExpectedVersion(preparation.expected_version ?? 0);
+    setDossierInheritReferences(preparation.inherit_references ?? false);
+    setDossierPreparedForProject(selectedProject.id);
+  }, [researchDetailQuery.data, selectedProject?.id, dossierPreparedForProject]);
   const selectedBookData = booksQuery.data?.find((book) => book.id === Number(selectedBook));
+  const selectedPlanProviderData = providersQuery.data?.providers.find((provider) => provider.id === selectedPlanProvider) ?? null;
+  const planPreflightReady = Boolean(
+    planPreflight?.ready &&
+    selectedProject?.id === planPreflight.project_id &&
+    selectedPlanProvider === planPreflight.provider.id,
+  );
 
   const versionsQuery = useQuery({
     queryKey: ["content-studio-plan-versions", selectedProject?.id],
@@ -322,11 +404,113 @@ export default function ContentStudio() {
       await api.post(`/api/library/studio/projects/${projectId}/${action}/`, payload ?? {})
     ).data,
     onSuccess: () => {
+      setPlanPreflight(null);
       toast.success("Etapa concluída.");
       queryClient.invalidateQueries({ queryKey: ["content-studio-projects"] });
       queryClient.invalidateQueries({ queryKey: ["content-studio-status"] });
+      queryClient.invalidateQueries({ queryKey: ["content-studio-research-detail"] });
     },
     onError: (error: any) => toast.error(error.response?.data?.detail || "A etapa não pôde ser concluída."),
+  });
+
+  const planPreflightMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedProject?.id) throw new Error("missing-project");
+      if (!selectedPlanProvider) throw new Error("missing-provider");
+      return (
+        await api.post<PlanPreflight>("/api/library/studio/providers/check/", {
+          operation: "generate_plan",
+          project_id: selectedProject.id,
+          provider: selectedPlanProvider,
+        })
+      ).data;
+    },
+    onSuccess: (result) => {
+      setPlanPreflight(result);
+      toast.success(`Preflight local aprovado para ${result.provider.label}.`);
+    },
+    onError: (error: any) => {
+      setPlanPreflight(null);
+      if (error.message === "missing-provider") {
+        toast.error("Selecione um provider antes de executar o preflight.");
+        return;
+      }
+      toast.error(error.response?.data?.detail || "Não foi possível validar localmente a geração do plano.");
+    },
+  });
+
+  const generatePlanMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedProject?.id) throw new Error("missing-project");
+      if (!selectedPlanProvider || !planPreflightReady) throw new Error("preflight-required");
+      return (
+        await api.post(`/api/library/studio/projects/${selectedProject.id}/generate-plan/`, {
+          provider: selectedPlanProvider,
+        })
+      ).data;
+    },
+    onSuccess: () => {
+      const providerLabel = selectedPlanProviderData?.label || selectedPlanProvider;
+      toast.success(`Plano gerado com ${providerLabel} e enviado para revisão.`);
+      setPlanPreflight(null);
+      refreshProjects();
+      queryClient.invalidateQueries({ queryKey: ["content-studio-status"] });
+      queryClient.invalidateQueries({ queryKey: ["content-studio-research-detail"] });
+    },
+    onError: (error: any) => {
+      queryClient.invalidateQueries({ queryKey: ["content-studio-projects"] });
+      if (error.message === "preflight-required") {
+        toast.error("Execute e aprove o preflight local antes de gerar o plano.");
+        return;
+      }
+
+      const statusCode = error.response?.status;
+      const errorCode = error.response?.data?.error_code;
+      const detail = error.response?.data?.detail;
+
+      if (statusCode === 413 || errorCode === "payload_too_large") {
+        toast.error("O payload excedeu o limite aceito pelo provider. Revise o contexto antes de tentar novamente.");
+        return;
+      }
+      if (statusCode === 429 || errorCode === "rate_limit") {
+        toast.error("O provider recusou a geração por limite ou quota da API.");
+        return;
+      }
+      if (errorCode === "provider_unavailable") {
+        toast.error("O provider selecionado não está configurado neste ambiente.");
+        return;
+      }
+      toast.error(detail || "Não foi possível gerar o plano editorial.");
+    },
+  });
+
+  const createDossierMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedProject) throw new Error("missing-project");
+      let content: Record<string, unknown>;
+      try { content = JSON.parse(dossierDraftText); } catch { throw new Error("invalid-json"); }
+      return (await api.post<DossierVersion>(`/api/library/studio/projects/${selectedProject.id}/dossier/`, {
+        content, expected_version: dossierExpectedVersion, evidence_ids: dossierEvidenceIds, inherit_references: dossierInheritReferences,
+      })).data;
+    },
+    onSuccess: (version) => {
+      setPlanPreflight(null);
+      toast.success(`Dossiê v${version.version} criado como DRAFT.`); setDossierExpectedVersion(version.version);
+      queryClient.invalidateQueries({ queryKey: ["content-studio-dossier-versions", selectedProject?.id] });
+      queryClient.invalidateQueries({ queryKey: ["content-studio-research-detail", selectedProject?.id] });
+    },
+    onError: (error: any) => toast.error(error.message === "invalid-json" ? "O conteúdo do Dossiê precisa ser um JSON válido." : error.response?.data?.detail || "Não foi possível criar a versão do Dossiê."),
+  });
+
+  const transitionDossierMutation = useMutation({
+    mutationFn: async ({ version, status }: { version: DossierVersion; status: "REVIEW" | "APPROVED" }) => (await api.post<DossierVersion>(`/api/library/studio/projects/${selectedProject!.id}/dossier/${version.id}/transition/`, { expected_version: version.version, status })).data,
+    onSuccess: (version) => {
+      setPlanPreflight(null);
+      toast.success(version.status === "APPROVED" ? "Dossiê aprovado." : "Dossiê enviado para revisão.");
+      queryClient.invalidateQueries({ queryKey: ["content-studio-dossier-versions", selectedProject?.id] });
+      queryClient.invalidateQueries({ queryKey: ["content-studio-research-detail", selectedProject?.id] });
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || "Não foi possível atualizar o Dossiê."),
   });
 
   const councilMutation = useMutation({
@@ -825,20 +1009,157 @@ export default function ContentStudio() {
                           </div>
                         )}
                       </section>
-                      {!selectedProject.modernization_plan && (
-                        <div className="space-y-2">
-                          <Button
-                            disabled={
-                              (selectedProject.research_policy === "ACERVO_ONLY" && !selectedProject.books.length) ||
-                              workflowMutation.isPending
-                            }
-                            onClick={() => workflowMutation.mutate({ projectId: selectedProject.id, action: "generate-plan" })}
-                          >
-                            <Sparkles />
-                            {selectedProject.research_context?.evidence?.some((item) => item.source_kind === "ACERVO" || item.source_kind === "WEB")
-                              ? "Gerar plano fundamentado"
-                              : "Gerar rascunho sem fontes"}
-                          </Button>
+                                             {selectedProject.research_context && (
+                         <section className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                           <div className="flex flex-wrap items-start justify-between gap-3">
+                             <div><p className="font-bold">PREPARAÇÃO DO DOSSIÊ</p><p className="mt-1 text-xs text-muted-foreground">A pesquisa propõe; você revisa conteúdo e evidências antes de persistir uma nova versão.</p></div>
+                             {latestDossierVersion && <div className="flex items-center gap-2"><Badge variant="outline">v{latestDossierVersion.version}</Badge><Badge>{latestDossierVersion.status}</Badge></div>}
+                           </div>
+                           {researchDetailQuery.isLoading ? <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" />Preparando proposta editável...</p> : researchDetailQuery.isError ? <Alert variant="destructive" className="mt-4"><AlertTriangle className="h-4 w-4" /><AlertTitle>Preparação indisponível</AlertTitle><AlertDescription>{(researchDetailQuery.error as any)?.response?.data?.detail || "Não foi possível preparar o Dossiê a partir desta pesquisa."}</AlertDescription></Alert> : researchDetailQuery.data?.dossier_preparation && <div className="mt-4 space-y-4">
+                             <div><label className="text-xs font-bold uppercase tracking-wide text-muted-foreground" htmlFor="dossier-editor">Conteúdo editável · JSON estruturado</label><Textarea id="dossier-editor" className="mt-2 min-h-72 font-mono text-xs" value={dossierDraftText} onChange={(event) => setDossierDraftText(event.target.value)} /></div>
+                             <div><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Evidências selecionadas</p><div className="mt-2 space-y-2">{researchDetailQuery.data.evidence.filter((item) => item.source_kind !== "GAP").map((item) => <label key={item.id} className="flex cursor-pointer items-start gap-3 rounded-md border bg-background p-3"><input type="checkbox" className="mt-1" checked={dossierEvidenceIds.includes(item.id)} onChange={(event) => setDossierEvidenceIds((current) => event.target.checked ? [...new Set([...current, item.id])] : current.filter((id) => id !== item.id))} /><span className="min-w-0"><span className="flex flex-wrap items-center gap-2"><Badge variant="outline">{item.source_kind}</Badge><strong className="text-sm">{item.title || `Evidência #${item.id}`}</strong></span><span className="mt-1 block line-clamp-2 text-xs text-muted-foreground">{item.excerpt}</span></span></label>)}</div></div>
+                             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dossierInheritReferences} onChange={(event) => setDossierInheritReferences(event.target.checked)} />Herdar referências da versão anterior</label>
+                             <div className="flex flex-wrap items-center gap-3"><Button disabled={!dossierDraftText.trim() || createDossierMutation.isPending} onClick={() => createDossierMutation.mutate()}>{createDossierMutation.isPending ? <LoaderCircle className="animate-spin" /> : <Save />}Criar nova versão DRAFT</Button><span className="text-xs text-muted-foreground">Base esperada: v{dossierExpectedVersion}. Nada é persistido antes deste clique.</span></div>
+                           </div>}
+                         </section>
+                       )}
+                       {!!dossierVersionsQuery.data?.length && (
+                         <section className="rounded-lg border p-4">
+                           <div className="flex items-center gap-2"><History className="h-4 w-4" /><p className="font-bold">HISTÓRICO DO DOSSIÊ</p></div>
+                           <div className="mt-3 space-y-2">{dossierVersionsQuery.data.map((version, index) => <details key={version.id} className="rounded-md border bg-background p-3" open={index === 0}><summary className="cursor-pointer text-sm font-semibold">Dossiê v{version.version} · {version.status} · {version.origin}</summary><p className="mt-1 text-xs text-muted-foreground">{new Date(version.created_at).toLocaleString("pt-BR")} · política {version.research_policy} · {version.references_snapshot.length} referência(s)</p><div className="mt-3"><EditorialContentRenderer value={version.content} /></div>{index === 0 && <div className="mt-3 flex flex-wrap gap-2">{version.status === "DRAFT" && <Button size="sm" disabled={transitionDossierMutation.isPending} onClick={() => transitionDossierMutation.mutate({ version, status: "REVIEW" })}>Enviar para revisão</Button>}{version.status === "REVIEW" && <Button size="sm" disabled={transitionDossierMutation.isPending} onClick={() => transitionDossierMutation.mutate({ version, status: "APPROVED" })}><CheckCircle2 />Aprovar Dossiê</Button>}{version.status === "APPROVED" && <Badge variant="outline">Versão aprovada e imutável</Badge>}</div>}</details>)}</div>
+                         </section>
+                       )}
+{!selectedProject.modernization_plan && (
+                        <section className="space-y-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="flex items-center gap-2 font-bold">
+                                <ShieldCheck className="h-4 w-4 text-primary" />
+                                PROVIDER CENTER · GERAÇÃO DO PLANO
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Escolha explicitamente o provider. O preflight é local e não consome créditos de API.
+                              </p>
+                            </div>
+                            {providersQuery.data?.default_provider && (
+                              <Badge variant="outline">
+                                Padrão do backend: {providersQuery.data.providers.find((provider) => provider.id === providersQuery.data?.default_provider)?.label ?? providersQuery.data.default_provider}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {providersQuery.isLoading ? (
+                            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <LoaderCircle className="h-4 w-4 animate-spin" />
+                              Carregando providers configurados...
+                            </p>
+                          ) : providersQuery.isError ? (
+                            <Alert variant="destructive">
+                              <AlertTriangle className="h-4 w-4" />
+                              <AlertTitle>Provider Center indisponível</AlertTitle>
+                              <AlertDescription>Não foi possível carregar a configuração segura dos providers.</AlertDescription>
+                            </Alert>
+                          ) : (
+                            <>
+                              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                                <label className="space-y-1.5 text-sm">
+                                  <span className="font-medium">Provider para gerar o plano</span>
+                                  <select
+                                    aria-label="Provider para geração do plano"
+                                    value={selectedPlanProvider}
+                                    onChange={(event) => {
+                                      setSelectedPlanProvider(event.target.value);
+                                      setPlanPreflight(null);
+                                    }}
+                                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                  >
+                                    <option value="">Selecione um provider</option>
+                                    {(providersQuery.data?.providers ?? []).map((provider) => (
+                                      <option key={provider.id} value={provider.id} disabled={!provider.selectable_for_plan}>
+                                        {provider.label} — {provider.model}{provider.selectable_for_plan ? "" : " — indisponível para plano"}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+
+                                <Button
+                                  variant="outline"
+                                  disabled={
+                                    !selectedPlanProvider ||
+                                    !selectedPlanProviderData?.selectable_for_plan ||
+                                    planPreflightMutation.isPending ||
+                                    generatePlanMutation.isPending
+                                  }
+                                  onClick={() => planPreflightMutation.mutate()}
+                                >
+                                  {planPreflightMutation.isPending ? <LoaderCircle className="animate-spin" /> : <ShieldCheck />}
+                                  Executar preflight local
+                                </Button>
+                              </div>
+
+                              {selectedPlanProviderData && (
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                  <Badge variant={selectedPlanProviderData.available ? "default" : "destructive"}>
+                                    {selectedPlanProviderData.available ? "Configurado localmente" : "Não configurado"}
+                                  </Badge>
+                                  <Badge variant="outline">{selectedPlanProviderData.model}</Badge>
+                                  <Badge variant="outline">
+                                    Structured Output: {selectedPlanProviderData.structured_output ? "sim" : "não"}
+                                  </Badge>
+                                </div>
+                              )}
+
+                              {planPreflightReady && planPreflight && (
+                                <div className="space-y-3 rounded-md border bg-background p-4">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="flex items-center gap-2 text-sm font-bold text-kaizen">
+                                      <CheckCircle2 className="h-4 w-4" />
+                                      Preflight aprovado
+                                    </p>
+                                    <Badge>{planPreflight.payload.generation_mode}</Badge>
+                                  </div>
+
+                                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                    <div className="rounded-md border bg-secondary/20 p-3">
+                                      <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Contexto</p>
+                                      <p className="mt-1 font-mono text-sm">{planPreflight.payload.context_chars.toLocaleString("pt-BR")} caracteres</p>
+                                    </div>
+                                    <div className="rounded-md border bg-secondary/20 p-3">
+                                      <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Payload total</p>
+                                      <p className="mt-1 font-mono text-sm">{planPreflight.payload.total_chars.toLocaleString("pt-BR")} caracteres</p>
+                                    </div>
+                                    <div className="rounded-md border bg-secondary/20 p-3">
+                                      <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Estimativa</p>
+                                      <p className="mt-1 font-mono text-sm">~{planPreflight.payload.estimated_tokens.toLocaleString("pt-BR")} tokens</p>
+                                    </div>
+                                    <div className="rounded-md border bg-secondary/20 p-3">
+                                      <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Origem do contexto</p>
+                                      <p className="mt-1 font-mono text-sm">{planPreflight.payload.context_source}</p>
+                                    </div>
+                                  </div>
+
+                                  <p className="text-xs text-muted-foreground">{planPreflight.payload.estimate_note}</p>
+
+                                  {planPreflight.warnings.map((warning) => (
+                                    <p key={warning} className="text-xs text-amber-500">{warning}</p>
+                                  ))}
+
+                                  <Button
+                                    disabled={
+                                      !planPreflightReady ||
+                                      generatePlanMutation.isPending ||
+                                      planPreflightMutation.isPending
+                                    }
+                                    onClick={() => generatePlanMutation.mutate()}
+                                  >
+                                    {generatePlanMutation.isPending ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+                                    Gerar plano com {selectedPlanProviderData?.label ?? selectedPlanProvider}
+                                  </Button>
+                                </div>
+                              )}
+                            </>
+                          )}
+
                           {!selectedProject.research_context?.evidence?.some((item) => item.source_kind === "ACERVO" || item.source_kind === "WEB") &&
                             selectedProject.research_policy !== "ACERVO_ONLY" && (
                               <p className="text-xs text-amber-500">
@@ -846,7 +1167,7 @@ export default function ContentStudio() {
                                 sem referências inventadas, e deverá passar por revisão humana antes de qualquer aprovação.
                               </p>
                             )}
-                        </div>
+                        </section>
                       )}
                       {selectedProject.modernization_plan && (
                         <div className="space-y-4 rounded-lg border p-4">

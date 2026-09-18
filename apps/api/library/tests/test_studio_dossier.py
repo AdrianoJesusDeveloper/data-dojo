@@ -1,10 +1,12 @@
 from copy import deepcopy
+import json
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from rest_framework.test import APIClient
 from django.utils import timezone
 
 from library.models import (
@@ -12,7 +14,7 @@ from library.models import (
     StudioProject, StudioResearchContext, StudioResearchEvidence,
 )
 from library.services.studio_dossier import create_dossier_version, transition_dossier_version
-from library.services.studio_research import build_research_context
+from library.services.studio_research import StudioResearchError, build_research_context, research_prompt_context
 
 
 class StudioDossierTests(TestCase):
@@ -270,6 +272,337 @@ class StudioDossierTests(TestCase):
         second = self.create(expected_version=1)
         with self.assertRaises(IntegrityError), transaction.atomic():
             StudioDossierVersion._base_manager.filter(pk=second.pk).update(version=1)
+
+
+    def test_dossier_api_create_list_and_human_transition(self):
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+
+        create_response = client.post(
+            f"/api/library/studio/projects/{self.project.pk}/dossier/",
+            {
+                "content": {"executive_summary": "Versão criada pela API"},
+                "expected_version": 0,
+                "evidence_ids": [self.web.pk],
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+        dossier_id = create_response.data["id"]
+        self.assertEqual(create_response.data["status"], "DRAFT")
+        self.assertEqual(create_response.data["version"], 1)
+
+        list_response = client.get(
+            f"/api/library/studio/projects/{self.project.pk}/dossier/"
+        )
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]["id"], dossier_id)
+
+        review_response = client.post(
+            f"/api/library/studio/projects/{self.project.pk}/dossier/{dossier_id}/transition/",
+            {"expected_version": 1, "status": "REVIEW"},
+            format="json",
+        )
+        self.assertEqual(review_response.status_code, 200)
+        self.assertEqual(review_response.data["status"], "REVIEW")
+
+        approve_response = client.post(
+            f"/api/library/studio/projects/{self.project.pk}/dossier/{dossier_id}/transition/",
+            {"expected_version": 1, "status": "APPROVED"},
+            format="json",
+        )
+        self.assertEqual(approve_response.status_code, 200)
+        self.assertEqual(approve_response.data["status"], "APPROVED")
+        self.assertEqual(approve_response.data["reviewed_by"], self.owner.pk)
+        self.assertIsNotNone(approve_response.data["reviewed_at"])
+
+    def test_api_reference_inheritance_and_explicit_policy_replacement(self):
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+        url = f"/api/library/studio/projects/{self.project.pk}/dossier/"
+        first = self.create(evidence_ids=[self.acervo.pk, self.web.pk])
+        inherited = client.post(url, {"content": {}, "expected_version": 1}, format="json")
+        self.assertEqual(inherited.status_code, 201)
+        self.assertEqual(inherited.data["references_snapshot"], first.references_snapshot)
+        for version, policy, selected, kind in (
+            (2, "ACERVO_ONLY", self.acervo.pk, "ACERVO"),
+            (3, "WEB_ONLY", self.web.pk, "WEB"),
+        ):
+            self.project.research_policy = policy
+            self.project.save(update_fields=["research_policy"])
+            data = {"content": {}, "expected_version": version, "evidence_ids": [selected]}
+            rejected = client.post(url, data, format="json")
+            self.assertEqual(rejected.status_code, 400)
+            response = client.post(url, {**data, "inherit_references": False}, format="json")
+            self.assertEqual(response.status_code, 201)
+            self.assertEqual([r["source_kind"] for r in response.data["references_snapshot"]], [kind])
+        first.refresh_from_db()
+        self.assertEqual({r["source_kind"] for r in first.references_snapshot}, {"ACERVO", "WEB"})
+
+    def test_api_rejects_missing_and_foreign_evidence(self):
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+        for evidence_id in (999999, self.foreign_evidence.pk):
+            response = client.post(
+                f"/api/library/studio/projects/{self.project.pk}/dossier/",
+                {"content": {}, "expected_version": 0, "evidence_ids": [evidence_id], "inherit_references": False},
+                format="json",
+            )
+            self.assertEqual(response.status_code, 400)
+        self.assertFalse(self.project.dossier_versions.exists())
+
+    def test_dossier_api_hides_foreign_project(self):
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+
+        list_response = client.get(
+            f"/api/library/studio/projects/{self.other_project.pk}/dossier/"
+        )
+        self.assertEqual(list_response.status_code, 404)
+
+        create_response = client.post(
+            f"/api/library/studio/projects/{self.other_project.pk}/dossier/",
+            {"content": {}, "expected_version": 0},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 404)
+
+    def test_dossier_api_rejects_stale_expected_version(self):
+        dossier = self.create(evidence_ids=[self.web.pk])
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+
+        response = client.post(
+            f"/api/library/studio/projects/{self.project.pk}/dossier/",
+            {
+                "content": {"executive_summary": "Versão concorrente"},
+                "expected_version": 0,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.project.dossier_versions.count(), 1)
+        self.assertEqual(self.project.dossier_versions.first().pk, dossier.pk)
+
+    def test_dossier_api_rejects_transition_of_old_version(self):
+        first = self.create(evidence_ids=[self.web.pk])
+        self.create(
+            expected_version=1,
+            content={"executive_summary": "Versão mais recente"},
+        )
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+
+        response = client.post(
+            f"/api/library/studio/projects/{self.project.pk}/dossier/{first.pk}/transition/",
+            {"expected_version": 1, "status": "REVIEW"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        first.refresh_from_db()
+        self.assertEqual(first.status, "DRAFT")
+
+    def test_research_prompt_context_prefers_approved_current_policy_dossier(self):
+        dossier = self.create(
+            evidence_ids=[self.web.pk],
+            content={
+                "facts": [{
+                    "text": "Fato humano aprovado",
+                    "reference_ids": [f"evidence:{self.web.pk}"],
+                }]
+            },
+        )
+        self.transition(dossier, "REVIEW")
+        self.transition(dossier, "APPROVED")
+
+        payload = research_prompt_context(self.project)
+
+        self.assertIn('"dossier_version_id": %s' % dossier.pk, payload)
+        self.assertIn('"Fato humano aprovado"', payload)
+        self.assertNotIn('"Pesquisa automática"', payload)
+
+    def test_research_prompt_context_ignores_approved_dossier_from_old_policy(self):
+        dossier = self.create(
+            evidence_ids=[self.web.pk],
+            content={
+                "facts": [{
+                    "text": "Fato da política antiga",
+                    "reference_ids": [f"evidence:{self.web.pk}"],
+                }]
+            },
+        )
+        self.transition(dossier, "REVIEW")
+        self.transition(dossier, "APPROVED")
+
+        self.project.research_policy = "ACERVO_ONLY"
+        self.project.save(update_fields=["research_policy"])
+
+        with self.assertRaises(StudioResearchError):
+            research_prompt_context(self.project)
+
+    def test_approved_without_references_is_editorial_guidance_only(self):
+        dossier = self.create()
+        self.transition(dossier, "REVIEW")
+        self.transition(dossier, "APPROVED")
+        payload = json.loads(research_prompt_context(self.project))
+        self.assertEqual(payload["dossier"], dossier.content)
+        self.assertEqual(payload["evidence"], [])
+        self.assertFalse(payload["documentary_grounding"])
+        self.assertIn("sem fundamentação documental", payload["context_role"])
+
+    def test_new_draft_and_review_do_not_replace_approved_context(self):
+        approved = self.create(evidence_ids=[self.web.pk])
+        self.transition(approved, "REVIEW")
+        self.transition(approved, "APPROVED")
+        latest = self.create(expected_version=1, content={"executive_summary": "Ainda não aprovado"})
+        for status in ("DRAFT", "REVIEW"):
+            if status == "REVIEW":
+                self.transition(latest, status)
+            self.assertEqual(json.loads(research_prompt_context(self.project))["dossier_version_id"], approved.pk)
+
+    def test_policy_changes_reject_incompatible_research_and_preserve_snapshot(self):
+        approved = self.create(evidence_ids=[self.acervo.pk, self.web.pk])
+        self.transition(approved, "REVIEW")
+        self.transition(approved, "APPROVED")
+        snapshot = deepcopy(approved.references_snapshot)
+        for policy in ("ACERVO_ONLY", "WEB_ONLY"):
+            self.project.research_policy = policy
+            self.project.save(update_fields=["research_policy"])
+            with self.assertRaises(StudioResearchError):
+                research_prompt_context(self.project)
+        approved.refresh_from_db()
+        self.assertEqual(approved.references_snapshot, snapshot)
+
+    @patch("library.views.buscar_chunks_relevantes", side_effect=AssertionError("No retrieval for snapshot"))
+    @patch("library.views.generate_modernization_plan")
+    def test_plan_reuses_historical_snapshots_and_records_version(self, generate, retrieve):
+        from library.models import ModernizationPlan
+        from library.tests.test_editorial_workflow import premium_plan
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+        self.project.project_type = "formation"
+        self.project.books.clear()
+        for version, policy, ids in (
+            (0, "ACERVO_ONLY", [self.acervo.pk]),
+            (1, "WEB_ONLY", [self.web.pk]),
+            (2, "HYBRID", [self.acervo.pk, self.web.pk]),
+        ):
+            self.project.research_policy = policy
+            self.project.save(update_fields=["research_policy", "project_type"])
+            approved = self.create(expected_version=version, evidence_ids=ids, inherit_references=False)
+            self.transition(approved, "REVIEW")
+            self.transition(approved, "APPROVED")
+            generate.return_value = ({"proposed_architecture": premium_plan()}, "{}")
+            response = client.post(f"/api/library/studio/projects/{self.project.pk}/generate-plan/", {}, format="json")
+            self.assertEqual(response.status_code, 200, response.data)
+            payload = json.loads(generate.call_args.args[3])
+            self.assertEqual(payload["evidence"], approved.references_snapshot)
+            self.assertTrue(payload["documentary_grounding"])
+            provenance = ModernizationPlan.objects.get(project=self.project).proposed_architecture["dossier_provenance"]
+            self.assertEqual(provenance["id"], approved.pk)
+            self.assertEqual(provenance["version"], approved.version)
+            self.assertEqual(provenance["research_policy"], policy)
+            self.assertTrue(provenance["documentary_grounding"])
+            self.assertEqual(self.project.plan_versions.first().content["dossier_provenance"], provenance)
+            edited = premium_plan("Edição humana")
+            edited["dossier_provenance"] = {"id": 999999}
+            response = client.put(f"/api/library/studio/projects/{self.project.pk}/plan/", {"plan": edited}, format="json")
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(self.project.plan_versions.first().content["dossier_provenance"], provenance)
+        retrieve.assert_not_called()
+
+    @patch("library.services.studio_agents.chat_with_provider")
+    def test_agent_uses_editorial_guidance_without_claiming_sources(self, chat):
+        from library.services.studio_agents import generate_modernization_plan
+        from library.tests.test_editorial_workflow import premium_plan
+        approved = self.create()
+        self.transition(approved, "REVIEW")
+        self.transition(approved, "APPROVED")
+        self.project.project_type = "formation"
+        response = {"source_summary": "Sem fontes verificadas", "original_architecture": {},
+                    "proposed_architecture": premium_plan(), "replacements": [], "requirements": {},
+                    "acceptance_criteria": [], "test_strategy": {}, "risks": [], "business_value": "Valor"}
+        chat.return_value = json.dumps(response)
+        context = research_prompt_context(self.project)
+        for chunks, mode in (([], "UNSOURCED_DRAFT"), ([self.chunk], "GROUNDED")):
+            generate_modernization_plan(self.project, chunks, grounded_context=context)
+            messages = chat.call_args.args[1]
+            self.assertIn("Modo: " + mode, messages[1]["content"])
+            self.assertIn("Síntese humana", messages[1]["content"])
+            self.assertIn("NÃO invente" if not chunks else "Não invente", messages[0]["content"])
+            if chunks:
+                self.assertIn(self.chunk.content, messages[1]["content"])
+            else:
+                self.assertIn("NÃO É FONTE DOCUMENTAL", messages[1]["content"])
+        self.assertEqual(json.loads(context)["evidence"], [])
+
+    @patch("library.views.buscar_chunks_relevantes", side_effect=AssertionError("No retrieval"))
+    @patch("library.views.generate_modernization_plan")
+    def test_snapshot_survives_deleted_live_evidence(self, generate, retrieve):
+        from library.tests.test_editorial_workflow import premium_plan
+        approved = self.create(evidence_ids=[self.web.pk])
+        self.transition(approved, "REVIEW")
+        self.transition(approved, "APPROVED")
+        self.context.delete()
+        self.project.project_type = "formation"
+        self.project.save(update_fields=["project_type"])
+        generate.return_value = ({"proposed_architecture": premium_plan()}, "{}")
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+        response = client.post(f"/api/library/studio/projects/{self.project.pk}/generate-plan/", {}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(json.loads(generate.call_args.args[3])["evidence"], approved.references_snapshot)
+        self.assertFalse(self.project.citations.filter(purpose="modernization_plan").exists())
+
+    @patch("library.views.buscar_chunks_relevantes", side_effect=AssertionError("No WEB_ONLY retrieval"))
+    @patch("library.views.generate_modernization_plan")
+    def test_web_only_fallback_drops_previous_hybrid_context(self, generate, retrieve):
+        from library.tests.test_editorial_workflow import premium_plan
+        self.project.research_policy = "WEB_ONLY"
+        self.project.project_type = "formation"
+        self.project.save(update_fields=["research_policy", "project_type"])
+        generate.return_value = ({"proposed_architecture": premium_plan()}, "{}")
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+        response = client.post(f"/api/library/studio/projects/{self.project.pk}/generate-plan/", {}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(generate.call_args.args[1], [])
+        self.assertEqual(generate.call_args.args[3], "")
+
+    def test_fallback_rejects_forbidden_evidence_even_when_policy_matches(self):
+        self.project.research_policy = "WEB_ONLY"
+        self.context.policy = "WEB_ONLY"
+        self.context.save(update_fields=["policy"])
+        with self.assertRaises(StudioResearchError):
+            research_prompt_context(self.project)
+
+    @patch("library.services.studio_research.validate_dossier", side_effect=ValidationError("Invalid snapshot"))
+    def test_invalid_approved_snapshot_fails_closed(self, validate):
+        approved = self.create(evidence_ids=[self.web.pk])
+        self.transition(approved, "REVIEW")
+        self.transition(approved, "APPROVED")
+        with self.assertRaises(StudioResearchError):
+            research_prompt_context(self.project)
+
+    @patch("library.views.generate_modernization_plan")
+    def test_acervo_without_documented_snapshot_still_requires_sources(self, generate):
+        self.project.research_policy = "ACERVO_ONLY"
+        self.project.save(update_fields=["research_policy"])
+        self.project.books.clear()
+        approved = self.create()
+        self.transition(approved, "REVIEW")
+        self.transition(approved, "APPROVED")
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+        response = client.post(f"/api/library/studio/projects/{self.project.pk}/generate-plan/", {}, format="json")
+        self.assertEqual(response.status_code, 400)
+        generate.assert_not_called()
+
+    def test_legacy_project_keeps_compatible_research(self):
+        payload = json.loads(research_prompt_context(self.project))
+        self.assertNotIn("dossier_version_id", payload)
+        self.assertEqual(payload["dossier"], self.context.dossier)
 
     @patch("ai.services.chat_with_provider", side_effect=AssertionError("No AI"))
     def test_persistence_never_calls_ai_or_publishes(self, chat):

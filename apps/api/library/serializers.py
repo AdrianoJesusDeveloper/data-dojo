@@ -241,6 +241,26 @@ class StudioResearchContextSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class StudioDossierSerializer(serializers.ModelSerializer):
+    class Meta:
+        from .models import StudioDossierVersion
+        model = StudioDossierVersion
+        fields = ("id", "version", "based_on", "content", "research_policy", "references_snapshot", "status", "origin", "created_at", "reviewed_by", "reviewed_at")
+        read_only_fields = fields
+
+
+class StudioDossierInputSerializer(serializers.Serializer):
+    content = serializers.JSONField()
+    expected_version = serializers.IntegerField(min_value=0)
+    evidence_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), required=False, default=list)
+    inherit_references = serializers.BooleanField(required=False, default=True)
+
+
+class StudioDossierTransitionInputSerializer(serializers.Serializer):
+    expected_version = serializers.IntegerField(min_value=1)
+    status = serializers.ChoiceField(choices=("REVIEW", "APPROVED"))
+
+
 class StudioArtifactSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudioArtifact

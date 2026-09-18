@@ -5,6 +5,7 @@ from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
@@ -12,6 +13,7 @@ from ..models import StudioProject, StudioResearchContext, StudioResearchEvidenc
 from ..editorial_contracts import normalize_project_type
 from .retrieval import buscar_chunks_relevantes
 from ai.services import chat_with_provider
+from ..dossier_contracts import validate_dossier
 
 
 class StudioResearchError(RuntimeError):
@@ -103,9 +105,110 @@ def generate_grounded_dossier(project, evidence):
 Responda somente JSON com dossier e conflicts. dossier deve conter title_proposal, theme, central_question, audience,
 problem, promise, thesis, arguments, counterpoints, evidence, examples, possible_demonstrations,
 interpretation_risks e dojo_connections. Toda alegação factual deve citar evidence_id existente."""
-    raw = chat_with_provider(settings.CONTENT_STUDIO_PROVIDER, [{"role": "system", "content": system}, {"role": "user", "content": json.dumps({
-        "original_intent": project.original_intent, "project_type": project.project_type, "editorial_flow": normalize_project_type(project.project_type), "evidence": numbered,
-    }, ensure_ascii=False)}])
+    response_schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["dossier", "conflicts"],
+        "properties": {
+            "dossier": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "title_proposal",
+                    "theme",
+                    "central_question",
+                    "audience",
+                    "problem",
+                    "promise",
+                    "thesis",
+                    "arguments",
+                    "counterpoints",
+                    "evidence",
+                    "examples",
+                    "possible_demonstrations",
+                    "interpretation_risks",
+                    "dojo_connections",
+                ],
+                "properties": {
+                    "title_proposal": {"type": "string"},
+                    "theme": {"type": "string"},
+                    "central_question": {"type": "string"},
+                    "audience": {"type": "string"},
+                    "problem": {"type": "string"},
+                    "promise": {"type": "string"},
+                    "thesis": {"type": "string"},
+                    "arguments": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["text", "evidence_id"],
+                            "properties": {
+                                "text": {"type": "string"},
+                                "evidence_id": {"type": "integer", "minimum": 1},
+                            },
+                        },
+                    },
+                    "counterpoints": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["text", "evidence_id"],
+                            "properties": {
+                                "text": {"type": "string"},
+                                "evidence_id": {"type": "integer", "minimum": 1},
+                            },
+                        },
+                    },
+                    "examples": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "possible_demonstrations": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "interpretation_risks": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "dojo_connections": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+            },
+            "conflicts": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+        },
+    }
+
+    raw = chat_with_provider(
+        settings.CONTENT_STUDIO_PROVIDER,
+        [
+            {"role": "system", "content": system},
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "original_intent": project.original_intent,
+                        "project_type": project.project_type,
+                        "editorial_flow": normalize_project_type(project.project_type),
+                        "evidence": numbered,
+                    },
+                    ensure_ascii=False,
+                ),
+            },
+        ],
+        response_schema=response_schema,
+    )
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -120,9 +223,26 @@ interpretation_risks e dojo_connections. Toda alegação factual deve citar evid
 
 
 def research_prompt_context(project: StudioProject) -> str:
+    approved = project.dossier_versions.filter(status="APPROVED", research_policy=project.research_policy).first()
+    if approved:
+        # Origins were checked on insertion. Historical snapshots intentionally
+        # survive removal/rebuilding of the live research evidence.
+        try:
+            validate_dossier(approved.content, approved.references_snapshot, project.research_policy, approved.schema_version)
+        except ValidationError as exc:
+            raise StudioResearchError("O snapshot aprovado é inválido; revise o Dossiê.") from exc
+        documented = any(ref["source_kind"] in {"ACERVO", "WEB"} for ref in approved.references_snapshot)
+        return json.dumps({"original_intent": project.original_intent, "research_policy": approved.research_policy,
+            "dossier_version_id": approved.pk, "dossier_version": approved.version,
+            "documentary_grounding": documented,
+            "context_role": "Conhecimento editorial aprovado com snapshot histórico; disponibilidade atual das fontes não verificada." if documented else "Orientação editorial humana aprovada sem fundamentação documental. Não apresentar como fonte ou citação.",
+            "dossier": approved.content, "evidence": approved.references_snapshot}, ensure_ascii=False)
     context = getattr(project, "research_context", None)
     if not context or context.status != "ready":
         raise StudioResearchError("Construa e revise o contexto de pesquisa antes de gerar o plano.")
+    allowed = {"ACERVO_ONLY": {"ACERVO"}, "WEB_ONLY": {"WEB"}, "HYBRID": {"ACERVO", "WEB"}}
+    if context.policy != project.research_policy or context.evidence.exclude(source_kind="GAP").exclude(source_kind__in=allowed[project.research_policy]).exists():
+        raise StudioResearchError("O contexto de pesquisa não corresponde à política atual; pesquise novamente.")
     sources = [{"kind": item.source_kind, "title": item.title, "url": item.url, "domain": item.domain,
         "source_type": item.source_type, "excerpt": item.excerpt, "retrieved_at": item.retrieved_at.isoformat()}
         for item in context.evidence.exclude(source_kind="GAP")]

@@ -1,4 +1,5 @@
 from django.urls import path
+from .views import StudioDossierView, StudioDossierTransitionView
 
 from .views import (
     BookProcessView, BookStatusView, BookUploadView, LibraryScanView,
@@ -6,7 +7,7 @@ from .views import (
     ScriptListView, StudioApprovalView, StudioArchiveView, StudioCommentListCreateView,
     StudioCommentResolveView, StudioGenerateContentView, StudioGeneratePlanView,
     StudioPermanentDeleteView, StudioPlanEditView, StudioPlanVersionListView, StudioPlanExportView,
-    StudioProjectDetailView, StudioProjectListCreateView, StudioStatusView, TrilhaListView,
+    StudioProjectDetailView, StudioProjectListCreateView, StudioProviderCheckView, StudioProviderListView, StudioStatusView, TrilhaListView,
     StudioArtifactExportView, StudioArtifactLinkView, StudioArtifactTransitionView, StudioMaterializeFormationView, StudioResearchView,
     StudioCouncilApproveView, StudioCouncilRevisionView, StudioCouncilRunDetailView, StudioCouncilRunListCreateView, StudioCouncilExportView,
     SenseiCompetencyListCreateView, SenseiCompetencyProgressView, SenseiEvidenceListCreateView,
@@ -21,6 +22,8 @@ from .views import (
 
 urlpatterns = [
     path("studio/status/", StudioStatusView.as_view(), name="library-studio-status"),
+    path("studio/providers/", StudioProviderListView.as_view(), name="library-studio-providers"),
+    path("studio/providers/check/", StudioProviderCheckView.as_view(), name="library-studio-provider-check"),
     path("studio/scan/", LibraryScanView.as_view(), name="library-studio-scan"),
     path("sources/", LibrarySourceListView.as_view(), name="library-source-list"),
     path("sources/<int:pk>/process/", LibrarySourceProcessView.as_view(), name="library-source-process"),
@@ -28,6 +31,8 @@ urlpatterns = [
     path("studio/projects/<int:pk>/", StudioProjectDetailView.as_view(), name="library-studio-project-detail"),
     path("studio/projects/<int:pk>/generate-plan/", StudioGeneratePlanView.as_view(), name="library-studio-generate-plan"),
     path("studio/projects/<int:pk>/research/", StudioResearchView.as_view(), name="library-studio-research"),
+    path("studio/projects/<int:pk>/dossier/", StudioDossierView.as_view(), name="library-studio-dossier"),
+    path("studio/projects/<int:pk>/dossier/<int:version_pk>/transition/", StudioDossierTransitionView.as_view(), name="library-studio-dossier-transition"),
     path("studio/projects/<int:pk>/materialize-formation/", StudioMaterializeFormationView.as_view(), name="library-studio-materialize-formation"),
     path("studio/artifacts/<int:pk>/transition/", StudioArtifactTransitionView.as_view(), name="library-studio-artifact-transition"),
     path("studio/artifacts/<int:pk>/link/", StudioArtifactLinkView.as_view(), name="library-studio-artifact-link"),

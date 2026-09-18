@@ -98,3 +98,7 @@ estrutura_routes.txt
 /Criar apresentação executiva.html
 /Criar apresentação executiva_files/
 /Ecossistema_3DS_Oportunidade_de_Aquisicao.pptx
+# Data Driven Dojo - automacao local
+INICIAR-DATA-DOJO.ps1
+ENCERRAR-DATA-DOJO.ps1
+.data-dojo-processes.json

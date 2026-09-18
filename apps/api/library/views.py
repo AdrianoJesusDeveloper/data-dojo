@@ -1,8 +1,10 @@
 from pathlib import Path
 import logging
+import json
 from uuid import uuid4
 
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.contenttypes.models import ContentType
 from django.core.files import File
 from django.db import transaction
@@ -39,7 +41,12 @@ from .services.generation import gerar_roteiro
 from .services.retrieval import buscar_chunks_relevantes
 from .services.catalog import scan_library
 from .editorial_contracts import normalize_project_type, validate_editorial_plan
-from .services.studio_agents import generate_content_item, generate_content_package, generate_modernization_plan
+from .services.studio_agents import (
+    generate_content_item,
+    generate_content_package,
+    generate_modernization_plan,
+    prepare_modernization_plan_request,
+)
 from .services.editorial_council import CouncilExecutionError, start_editorial_council
 from .services.council_export import COUNCIL_EXPORT_MIMES, council_export_filename, render_council_export
 from .services.sensei_learning import SenseiLearningError, available_providers, generate_activity, resolve_provider, review_response
@@ -50,11 +57,146 @@ from .services.studio_export import artifact_filename, render_artifact_docx, ren
 from .services.studio_plan_export import MIMES as PLAN_EXPORT_MIMES, export_filename as plan_export_filename, render_plan_export
 from .services.studio_formation import StudioFormationError, materialize_premium_formation
 from .services.studio_research import StudioResearchError, build_research_context, generate_grounded_dossier, research_prompt_context
-from ai.services import AIProviderError, canonical_provider_name, provider_is_available
+from ai.services import (
+    AIProviderError,
+    SENSEI_PROVIDER_CATALOG,
+    canonical_provider_name,
+    get_provider_model,
+    provider_is_available,
+)
 from .tasks import process_book
+from .serializers import StudioDossierSerializer, StudioDossierInputSerializer, StudioDossierTransitionInputSerializer
+from .services.studio_dossier import create_dossier_version, transition_dossier_version, prepare_dossier_from_research
 
 
 logger = logging.getLogger(__name__)
+
+
+PLAN_STRUCTURED_OUTPUT_PROVIDERS = {"openai", "groq"}
+
+
+class StudioPlanProviderSelectionError(ValueError):
+    def __init__(self, detail: str, *, code: str, status_code: int):
+        super().__init__(detail)
+        self.detail = detail
+        self.code = code
+        self.status_code = status_code
+
+
+def _resolve_plan_provider(raw_provider):
+    if raw_provider in (None, ""):
+        raw_provider = getattr(settings, "CONTENT_STUDIO_PROVIDER", "")
+
+    if not isinstance(raw_provider, str):
+        raise StudioPlanProviderSelectionError(
+            "O provider selecionado é inválido.",
+            code="invalid_provider",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    canonical = canonical_provider_name(raw_provider.strip())
+    if not canonical or canonical not in SENSEI_PROVIDER_CATALOG:
+        raise StudioPlanProviderSelectionError(
+            "O provider selecionado não é reconhecido.",
+            code="invalid_provider",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if canonical not in PLAN_STRUCTURED_OUTPUT_PROVIDERS:
+        raise StudioPlanProviderSelectionError(
+            "Este provider ainda não está habilitado para geração estruturada de planos.",
+            code="unsupported_for_plan",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not provider_is_available(canonical):
+        raise StudioPlanProviderSelectionError(
+            "O provider selecionado não está configurado neste ambiente.",
+            code="provider_unavailable",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+    return canonical
+
+
+def _plan_provider_metadata(provider_name):
+    metadata = SENSEI_PROVIDER_CATALOG[provider_name]
+    available = provider_is_available(provider_name)
+    structured_output = provider_name in PLAN_STRUCTURED_OUTPUT_PROVIDERS
+    return {
+        "id": provider_name,
+        "label": metadata["label"],
+        "model": get_provider_model(provider_name),
+        "available": available,
+        "structured_output": structured_output,
+        "selectable_for_plan": available and structured_output,
+    }
+
+
+def _prepare_plan_generation_inputs(project):
+    """Resolve fontes/contexto localmente sem chamar provider externo."""
+    approved_context = None
+    if project.dossier_versions.filter(
+        status="APPROVED",
+        research_policy=project.research_policy,
+    ).exists():
+        approved_context = json.loads(research_prompt_context(project))
+
+    use_snapshot = bool(
+        approved_context and approved_context.get("documentary_grounding")
+    )
+    books = list(project.books.filter(status="ready"))
+
+    if project.research_policy == "ACERVO_ONLY" and not books and not use_snapshot:
+        raise ValueError("Vincule ao menos um livro processado ao projeto.")
+
+    chunks = (
+        buscar_chunks_relevantes(
+            f"{project.theme}\n{project.objective}",
+            [book.id for book in books],
+            top_k=10,
+        )
+        if books and not use_snapshot and project.research_policy != "WEB_ONLY"
+        else []
+    )
+
+    if project.research_policy == "ACERVO_ONLY" and not chunks and not use_snapshot:
+        raise ValueError("Nenhuma fonte relevante foi recuperada.")
+
+    grounded_context = (
+        json.dumps(approved_context, ensure_ascii=False)
+        if approved_context
+        else ""
+    )
+
+    if not approved_context and hasattr(project, "research_context"):
+        try:
+            grounded_context = research_prompt_context(project)
+        except StudioResearchError:
+            if project.research_policy == "ACERVO_ONLY":
+                raise
+            grounded_context = ""
+
+    return {
+        "approved_context": approved_context,
+        "use_snapshot": use_snapshot,
+        "books": books,
+        "chunks": chunks,
+        "grounded_context": grounded_context,
+    }
+
+
+def _restore_project_after_plan_failure(project_id, expected_version):
+    with transaction.atomic():
+        locked_project = StudioProject.objects.select_for_update().get(pk=project_id)
+        current = ModernizationPlan.objects.filter(project=locked_project).first()
+        current_version = current.version if current else 0
+        if (
+            locked_project.status == "planning"
+            and current_version == expected_version
+        ):
+            locked_project.status = "draft"
+            locked_project.save(update_fields=["status", "updated_at"])
 
 
 class StudioCouncilRunListCreateView(APIView):
@@ -183,6 +325,151 @@ class BookUploadView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return Book.objects.select_related("trilha").all()
+
+
+class StudioProviderListView(APIView):
+    """Lista metadados seguros dos providers disponíveis para o Content Studio.
+
+    Esta rota não realiza chamadas externas e nunca expõe credenciais.
+    O suporte a structured output é declarado apenas para adapters já
+    validados pelo fluxo de geração de plano.
+    """
+
+    permission_classes = [IsLocalStudioAdmin]
+
+    def get(self, request):
+        configured_default = canonical_provider_name(
+            getattr(settings, "CONTENT_STUDIO_PROVIDER", "")
+        )
+
+        providers = []
+        for provider_id, metadata in SENSEI_PROVIDER_CATALOG.items():
+            canonical = canonical_provider_name(provider_id) or provider_id
+            available = provider_is_available(canonical)
+            structured_output = canonical in PLAN_STRUCTURED_OUTPUT_PROVIDERS
+
+            providers.append(
+                {
+                    "id": canonical,
+                    "label": metadata["label"],
+                    "model": get_provider_model(canonical),
+                    "available": available,
+                    "structured_output": structured_output,
+                    "selectable_for_plan": available and structured_output,
+                }
+            )
+
+        return Response(
+            {
+                "default_provider": configured_default,
+                "providers": providers,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class StudioProviderCheckView(APIView):
+    """Pré-validação local; não chama providers externos nem consome créditos."""
+
+    permission_classes = [IsLocalStudioAdmin]
+
+    def post(self, request):
+        operation = request.data.get("operation", "generate_plan")
+        if operation != "generate_plan":
+            return Response(
+                {
+                    "detail": "Operação de preflight não suportada.",
+                    "error_code": "unsupported_operation",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        project_id = request.data.get("project_id")
+        if isinstance(project_id, bool):
+            project_id = None
+        try:
+            project_id = int(project_id)
+        except (TypeError, ValueError):
+            return Response(
+                {
+                    "detail": "Informe um project_id válido.",
+                    "error_code": "invalid_project",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        project = generics.get_object_or_404(
+            StudioProject,
+            pk=project_id,
+            created_by=request.user,
+        )
+
+        try:
+            provider_name = _resolve_plan_provider(request.data.get("provider"))
+        except StudioPlanProviderSelectionError as exc:
+            return Response(
+                {"detail": exc.detail, "error_code": exc.code},
+                status=exc.status_code,
+            )
+
+        try:
+            inputs = _prepare_plan_generation_inputs(project)
+            prepared = prepare_modernization_plan_request(
+                project,
+                inputs["chunks"],
+                grounded_context=inputs["grounded_context"],
+                provider_name=provider_name,
+            )
+        except StudioResearchError as exc:
+            return Response(
+                {"detail": str(exc), "error_code": "research_context_invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc), "error_code": "plan_preflight_invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except RuntimeError:
+            logger.exception(
+                "Falha local no preflight do plano do projeto %s",
+                project.pk,
+            )
+            return Response(
+                {
+                    "detail": "Não foi possível consultar as fontes locais do projeto.",
+                    "error_code": "local_retrieval_unavailable",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        warnings = []
+        if not prepared["has_grounded_sources"]:
+            warnings.append(
+                "A geração será um rascunho sem fontes verificadas e exigirá revisão humana."
+            )
+
+        return Response(
+            {
+                "operation": "generate_plan",
+                "project_id": project.pk,
+                "ready": True,
+                "provider": _plan_provider_metadata(provider_name),
+                "payload": {
+                    "generation_mode": prepared["generation_mode"],
+                    "context_source": prepared["context_source"],
+                    "source_chunk_count": len(inputs["chunks"]),
+                    "context_chars": prepared["context_chars"],
+                    "prompt_chars": prepared["prompt_chars"],
+                    "schema_chars": prepared["schema_chars"],
+                    "total_chars": prepared["total_chars"],
+                    "estimated_tokens": prepared["estimated_tokens"],
+                    "estimate_note": prepared["estimate_note"],
+                },
+                "warnings": warnings,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class StudioStatusView(APIView):
@@ -420,10 +707,49 @@ class StudioGeneratePlanView(APIView):
     permission_classes = [IsLocalStudioAdmin]
 
     def post(self, request, pk):
-        project = generics.get_object_or_404(StudioProject, pk=pk, created_by=request.user)
-        books = list(project.books.filter(status="ready"))
-        if project.research_policy == "ACERVO_ONLY" and not books:
-            return Response({"detail": "Vincule ao menos um livro processado ao projeto."}, status=status.HTTP_400_BAD_REQUEST)
+        project = generics.get_object_or_404(
+            StudioProject,
+            pk=pk,
+            created_by=request.user,
+        )
+
+        try:
+            provider_name = _resolve_plan_provider(request.data.get("provider"))
+        except StudioPlanProviderSelectionError as exc:
+            return Response(
+                {"detail": exc.detail, "error_code": exc.code},
+                status=exc.status_code,
+            )
+
+        try:
+            inputs = _prepare_plan_generation_inputs(project)
+        except StudioResearchError as exc:
+            return Response(
+                {"detail": str(exc), "error_code": "research_context_invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc), "error_code": "plan_preparation_invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except RuntimeError:
+            logger.exception(
+                "Falha local ao preparar fontes do plano do projeto %s",
+                project.pk,
+            )
+            return Response(
+                {
+                    "detail": "Não foi possível consultar as fontes locais do projeto.",
+                    "error_code": "local_retrieval_unavailable",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        approved_context = inputs["approved_context"]
+        chunks = inputs["chunks"]
+        grounded_context = inputs["grounded_context"]
+
         with transaction.atomic():
             project = StudioProject.objects.select_for_update().get(pk=project.pk)
             existing_plan = ModernizationPlan.objects.filter(project=project).first()
@@ -431,74 +757,129 @@ class StudioGeneratePlanView(APIView):
             previous_plan = existing_plan.proposed_architecture if existing_plan else None
             project.status = "planning"
             project.save(update_fields=["status", "updated_at"])
-        try:
-            chunks = buscar_chunks_relevantes(f"{project.theme}\n{project.objective}", [book.id for book in books], top_k=10) if books else []
-            if project.research_policy == "ACERVO_ONLY" and not chunks:
-                raise ValueError("Nenhuma fonte relevante foi recuperada.")
-            grounded_context = ""
-            if hasattr(project, "research_context"):
-                try:
-                    grounded_context = research_prompt_context(project)
-                except StudioResearchError:
-                    # Um contexto GAP/insuficiente não deve impedir um rascunho
-                    # sem fontes quando a política permite geração não fundamentada.
-                    # ACERVO_ONLY continua protegido pelas validações acima.
-                    if project.research_policy == "ACERVO_ONLY":
-                        raise
-                    grounded_context = ""
 
+        try:
             data, raw = generate_modernization_plan(
                 project,
                 chunks,
                 previous_plan,
                 grounded_context,
+                provider_name=provider_name,
             )
-        except (RuntimeError, ValueError, StudioResearchError, AIProviderError) as exc:
+
+            data["proposed_architecture"].pop("dossier_provenance", None)
+            if approved_context:
+                data["proposed_architecture"]["dossier_provenance"] = {
+                    "id": approved_context["dossier_version_id"],
+                    "version": approved_context["dossier_version"],
+                    "research_policy": approved_context["research_policy"],
+                    "documentary_grounding": approved_context["documentary_grounding"],
+                }
+
+        except AIProviderError as exc:
+            logger.warning(
+                "studio_plan_provider_failed project_id=%s provider=%s error_code=%s",
+                project.pk,
+                getattr(exc, "provider", provider_name),
+                getattr(exc, "code", "unknown"),
+            )
+            _restore_project_after_plan_failure(project.pk, expected_version)
+
+            error_code = getattr(exc, "code", "unknown")
+            response_status = status.HTTP_503_SERVICE_UNAVAILABLE
+            if error_code == "payload_too_large":
+                response_status = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            elif error_code == "rate_limit":
+                response_status = status.HTTP_429_TOO_MANY_REQUESTS
+
+            return Response(
+                {
+                    "detail": str(exc),
+                    "provider": canonical_provider_name(
+                        getattr(exc, "provider", provider_name)
+                    ) or provider_name,
+                    "error_code": error_code,
+                },
+                status=response_status,
+            )
+
+        except (RuntimeError, ValueError, StudioResearchError) as exc:
             logger.exception(
                 "Falha ao gerar plano editorial do projeto %s [%s]: %s",
                 project.pk,
                 type(exc).__name__,
                 str(exc),
             )
-            with transaction.atomic():
-                locked_project = StudioProject.objects.select_for_update().get(pk=project.pk)
-                current = ModernizationPlan.objects.filter(project=locked_project).first()
-                current_version = current.version if current else 0
-                if locked_project.status == "planning" and current_version == expected_version:
-                    locked_project.status = "draft"
-                    locked_project.save(update_fields=["status", "updated_at"])
+            _restore_project_after_plan_failure(project.pk, expected_version)
             return Response(
                 {
                     "detail": (
                         "Não foi possível gerar o plano editorial. "
                         "Consulte o log do servidor para identificar a causa técnica."
-                    )
+                    ),
+                    "provider": provider_name,
+                    "error_code": "generation_failed",
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
         with transaction.atomic():
             locked_project = StudioProject.objects.select_for_update().get(pk=project.pk)
-            previous = ModernizationPlan.objects.select_for_update().filter(project=locked_project).first()
+            previous = (
+                ModernizationPlan.objects.select_for_update()
+                .filter(project=locked_project)
+                .first()
+            )
             current_version = previous.version if previous else 0
             if current_version != expected_version:
                 return Response(
-                    {"detail": "O plano mudou durante a geraÃ§Ã£o; gere novamente."},
+                    {
+                        "detail": "O plano mudou durante a geração; gere novamente.",
+                        "error_code": "plan_version_conflict",
+                    },
                     status=status.HTTP_409_CONFLICT,
                 )
+
             if previous:
-                _record_plan_version(locked_project, previous, request.user, "revision")
+                _record_plan_version(
+                    locked_project,
+                    previous,
+                    request.user,
+                    "revision",
+                )
+
             version = (previous.version + 1) if previous else 1
-            plan, _ = ModernizationPlan.objects.update_or_create(project=locked_project, defaults={**data, "raw_response": raw, "status": "review", "version": version})
+            plan, _ = ModernizationPlan.objects.update_or_create(
+                project=locked_project,
+                defaults={
+                    **data,
+                    "raw_response": raw,
+                    "status": "review",
+                    "version": version,
+                },
+            )
             _record_plan_version(locked_project, plan, request.user, "ai")
-            locked_project.citations.filter(purpose="modernization_plan").delete()
-            SourceCitation.objects.bulk_create([
-                SourceCitation(project=locked_project, chunk=chunk, book_title=chunk.book.title, page_number=chunk.page_number, excerpt=chunk.content[:1500])
-                for chunk in chunks
-            ])
+
+            locked_project.citations.filter(
+                purpose="modernization_plan"
+            ).delete()
+            SourceCitation.objects.bulk_create(
+                [
+                    SourceCitation(
+                        project=locked_project,
+                        chunk=chunk,
+                        book_title=chunk.book.title,
+                        page_number=chunk.page_number,
+                        excerpt=chunk.content[:1500],
+                    )
+                    for chunk in chunks
+                ]
+            )
+
             locked_project.status = "awaiting_approval"
             locked_project.save(update_fields=["status", "updated_at"])
             project = locked_project
+
         return Response(StudioProjectSerializer(project).data)
 
 
@@ -520,6 +901,9 @@ class StudioPlanEditView(APIView):
         with transaction.atomic():
             project = StudioProject.objects.select_for_update().get(pk=project.pk)
             current = ModernizationPlan.objects.select_for_update().get(pk=current.pk, project=project)
+            edited.pop("dossier_provenance", None)
+            if "dossier_provenance" in current.proposed_architecture:
+                edited["dossier_provenance"] = current.proposed_architecture["dossier_provenance"]
             _record_plan_version(project, current, request.user, "revision")
             current.version += 1
             current.proposed_architecture = edited
@@ -736,8 +1120,50 @@ class StudioGenerateContentView(APIView):
         return Response({"package": ContentPackageSerializer(package).data, "artifact": StudioArtifactSerializer(artifact).data})
 
 
+class StudioDossierView(APIView):
+    permission_classes = [IsLocalStudioAdmin]
+
+    def get(self, request, pk):
+        project = generics.get_object_or_404(StudioProject, pk=pk, created_by=request.user)
+        return Response(StudioDossierSerializer(project.dossier_versions.all(), many=True).data)
+
+    def post(self, request, pk):
+        project = generics.get_object_or_404(StudioProject, pk=pk, created_by=request.user)
+        serializer = StudioDossierInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            version = create_dossier_version(project_id=project.pk, actor=request.user, **serializer.validated_data)
+        except DjangoValidationError as exc:
+            return Response({"detail": " ".join(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(StudioDossierSerializer(version).data, status=status.HTTP_201_CREATED)
+
+
+class StudioDossierTransitionView(APIView):
+    permission_classes = [IsLocalStudioAdmin]
+
+    def post(self, request, pk, version_pk):
+        project = generics.get_object_or_404(StudioProject, pk=pk, created_by=request.user)
+        serializer = StudioDossierTransitionInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            version = transition_dossier_version(project_id=project.pk, actor=request.user, version_id=version_pk, **serializer.validated_data)
+        except DjangoValidationError as exc:
+            return Response({"detail": " ".join(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(StudioDossierSerializer(version).data)
+
+
 class StudioResearchView(APIView):
     permission_classes = [IsLocalStudioAdmin]
+
+    def get(self, request, pk):
+        project = generics.get_object_or_404(StudioProject, pk=pk, created_by=request.user)
+        try:
+            preparation = prepare_dossier_from_research(project_id=project.pk, actor=request.user)
+        except DjangoValidationError as exc:
+            return Response({"detail": " ".join(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        data = dict(StudioResearchContextSerializer(project.research_context).data)
+        data["dossier_preparation"] = preparation
+        return Response(data)
 
     def post(self, request, pk):
         project = generics.get_object_or_404(StudioProject, pk=pk, created_by=request.user)
