@@ -21,7 +21,7 @@ class Command(BaseCommand):
             self.stdout.write(f"DRY RUN: {queryset.count()} livros; {queryset.filter(sha256='').count()} sem hash; {queryset.filter(cover_asset__isnull=True).count()} sem capa. Nenhuma alteração.")
             return
         with identity_lock():
-            backfill_hashes()
+            backfill_hashes(queryset)
         for book in queryset.iterator():
             try:
                 book_path(book)
