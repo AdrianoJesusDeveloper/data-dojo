@@ -5,7 +5,7 @@ export type LibraryBook = { id: number; title: string; author: string; category:
 export type Page<T> = { count: number; next: string | null; previous: string | null; results: T[] };
 export type TocEntry = { id?: number; position: number; location: string; title: string; order?: number };
 export type TocMode = "automatic" | "manual";
-export type ReaderMetadata = { book: LibraryBook; total: number; toc: TocEntry[]; toc_mode: TocMode; file_url: string };
+export type ReaderMetadata = { book: LibraryBook; total: number; toc: TocEntry[]; automatic_toc: TocEntry[]; toc_mode: TocMode; file_url: string };
 export type ReadingMark = Progress & { id: number; kind: "bookmark" | "annotation" | "highlight"; note: string; selected_text: string; start_offset: number | null; end_offset: number | null };
 export const bookUrl = (id: number) => `/api/library/books/${id}/`;
 export function errorMessage(error: unknown): string {
