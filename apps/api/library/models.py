@@ -124,6 +124,20 @@ class BookSection(models.Model):
         constraints = [models.UniqueConstraint(fields=["book", "position"], name="unique_book_section")]
 
 
+class BookTocEntry(models.Model):
+    """User-maintained reader index, independent from extracted/OCR sections."""
+
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="manual_toc_entries")
+    title = models.CharField(max_length=500)
+    position = models.PositiveIntegerField()
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+
 class ReadingProgress(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="reading_progress")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
