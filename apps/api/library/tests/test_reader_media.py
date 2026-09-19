@@ -11,7 +11,7 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from library.models import Book, BookSection, MediaAsset, ReadingMark, ReadingProgress
+from library.models import Book, BookSection, BookTocEntry, MediaAsset, ReadingMark, ReadingProgress
 
 
 class LibraryReaderMediaTests(APITestCase):
@@ -113,6 +113,8 @@ class LibraryReaderMediaTests(APITestCase):
         self.assertEqual(response.data["book"]["format"], "txt")
         self.assertEqual(response.data["total"], 1)
         self.assertEqual(len(response.data["toc"]), 1)
+        self.assertEqual(response.data["toc_mode"], "automatic")
+        self.assertEqual(len(response.data["automatic_toc"]), 1)
         self.assertTrue(
             BookSection.objects.filter(book=book, position=1).exists()
         )
@@ -127,6 +129,63 @@ class LibraryReaderMediaTests(APITestCase):
 
         self.assertEqual(section.status_code, status.HTTP_200_OK)
         self.assertIn("Primeiro conteudo", section.data["text"])
+
+    def test_manual_toc_can_be_saved_used_and_restored(self):
+        book = self.create_book("manual-toc.txt", b"conteudo")
+        self.create_section(book, 1, "Introducao")
+        self.create_section(book, 2, "Capitulo principal")
+        url = reverse("library-reader-toc", kwargs={"pk": book.pk})
+
+        saved = self.request(
+            "put",
+            url,
+            {
+                "entries": [
+                    {"title": "Capítulo principal", "position": 2},
+                    {"title": "Introdução", "position": 1},
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(saved.status_code, status.HTTP_200_OK)
+        self.assertEqual(saved.data["mode"], "manual")
+        self.assertEqual(
+            [entry["title"] for entry in saved.data["entries"]],
+            ["Capítulo principal", "Introdução"],
+        )
+        self.assertEqual(BookTocEntry.objects.filter(book=book).count(), 2)
+
+        metadata = self.request(
+            "get",
+            reverse("library-reader", kwargs={"pk": book.pk}),
+        )
+        self.assertEqual(metadata.status_code, status.HTTP_200_OK)
+        self.assertEqual(metadata.data["toc_mode"], "manual")
+        self.assertEqual(
+            [entry["position"] for entry in metadata.data["toc"]],
+            [2, 1],
+        )
+        self.assertEqual(len(metadata.data["automatic_toc"]), 2)
+
+        restored = self.request("delete", url)
+        self.assertEqual(restored.status_code, status.HTTP_200_OK)
+        self.assertEqual(restored.data["mode"], "automatic")
+        self.assertEqual(BookTocEntry.objects.filter(book=book).count(), 0)
+
+    def test_manual_toc_rejects_position_outside_document(self):
+        book = self.create_book("invalid-toc.txt", b"conteudo")
+        self.create_section(book, 1, "Unica secao")
+
+        response = self.request(
+            "put",
+            reverse("library-reader-toc", kwargs={"pk": book.pk}),
+            {"entries": [{"title": "Fora do documento", "position": 2}]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(BookTocEntry.objects.filter(book=book).exists())
 
     def test_pdf_file_supports_http_range(self):
         payload = b"%PDF-1.4\nconteudo-pdf-teste\n%%EOF"
@@ -443,6 +502,7 @@ class LibraryReaderMediaTests(APITestCase):
             reverse("library-visual-books"),
             reverse("library-media"),
             reverse("library-reader", kwargs={"pk": book.pk}),
+            reverse("library-reader-toc", kwargs={"pk": book.pk}),
             reverse("library-reader-progress", kwargs={"pk": book.pk}),
             reverse("library-reader-marks", kwargs={"pk": book.pk}),
             reverse("library-reader-search", kwargs={"pk": book.pk}) + "?q=Python",
