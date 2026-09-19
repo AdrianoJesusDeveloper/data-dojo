@@ -1,4 +1,5 @@
 ::highlight(dojo-reader) { background-color: #facc1570; color: inherit; }
+::highlight(dojo-narrator) { background-color: #60a5fa66; color: inherit; }
 .reader-prose p, .reader-prose ul, .reader-prose ol, .reader-prose table { margin-block: 1em; }
 .reader-prose h1, .reader-prose h2, .reader-prose h3 { font-weight: 700; font-size: 1.4em; margin-block: 1.5em .6em; }
 .reader-prose ul { list-style: disc; padding-left: 1.5em; }
