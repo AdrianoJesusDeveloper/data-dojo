@@ -12,7 +12,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Book, BookSection, MediaAsset, ReadingProgress, ReadingMark
+from .models import Book, BookSection, BookTocEntry, MediaAsset, ReadingProgress, ReadingMark
 from .permissions import IsLocalStudioAdmin
 from .services.book_storage import book_path
 from .services.catalog import resolve_library_file
@@ -229,6 +229,112 @@ def ensure_sections(book):
     BookSection.objects.bulk_create([BookSection(book=book, **value) for value in values], ignore_conflicts=True)
 
 
+def reader_total(book):
+    count = book.sections.count()
+    if Path(book.file.name).suffix.lower() == ".pdf":
+        import pymupdf
+        with pymupdf.open(book_path(book)) as document:
+            count = len(document)
+    return count
+
+
+def reader_toc(book):
+    manual = list(book.manual_toc_entries.order_by("order", "id"))
+    if not manual:
+        return "automatic", list(book.sections.values("position", "location", "title"))
+
+    pdf = Path(book.file.name).suffix.lower() == ".pdf"
+    section_locations = {}
+    if not pdf:
+        positions = [entry.position for entry in manual]
+        section_locations = dict(
+            book.sections.filter(position__in=positions).values_list("position", "location")
+        )
+
+    entries = [
+        {
+            "id": entry.pk,
+            "position": entry.position,
+            "location": f"page:{entry.position}" if pdf else section_locations.get(entry.position, f"section:{entry.position}"),
+            "title": entry.title,
+            "order": entry.order,
+        }
+        for entry in manual
+    ]
+    return "manual", entries
+
+
+class TocEntryInputSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=500, allow_blank=False, trim_whitespace=True)
+    position = serializers.IntegerField(min_value=1)
+
+
+class TocReplaceSerializer(serializers.Serializer):
+    entries = TocEntryInputSerializer(many=True)
+
+    def validate_entries(self, entries):
+        if not entries:
+            raise serializers.ValidationError("Adicione pelo menos um item ao índice.")
+        if len(entries) > 500:
+            raise serializers.ValidationError("O índice pode ter no máximo 500 itens.")
+        return entries
+
+
+class ReaderTocView(APIView):
+    permission_classes = [IsLocalStudioAdmin]
+
+    def get(self, request, pk):
+        book = readable_book(pk)
+        try:
+            ensure_sections(book)
+            mode, entries = reader_toc(book)
+        except (ValueError, OSError, KeyError, IndexError) as exc:
+            raise ValidationError("Não foi possível carregar o índice deste documento.") from exc
+        return Response({"mode": mode, "entries": entries})
+
+    def put(self, request, pk):
+        book = readable_book(pk)
+        serializer = TocReplaceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            ensure_sections(book)
+            total = reader_total(book)
+        except (ValueError, OSError, KeyError, IndexError) as exc:
+            raise ValidationError("Não foi possível validar as posições do índice.") from exc
+
+        entries = serializer.validated_data["entries"]
+        invalid = [entry["position"] for entry in entries if entry["position"] > total]
+        if invalid:
+            raise ValidationError({"entries": f"Posição fora do documento: {invalid[0]}. Máximo: {total}."})
+
+        with transaction.atomic():
+            Book.objects.select_for_update().get(pk=book.pk)
+            BookTocEntry.objects.filter(book=book).delete()
+            BookTocEntry.objects.bulk_create(
+                [
+                    BookTocEntry(
+                        book=book,
+                        title=entry["title"],
+                        position=entry["position"],
+                        order=index,
+                    )
+                    for index, entry in enumerate(entries, start=1)
+                ]
+            )
+
+        mode, saved = reader_toc(book)
+        return Response({"mode": mode, "entries": saved})
+
+    def delete(self, request, pk):
+        book = readable_book(pk)
+        with transaction.atomic():
+            Book.objects.select_for_update().get(pk=book.pk)
+            BookTocEntry.objects.filter(book=book).delete()
+        ensure_sections(book)
+        mode, entries = reader_toc(book)
+        return Response({"mode": mode, "entries": entries})
+
+
 class ReaderMetadataView(APIView):
     permission_classes = [IsLocalStudioAdmin]
 
@@ -236,14 +342,11 @@ class ReaderMetadataView(APIView):
         book = readable_book(pk)
         try:
             ensure_sections(book)
-            count = book.sections.count()
-            if Path(book.file.name).suffix.lower() == ".pdf":
-                import pymupdf
-                with pymupdf.open(book_path(book)) as document:
-                    count = len(document)
+            count = reader_total(book)
+            toc_mode, toc = reader_toc(book)
         except (ValueError, OSError, KeyError, IndexError) as exc:
             raise ValidationError("Não foi possível abrir este documento para leitura.") from exc
-        return Response({"book": LibraryBookSerializer(book, context={"request": request}).data, "total": count, "toc": list(book.sections.values("position", "location", "title")), "file_url": f"/api/library/books/{pk}/file/"})
+        return Response({"book": LibraryBookSerializer(book, context={"request": request}).data, "total": count, "toc": toc, "toc_mode": toc_mode, "file_url": f"/api/library/books/{pk}/file/"})
 
 
 class ReaderFileView(APIView):
