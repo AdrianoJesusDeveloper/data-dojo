@@ -222,10 +222,13 @@ Arquitetura preparada para providers configuráveis, incluindo integrações com
 - [x] índice manual editável;
 - [x] índice automático;
 - [x] Narrador V1 implementado;
-- [ ] revalidar persistência do índice manual entre sessões;
+- [ ] revalidar em uso real a correção de persistência do índice manual entre sessões;
 - [ ] Tradutor V1;
 - [ ] modo Original / Traduzido / Lado a lado;
 - [ ] integração Narrador + tradução.
+
+
+> **Correção aplicada em 2026-09-19:** o Reader agora sincroniza o índice retornado pelo backend com o estado local e atualiza o cache de metadata após salvar/restaurar o índice manual. A validação manual de saída/reabertura ainda é necessária antes de marcar o item como concluído.
 
 ### Narrador V1
 
@@ -344,7 +347,7 @@ Diretrizes atuais:
 - [x] anotações e destaques;
 - [x] índice editável;
 - [x] narrador local V1;
-- [ ] corrigir persistência do índice manual onde ainda houver regressão;
+- [ ] validar em uso real a correção do índice manual ao sair e reabrir o Reader;
 - [ ] Tradutor V1;
 - [ ] tradução por trecho/página;
 - [ ] cache local de traduções;
