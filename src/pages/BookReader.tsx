@@ -32,6 +32,17 @@ function ReaderSession({ metadata }: { metadata: ReaderMetadata }) {
   const restoreOffset = useRef<number | null>(book.reading?.offset ?? 0); const mounted = useRef(true);
   const pending = useRef<Progress | null>(null); const timer = useRef<ReturnType<typeof setTimeout> | null>(null); const queue = useRef(Promise.resolve());
   const client = useQueryClient();
+  useEffect(() => {
+    setToc(metadata.toc);
+    setTocMode(metadata.toc_mode);
+  }, [metadata.toc, metadata.toc_mode]);
+  const updateToc = useCallback((entries: typeof metadata.toc, mode: typeof metadata.toc_mode) => {
+    setToc(entries);
+    setTocMode(mode);
+    client.setQueryData<ReaderMetadata>(["reader-metadata", book.id], current =>
+      current ? { ...current, toc: entries, toc_mode: mode } : current,
+    );
+  }, [book.id, client]);
   const marks = useQuery({ queryKey: ["reader-marks", book.id, marksPage], queryFn: async () => (await api.get<Page<ReadingMark>>(`${bookUrl(book.id)}marks/`, { params: { page: marksPage, page_size: 100 } })).data });
   const flush = useCallback(() => {
     const value = pending.current; if (!value) return; pending.current = null;
@@ -80,7 +91,7 @@ function ReaderSession({ metadata }: { metadata: ReaderMetadata }) {
     {!focus && <p className="text-xs text-muted-foreground">← → navegar · + − zoom/fonte · F tela cheia · Esc sai da tela cheia. {pdf && "A busca também consulta o OCR. Seleção depende da camada textual do PDF."}</p>}
     {!focus && <NarratorControls bookId={book.id} position={position} total={total} onNavigate={navigate} getVisibleText={visibleReaderText} onHighlight={highlightNarration} onClearHighlight={clearNarration} />}
     {error && <p role="alert" className="text-sm text-destructive">{error}<Button size="sm" variant="ghost" onClick={flush}>Salvar novamente</Button></p>}<p role="status" className="text-xs text-muted-foreground">{saved || (book.reading ? "Continuando de onde você parou" : "")}</p></header>
-    <div className="flex min-h-0 flex-1 flex-col md:flex-row">{sidebar && !focus && <div className="max-h-[40vh] overflow-auto md:max-h-none"><ReaderSidebar bookId={book.id} total={total} toc={toc} tocMode={tocMode} marks={marks.data?.results ?? []} onNavigate={navigate} onDelete={mark => void changeMark(mark)} onEdit={(mark, note) => void changeMark(mark, note)} onTocChange={(entries, mode) => { setToc(entries); setTocMode(mode); }} />{marks.isError && <p role="alert">Não foi possível carregar marcações.</p>}{(marks.data?.next || marksPage > 1) && <div className="flex gap-2 p-3"><Button disabled={marksPage === 1} onClick={() => setMarksPage(marksPage - 1)}>Anteriores</Button><Button disabled={!marks.data?.next} onClick={() => setMarksPage(marksPage + 1)}>Mais marcações</Button></div>}</div>}
+    <div className="flex min-h-0 flex-1 flex-col md:flex-row">{sidebar && !focus && <div className="max-h-[40vh] overflow-auto md:max-h-none"><ReaderSidebar bookId={book.id} total={total} toc={toc} tocMode={tocMode} marks={marks.data?.results ?? []} onNavigate={navigate} onDelete={mark => void changeMark(mark)} onEdit={(mark, note) => void changeMark(mark, note)} onTocChange={updateToc} />{marks.isError && <p role="alert">Não foi possível carregar marcações.</p>}{(marks.data?.next || marksPage > 1) && <div className="flex gap-2 p-3"><Button disabled={marksPage === 1} onClick={() => setMarksPage(marksPage - 1)}>Anteriores</Button><Button disabled={!marks.data?.next} onClick={() => setMarksPage(marksPage + 1)}>Mais marcações</Button></div>}</div>}
     <div ref={viewport} className="min-w-0 flex-1 overflow-auto bg-secondary/20" onScroll={e => { if (restoreOffset.current !== null) return; const element = e.currentTarget; const value = element.scrollTop / Math.max(1, element.scrollHeight - element.clientHeight); setOffset(value); if (!pdf) schedule(position, value); }}><div ref={content} className={pdf ? "mx-auto w-fit p-4" : "w-full"}>
     {pdf ? <Suspense fallback={<p>Preparando leitor PDF…</p>}><PdfReader url={metadata.file_url} page={position} zoom={zoom} width={width} fitPage={fitPage} onRendered={rendered} /></Suspense> : <FlowReader bookId={book.id} position={position} fontSize={fontSize} onRendered={rendered} onLink={internalLink} />}
     </div></div></div>
