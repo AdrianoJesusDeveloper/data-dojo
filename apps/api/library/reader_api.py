@@ -346,7 +346,8 @@ class ReaderMetadataView(APIView):
             toc_mode, toc = reader_toc(book)
         except (ValueError, OSError, KeyError, IndexError) as exc:
             raise ValidationError("Não foi possível abrir este documento para leitura.") from exc
-        return Response({"book": LibraryBookSerializer(book, context={"request": request}).data, "total": count, "toc": toc, "toc_mode": toc_mode, "file_url": f"/api/library/books/{pk}/file/"})
+        automatic_toc = list(book.sections.values("position", "location", "title"))
+        return Response({"book": LibraryBookSerializer(book, context={"request": request}).data, "total": count, "toc": toc, "automatic_toc": automatic_toc, "toc_mode": toc_mode, "file_url": f"/api/library/books/{pk}/file/"})
 
 
 class ReaderFileView(APIView):
