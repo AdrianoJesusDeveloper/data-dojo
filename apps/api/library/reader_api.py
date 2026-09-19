@@ -334,7 +334,7 @@ class MarkSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReadingMark
         fields = ("id", "kind", "location", "position", "offset", "selected_text", "start_offset", "end_offset", "note", "created_at", "updated_at")
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "location", "created_at", "updated_at")
         extra_kwargs = {"note": {"max_length": 20000}, "selected_text": {"max_length": 10000}}
 
     def validate(self, data):
