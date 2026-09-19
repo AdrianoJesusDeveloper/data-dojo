@@ -160,7 +160,7 @@ export function NarratorControls({
     if (keepPosition) persist();
   }, [onClearHighlight, persist, supported]);
 
-  async function speak(targetPosition = position, startAt = 0) {
+  async function speak(targetPosition = position, startAt = 0, rateOverride?: number) {
     if (!supported) {
       setMessage("Leitura em voz alta não é suportada neste navegador.");
       return;
@@ -187,7 +187,7 @@ export function NarratorControls({
     } else if (language) {
       utterance.lang = language;
     }
-    utterance.rate = rate;
+    utterance.rate = rateOverride ?? rate;
 
     const baseOffset = charIndexRef.current;
     utterance.onstart = () => {
@@ -204,8 +204,8 @@ export function NarratorControls({
     };
     utterance.onend = () => {
       if (cancelledRef.current) return;
-      charIndexRef.current = text.length;
-      persist({ position: targetPosition, charIndex: text.length });
+      charIndexRef.current = 0;
+      persist({ position: targetPosition, charIndex: 0 });
       setSpeaking(false);
       setPaused(false);
       setMessage("Trecho concluído.");
@@ -253,7 +253,7 @@ export function NarratorControls({
     persist({ rate: value });
     if (speaking) {
       const restartAt = charIndexRef.current;
-      void speak(currentPositionRef.current, restartAt);
+      void speak(currentPositionRef.current, restartAt, value);
     }
   }
 
