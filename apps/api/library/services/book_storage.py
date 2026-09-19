@@ -43,8 +43,9 @@ def identity_lock():
         yield
 
 
-def backfill_hashes():
-    for book in Book.objects.filter(sha256="").order_by("pk").iterator():
+def backfill_hashes(queryset=None):
+    books = Book.objects.all() if queryset is None else queryset
+    for book in books.filter(sha256="").order_by("pk").iterator():
         try:
             digest = _sha256(book_path(book))
         except (OSError, ValueError):
