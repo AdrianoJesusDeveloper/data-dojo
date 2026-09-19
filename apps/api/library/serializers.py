@@ -102,15 +102,34 @@ class BookSerializer(serializers.ModelSerializer):
         )
 
     def validate_file(self, value):
-        if Path(value.name).suffix.lower() != ".pdf":
-            raise serializers.ValidationError("Envie um arquivo PDF.")
+        extension = Path(value.name).suffix.lower()
+        if extension not in {".pdf", ".epub", ".docx", ".txt"}:
+            raise serializers.ValidationError("Envie PDF, EPUB, DOCX ou TXT.")
         if value.size > settings.LIBRARY_MAX_UPLOAD_MB * 1024 * 1024:
             raise serializers.ValidationError(f"O PDF excede o limite de {settings.LIBRARY_MAX_UPLOAD_MB} MB.")
         header = value.read(5)
         value.seek(0)
-        if header != b"%PDF-":
+        if extension == ".pdf" and header != b"%PDF-":
             raise serializers.ValidationError("O arquivo não possui uma assinatura PDF válida.")
+        if extension in {".epub", ".docx"}:
+            import zipfile
+            try:
+                with zipfile.ZipFile(value) as archive:
+                    expected = "META-INF/container.xml" if extension == ".epub" else "word/document.xml"
+                    if expected not in archive.namelist():
+                        raise ValueError()
+            except (ValueError, zipfile.BadZipFile):
+                raise serializers.ValidationError("O arquivo não possui uma estrutura válida.")
+            finally:
+                value.seek(0)
         return value
+
+    def create(self, validated_data):
+        from .services.book_storage import identity_lock, stream_hash, check_duplicate
+        with identity_lock():
+            digest = stream_hash(validated_data["file"])
+            check_duplicate(digest)
+            return Book.objects.create(**validated_data, sha256=digest)
 
     def get_error_message(self, obj):
         return "Falha no processamento do PDF. Consulte os logs do servidor." if obj.error_message else ""

@@ -86,15 +86,20 @@ class GroqProvider:
             raise _provider_error("authentication")
 
         base_messages = list(messages)
+        json_object_mode = response_schema == {"type": "json_object"}
         plan_schema = bool(
             isinstance(response_schema, dict)
             and isinstance(response_schema.get("properties"), dict)
             and "proposed_architecture" in response_schema["properties"]
         )
-        # Preserve the historical one-retry contract for strict structured
-        # outputs, but never retry modernization-plan generation. The plan uses
-        # prompt JSON + backend validation specifically to avoid TPM double spend.
-        max_attempts = 2 if response_schema is not None and not plan_schema else 1
+        # Preserve one retry only for strict JSON Schema responses.
+        # Modernization plans and DDJ JSON Object mode are backend-validated
+        # and must never spend a second request on schema repair.
+        max_attempts = (
+            2
+            if response_schema is not None and not plan_schema and not json_object_mode
+            else 1
+        )
 
         for attempt in range(max_attempts):
             request_messages = list(base_messages)
@@ -118,7 +123,9 @@ class GroqProvider:
             }
 
             if response_schema is not None:
-                if not plan_schema:
+                if json_object_mode:
+                    payload["response_format"] = {"type": "json_object"}
+                elif not plan_schema:
                     payload["response_format"] = {
                         "type": "json_schema",
                         "json_schema": {
@@ -155,7 +162,11 @@ class GroqProvider:
                 (
                     "prompt_json_backend_validated"
                     if plan_schema
-                    else ("json_schema_strict" if response_schema is not None else "none")
+                    else (
+                        "json_object_backend_validated"
+                        if json_object_mode
+                        else ("json_schema_strict" if response_schema is not None else "none")
+                    )
                 ),
             )
 
@@ -212,6 +223,7 @@ class GroqProvider:
                     if (
                         response_schema is not None
                         and not plan_schema
+                        and not json_object_mode
                         and error_code == "json_validate_failed"
                         and attempt == 0
                     ):

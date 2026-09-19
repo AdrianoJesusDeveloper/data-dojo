@@ -28,6 +28,7 @@ import { toast, Toaster } from "sonner";
 
 import { DojoHeader } from "@/components/DojoHeader";
 import { Teleprompter } from "@/components/content-studio/Teleprompter";
+import { StudioSection, type StudioSectionExportFormat } from "@/components/content-studio/StudioSection";
 import { downloadFilename } from "@/lib/download-filename";
 import { EditorialPlanEditor } from "@/components/content-studio/EditorialPlanEditor";
 import { EditorialContentRenderer, EditorialPlanRenderer } from "@/components/content-studio/EditorialPlanRenderer";
@@ -121,6 +122,7 @@ type StudioProvider = {
   available: boolean;
   structured_output: boolean;
   selectable_for_plan: boolean;
+  selectable_for_content: boolean;
 };
 
 type StudioProviderCatalog = {
@@ -233,6 +235,7 @@ export default function ContentStudio() {
   const [teleprompterId, setTeleprompterId] = useState<number | null>(null);
   const [exportingPlanFormat, setExportingPlanFormat] = useState<"pdf" | "docx" | "pptx" | null>(null);
   const [exportingCouncilFormat, setExportingCouncilFormat] = useState<"pdf" | "docx" | "pptx" | null>(null);
+  const [exportingSection, setExportingSection] = useState<{ section: string; format: StudioSectionExportFormat } | null>(null);
   const [commentText, setCommentText] = useState("");
   const [commentTarget, setCommentTarget] = useState("plan:");
   const [contentTarget, setContentTarget] = useState("");
@@ -244,6 +247,7 @@ export default function ContentStudio() {
   const [dossierInheritReferences, setDossierInheritReferences] = useState(false);
   const [dossierPreparedForProject, setDossierPreparedForProject] = useState<number | null>(null);
   const [selectedPlanProvider, setSelectedPlanProvider] = useState("");
+  const [selectedContentProvider, setSelectedContentProvider] = useState("");
   const [planPreflight, setPlanPreflight] = useState<PlanPreflight | null>(null);
   const isLocal = useMemo(() => localOrigin(API_ORIGIN), []);
 
@@ -360,6 +364,24 @@ export default function ContentStudio() {
   }, [researchDetailQuery.data, selectedProject?.id, dossierPreparedForProject]);
   const selectedBookData = booksQuery.data?.find((book) => book.id === Number(selectedBook));
   const selectedPlanProviderData = providersQuery.data?.providers.find((provider) => provider.id === selectedPlanProvider) ?? null;
+  const selectedContentProviderData = providersQuery.data?.providers.find((provider) => provider.id === selectedContentProvider) ?? null;
+
+  useEffect(() => {
+    const catalog = providersQuery.data;
+    if (!catalog) return;
+
+    const current = catalog.providers.find(
+      (provider) => provider.id === selectedContentProvider && provider.selectable_for_content,
+    );
+    if (current) return;
+
+    const configuredDefault = catalog.providers.find(
+      (provider) => provider.id === catalog.default_provider && provider.selectable_for_content,
+    );
+    const fallback = catalog.providers.find((provider) => provider.selectable_for_content);
+    setSelectedContentProvider(configuredDefault?.id ?? fallback?.id ?? "");
+  }, [providersQuery.data, selectedContentProvider]);
+
   const planPreflightReady = Boolean(
     planPreflight?.ready &&
     selectedProject?.id === planPreflight.project_id &&
@@ -561,11 +583,48 @@ export default function ContentStudio() {
 
   const generateItemMutation = useMutation({
     mutationFn: async () => {
+      if (!selectedContentProvider) throw new Error("missing-provider");
       const [target_type, index] = contentTarget.split(":");
-      return (await api.post(`/api/library/studio/projects/${selectedProject!.id}/generate-content/`, { target_type, target_index: Number(index) })).data;
+      return (
+        await api.post(`/api/library/studio/projects/${selectedProject!.id}/generate-content/`, {
+          target_type,
+          target_index: Number(index),
+          provider: selectedContentProvider,
+        })
+      ).data;
     },
-    onSuccess: () => { toast.success("Conteúdo editorial gerado como draft."); refreshProjects(); },
-    onError: (error: any) => toast.error(error.response?.data?.detail || "Não foi possível gerar o item."),
+    onSuccess: () => {
+      toast.success(`Conteúdo editorial gerado como draft com ${selectedContentProviderData?.label ?? selectedContentProvider}.`);
+      refreshProjects();
+    },
+    onError: (error: any) => {
+      if (error.message === "missing-provider") {
+        toast.error("Selecione um provider para gerar o conteúdo.");
+        return;
+      }
+
+      const errorCode = error.response?.data?.error_code;
+      const providerId = error.response?.data?.provider || selectedContentProvider;
+      const providerLabel =
+        providersQuery.data?.providers.find((provider) => provider.id === providerId)?.label ||
+        providerId ||
+        "provider";
+
+      if (errorCode === "rate_limit") {
+        toast.error(`${providerLabel} atingiu o limite da API. Aguarde ou selecione outro provider.`);
+        return;
+      }
+      if (errorCode === "provider_unavailable") {
+        toast.error(`${providerLabel} não está configurado neste ambiente.`);
+        return;
+      }
+      if (errorCode === "payload_too_large" || error.response?.status === 413) {
+        toast.error(`O conteúdo excedeu o limite aceito por ${providerLabel}.`);
+        return;
+      }
+
+      toast.error(error.response?.data?.detail || "Não foi possível gerar o item.");
+    },
   });
 
   const artifactMutation = useMutation({
@@ -628,6 +687,42 @@ export default function ContentStudio() {
       toast.error(error.response?.status === 404 ? "Relatório do Conselho não encontrado." : "Não foi possível exportar o relatório do Conselho.");
     } finally {
       setExportingCouncilFormat(null);
+    }
+  };
+
+  const downloadStudioSection = async (
+    section: string,
+    format: "html" | StudioSectionExportFormat,
+  ) => {
+    if (!selectedProject?.id) return;
+    try {
+      if (format !== "html") setExportingSection({ section, format });
+      const response = await api.get<Blob>(
+        `/api/library/studio/projects/${selectedProject.id}/section-export/${section}/${format}/`,
+        { responseType: "blob" },
+      );
+      const disposition = response.headers?.["content-disposition"] as string | undefined;
+      const filename = downloadFilename(
+        disposition,
+        `content-studio-${selectedProject.id}-${section}.${format}`,
+      );
+      const url = URL.createObjectURL(response.data);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast.success(
+        format === "html"
+          ? "Snapshot da seção salvo em HTML."
+          : `${format.toUpperCase()} da seção exportado com sucesso.`,
+      );
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || "Não foi possível exportar esta seção.");
+    } finally {
+      if (format !== "html") setExportingSection(null);
     }
   };
 
@@ -764,6 +859,7 @@ export default function ContentStudio() {
                 <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <CardTitle>Catálogo privado</CardTitle>
+                    <a href="/library/" className="text-sm text-primary underline">Abrir Biblioteca visual e leitor</a>
                     <CardDescription>{sourceCount} {sourceCount === 1 ? "livro encontrado" : "livros encontrados"} sem expor caminhos absolutos.</CardDescription>
                   </div>
                   <div className="relative w-full sm:w-72">
@@ -945,8 +1041,16 @@ export default function ContentStudio() {
                     <div className="space-y-5">
                       <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap items-center gap-3"><Badge>{selectedProject.status}</Badge><h3 className="font-display text-xl font-bold">{selectedProject.title}</h3></div><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => archiveMutation.mutate(!selectedProject.is_archived)}><Archive />{selectedProject.is_archived ? "Restaurar" : "Arquivar projeto"}</Button>{selectedProject.is_archived && <Button size="sm" variant="destructive" onClick={() => permanentDeleteMutation.mutate()}><Trash2 />Excluir definitivamente</Button>}</div></div>
                       <p className="text-sm text-muted-foreground">{selectedProject.objective}</p>
-                      <section className="rounded-lg border p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-bold">PESQUISA FUNDAMENTADA</p><p className="text-xs text-muted-foreground">{selectedProject.research_policy} · intenção preservada: {selectedProject.original_intent}</p></div><Button disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate({ projectId: selectedProject.id, action: "research" })}><Search />Pesquisar / Construir contexto</Button></div>
+                      <StudioSection
+                        id="studio-research"
+                        title="PESQUISA FUNDAMENTADA"
+                        subtitle={`${selectedProject.research_policy} · intenção preservada: ${selectedProject.original_intent}`}
+                        defaultOpen={false}
+                        onSave={() => void downloadStudioSection("research", "html")}
+                        onExport={(format) => void downloadStudioSection("research", format)}
+                        exportingFormat={exportingSection?.section === "research" ? exportingSection.format : null}
+                        actions={<Button disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate({ projectId: selectedProject.id, action: "research" })}><Search />Pesquisar / Construir contexto</Button>}
+                      >
                         {selectedProject.research_context && (
                           <div className="mt-4 space-y-3">
                             <div className="grid gap-3 sm:grid-cols-4">
@@ -1008,20 +1112,31 @@ export default function ContentStudio() {
                             </details>
                           </div>
                         )}
-                      </section>
+                      </StudioSection>
                                              {selectedProject.research_context && (
-                         <section className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-                           <div className="flex flex-wrap items-start justify-between gap-3">
-                             <div><p className="font-bold">PREPARAÇÃO DO DOSSIÊ</p><p className="mt-1 text-xs text-muted-foreground">A pesquisa propõe; você revisa conteúdo e evidências antes de persistir uma nova versão.</p></div>
-                             {latestDossierVersion && <div className="flex items-center gap-2"><Badge variant="outline">v{latestDossierVersion.version}</Badge><Badge>{latestDossierVersion.status}</Badge></div>}
-                           </div>
-                           {researchDetailQuery.isLoading ? <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" />Preparando proposta editável...</p> : researchDetailQuery.isError ? <Alert variant="destructive" className="mt-4"><AlertTriangle className="h-4 w-4" /><AlertTitle>Preparação indisponível</AlertTitle><AlertDescription>{(researchDetailQuery.error as any)?.response?.data?.detail || "Não foi possível preparar o Dossiê a partir desta pesquisa."}</AlertDescription></Alert> : researchDetailQuery.data?.dossier_preparation && <div className="mt-4 space-y-4">
-                             <div><label className="text-xs font-bold uppercase tracking-wide text-muted-foreground" htmlFor="dossier-editor">Conteúdo editável · JSON estruturado</label><Textarea id="dossier-editor" className="mt-2 min-h-72 font-mono text-xs" value={dossierDraftText} onChange={(event) => setDossierDraftText(event.target.value)} /></div>
+                         <StudioSection
+                           id="studio-dossier"
+                           title="DOSSIÊ"
+                           subtitle="Confira a proposta, evidências e versões antes da aprovação."
+                           defaultOpen={false}
+                           onSave={() => void downloadStudioSection("dossier", "html")}
+                           onExport={(format) => void downloadStudioSection("dossier", format)}
+                           exportingFormat={exportingSection?.section === "dossier" ? exportingSection.format : null}
+                           actions={latestDossierVersion ? <div className="flex items-center gap-2"><Badge variant="outline">v{latestDossierVersion.version}</Badge><Badge>{latestDossierVersion.status}</Badge></div> : undefined}
+                         >
+                           {researchDetailQuery.isLoading ? <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" />Preparando proposta do Dossiê...</p> : researchDetailQuery.isError ? <Alert variant="destructive" className="mt-4"><AlertTriangle className="h-4 w-4" /><AlertTitle>Preparação indisponível</AlertTitle><AlertDescription>{(researchDetailQuery.error as any)?.response?.data?.detail || "Não foi possível preparar o Dossiê a partir desta pesquisa."}</AlertDescription></Alert> : researchDetailQuery.data?.dossier_preparation && <div className="mt-4 space-y-4">
+                             <div className="rounded-md border bg-background p-4">
+                               <div className="mb-3">
+                                 <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Prévia do Dossiê</p>
+                                 <p className="mt-1 text-xs text-muted-foreground">A estrutura técnica continua preservada internamente, sem expor JSON para edição manual.</p>
+                               </div>
+                               <EditorialContentRenderer value={researchDetailQuery.data.dossier_preparation.content} />
+                             </div>
                              <div><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Evidências selecionadas</p><div className="mt-2 space-y-2">{researchDetailQuery.data.evidence.filter((item) => item.source_kind !== "GAP").map((item) => <label key={item.id} className="flex cursor-pointer items-start gap-3 rounded-md border bg-background p-3"><input type="checkbox" className="mt-1" checked={dossierEvidenceIds.includes(item.id)} onChange={(event) => setDossierEvidenceIds((current) => event.target.checked ? [...new Set([...current, item.id])] : current.filter((id) => id !== item.id))} /><span className="min-w-0"><span className="flex flex-wrap items-center gap-2"><Badge variant="outline">{item.source_kind}</Badge><strong className="text-sm">{item.title || `Evidência #${item.id}`}</strong></span><span className="mt-1 block line-clamp-2 text-xs text-muted-foreground">{item.excerpt}</span></span></label>)}</div></div>
                              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dossierInheritReferences} onChange={(event) => setDossierInheritReferences(event.target.checked)} />Herdar referências da versão anterior</label>
-                             <div className="flex flex-wrap items-center gap-3"><Button disabled={!dossierDraftText.trim() || createDossierMutation.isPending} onClick={() => createDossierMutation.mutate()}>{createDossierMutation.isPending ? <LoaderCircle className="animate-spin" /> : <Save />}Criar nova versão DRAFT</Button><span className="text-xs text-muted-foreground">Base esperada: v{dossierExpectedVersion}. Nada é persistido antes deste clique.</span></div>
+                             <div className="flex flex-wrap items-center gap-3"><Button disabled={!dossierDraftText.trim() || createDossierMutation.isPending} onClick={() => createDossierMutation.mutate()}>{createDossierMutation.isPending ? <LoaderCircle className="animate-spin" /> : <Save />}Criar nova versão DRAFT</Button><span className="text-xs text-muted-foreground">Nada é persistido antes deste clique.</span></div>
                            </div>}
-                         </section>
+                         </StudioSection>
                        )}
                        {!!dossierVersionsQuery.data?.length && (
                          <section className="rounded-lg border p-4">
@@ -1170,64 +1285,201 @@ export default function ContentStudio() {
                         </section>
                       )}
                       {selectedProject.modernization_plan && (
-                        <div className="space-y-4 rounded-lg border p-4">
-                          <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-                            <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-kaizen">{planView === "editorial" ? "Visão editorial" : "Visão técnica / JSON"}</p><p className="mt-1 text-xs text-muted-foreground">O objeto estruturado permanece preservado como formato interno.</p></div>
-                            <div className="no-print flex flex-wrap items-center gap-1 rounded-lg border p-1" role="group" aria-label="Ações do plano editorial">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={!editingPlan || JSON.stringify(editingPlan) === JSON.stringify(selectedProject.modernization_plan.proposed_architecture) || savePlanMutation.isPending}
-                                onClick={() => savePlanMutation.mutate()}
-                                title={editingPlan ? "Salvar uma nova versão do plano" : "Entre no modo de edição para salvar alterações"}
-                              >
-                                {savePlanMutation.isPending ? <LoaderCircle className="animate-spin" /> : <Save />}
-                                Salvar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant={readingMode ? "default" : "ghost"}
-                                onClick={() => {
-                                  setReadingMode((value) => !value);
-                                  setPlanView("editorial");
-                                  setStudentPreview(false);
-                                  setEditingPlan(null);
-                                }}
-                              >
-                                <BookOpen />{readingMode ? "Sair do modo leitura" : "Modo leitura"}
-                              </Button>
-                              <Button size="sm" variant="ghost" disabled={!!editingPlan} onClick={() => { flushSync(() => { setReadingMode(true); setStudentPreview(false); }); window.print(); }}><Printer />Imprimir</Button>
-                              <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
-                              {(["pdf", "docx", "pptx"] as const).map((format) => (
-                                <Button
-                                  key={format}
-                                  size="sm"
-                                  variant="ghost"
-                                  disabled={exportingPlanFormat !== null}
-                                  onClick={() => void downloadPlan(format)}
-                                >
-                                  {exportingPlanFormat === format ? <LoaderCircle className="animate-spin" /> : <FileText />}
-                                  {format.toUpperCase()}
-                                </Button>
-                              ))}
-                              <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
-                              <Button size="sm" variant={planView === "editorial" && !studentPreview ? "default" : "ghost"} onClick={() => { setPlanView("editorial"); setStudentPreview(false); setReadingMode(false); }}>Visão editorial</Button>
-                              <Button size="sm" variant={planView === "technical" ? "default" : "ghost"} onClick={() => { setPlanView("technical"); setStudentPreview(false); setReadingMode(false); }}>Visão técnica / JSON</Button>
-                              <Button size="sm" variant="ghost" onClick={() => { setEditingPlan(structuredClone(selectedProject.modernization_plan.proposed_architecture)); setReadingMode(false); setStudentPreview(false); }}><Pencil />Editar plano</Button>
-                              <Button size="sm" variant={studentPreview ? "default" : "ghost"} onClick={() => { setStudentPreview((value) => !value); setReadingMode(false); setEditingPlan(null); }}><Eye />Visualizar como aluno</Button>
+                        <StudioSection
+                          id="studio-editorial-view"
+                          title="VISÃO EDITORIAL"
+                          subtitle="Plano editorial estruturado, com leitura, impressão e exportação."
+                          defaultOpen
+                          onSave={() => {
+                            const changed = editingPlan && JSON.stringify(editingPlan) !== JSON.stringify(selectedProject.modernization_plan.proposed_architecture);
+                            if (changed) savePlanMutation.mutate();
+                            else void downloadStudioSection("editorial_view", "html");
+                          }}
+                          saveDisabled={Boolean(editingPlan) && (JSON.stringify(editingPlan) === JSON.stringify(selectedProject.modernization_plan.proposed_architecture) || savePlanMutation.isPending)}
+                          onExport={(format) => void downloadPlan(format)}
+                          exportingFormat={exportingPlanFormat}
+                          actions={
+                            <>
+                              <Button size="sm" variant={planView === "editorial" && !studentPreview ? "default" : "ghost"} onClick={() => { setPlanView("editorial"); setStudentPreview(false); setEditingPlan(null); }}>Visão editorial</Button>
+                              <Button size="sm" variant={planView === "technical" ? "default" : "ghost"} onClick={() => { setPlanView("technical"); setStudentPreview(false); setEditingPlan(null); }}>Visão técnica / JSON</Button>
+                              <Button size="sm" variant="ghost" onClick={() => { setEditingPlan(structuredClone(selectedProject.modernization_plan.proposed_architecture)); setStudentPreview(false); }}><Pencil />Editar plano</Button>
+                              <Button size="sm" variant={studentPreview ? "default" : "ghost"} onClick={() => { setStudentPreview((value) => !value); setEditingPlan(null); }}><Eye />Visualizar como aluno</Button>
+                            </>
+                          }
+                        >
+                          {editingPlan ? (
+                            <div className="space-y-4">
+                              <EditorialPlanEditor value={editingPlan} onChange={setEditingPlan} />
+                              <div className="flex gap-3"><Button variant="outline" onClick={() => setEditingPlan(null)}>Cancelar edição</Button></div>
                             </div>
-                          </div>
-                          {editingPlan ? <div className="space-y-4"><EditorialPlanEditor value={editingPlan} onChange={setEditingPlan} /><div className="flex gap-3"><Button variant="outline" onClick={() => setEditingPlan(null)}>Cancelar edição</Button></div></div> : readingMode ? <div className="editorial-print-area mx-auto max-w-4xl rounded-xl bg-background p-6 sm:p-10"><div className="mb-6 border-b pb-4"><p className="text-xs font-bold uppercase tracking-[0.2em] text-kaizen">Modo leitura</p><h3 className="mt-2 font-display text-2xl font-bold">{selectedProject.title}</h3><p className="mt-2 text-sm text-muted-foreground">{selectedProject.objective}</p></div><EditorialPlanRenderer plan={selectedProject.modernization_plan} projectType={selectedProject.project_type} citations={selectedProject.citations} /></div> : studentPreview ? <div className="student-preview rounded-xl bg-background p-6"><p className="mb-5 text-xs font-bold uppercase tracking-widest text-kaizen">Prévia do aluno · não publicada</p><EditorialPlanRenderer plan={selectedProject.modernization_plan} projectType={selectedProject.project_type} citations={selectedProject.citations} /></div> : planView === "editorial" ? <div className="editorial-print-area"><EditorialPlanRenderer plan={selectedProject.modernization_plan} projectType={selectedProject.project_type} citations={selectedProject.citations} /></div> : <JsonSummary title="Plano estruturado" value={selectedProject.modernization_plan} />}
-                          {selectedProject.modernization_plan.status !== "approved" && !editingPlan && <div className="no-print flex flex-wrap gap-3"><Button onClick={() => workflowMutation.mutate({ projectId: selectedProject.id, action: "approve", payload: { decision: "approved", notes: "Plano revisado e aprovado no Content Studio." } })}><CheckCircle2 /> Aprovar plano</Button><Button variant="outline" onClick={() => workflowMutation.mutate({ projectId: selectedProject.id, action: "approve", payload: { decision: "revision", notes: "Revisar o plano antes de prosseguir." } })}>Solicitar revisão</Button></div>}
-                        </div>
+                          ) : studentPreview ? (
+                            <div className="student-preview rounded-xl bg-background p-6">
+                              <p className="mb-5 text-xs font-bold uppercase tracking-widest text-kaizen">Prévia do aluno · não publicada</p>
+                              <EditorialPlanRenderer
+                                plan={selectedProject.modernization_plan}
+                                projectType={selectedProject.project_type}
+                                citations={selectedProject.citations}
+                                onSectionSave={(section) => void downloadStudioSection(section, "html")}
+                                onSectionExport={(section, format) => void downloadStudioSection(section, format)}
+                                exportingSection={exportingSection}
+                              />
+                            </div>
+                          ) : planView === "editorial" ? (
+                            <div className="editorial-print-area">
+                              <EditorialPlanRenderer
+                                plan={selectedProject.modernization_plan}
+                                projectType={selectedProject.project_type}
+                                citations={selectedProject.citations}
+                                onSectionSave={(section) => void downloadStudioSection(section, "html")}
+                                onSectionExport={(section, format) => void downloadStudioSection(section, format)}
+                                exportingSection={exportingSection}
+                              />
+                            </div>
+                          ) : (
+                            <JsonSummary title="Plano estruturado" value={selectedProject.modernization_plan} />
+                          )}
+
+                          {selectedProject.modernization_plan.status !== "approved" && !editingPlan && (
+                            <div className="no-print mt-4 flex flex-wrap gap-3">
+                              <Button onClick={() => workflowMutation.mutate({ projectId: selectedProject.id, action: "approve", payload: { decision: "approved", notes: "Plano revisado e aprovado no Content Studio." } })}><CheckCircle2 /> Aprovar plano</Button>
+                              <Button variant="outline" onClick={() => workflowMutation.mutate({ projectId: selectedProject.id, action: "approve", payload: { decision: "revision", notes: "Revisar o plano antes de prosseguir." } })}>Solicitar revisão</Button>
+                            </div>
+                          )}
+                        </StudioSection>
                       )}
                       {!!versionsQuery.data?.length && <details className="no-print rounded-lg border p-4"><summary className="flex cursor-pointer list-none items-center gap-2 font-bold"><History className="h-4 w-4" />Histórico do plano ({versionsQuery.data.length})</summary><div className="mt-3 space-y-2">{versionsQuery.data.map((version) => <details key={version.id} className="rounded-md border p-3"><summary className="cursor-pointer text-sm font-semibold">Plano v{version.version} · {version.origin} · {version.state}</summary><p className="mt-1 text-xs text-muted-foreground">{version.created_by_name} · {new Date(version.created_at).toLocaleString("pt-BR")}</p><JsonSummary title={`Conteúdo da versão ${version.version}`} value={version.content} /></details>)}</div></details>}
                       <section className="no-print rounded-lg border p-4"><h4 className="flex items-center gap-2 font-bold"><MessageSquare className="h-4 w-4" />Comentários editoriais</h4><div className="mt-3 flex flex-wrap gap-2"><select aria-label="Alvo do comentário" value={commentTarget} onChange={(event) => setCommentTarget(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">{commentTargets(selectedProject).map((target) => <option key={target.value} value={target.value}>{target.label}</option>)}</select><Input className="min-w-56 flex-1" placeholder="Adicionar comentário" value={commentText} onChange={(event) => setCommentText(event.target.value)} /><Button disabled={!commentText.trim() || commentMutation.isPending} onClick={() => commentMutation.mutate()}>Adicionar comentário</Button></div><div className="mt-3 space-y-2">{(selectedProject.editorial_comments ?? []).map((comment) => <div key={comment.id} className={`rounded-md border p-3 text-sm ${comment.resolved ? "opacity-60" : ""}`}><div className="flex justify-between gap-3"><p><strong>{comment.author_name}</strong> · {comment.target}</p>{!comment.resolved && <Button size="sm" variant="ghost" onClick={() => resolveCommentMutation.mutate(comment.id)}>Resolver</Button>}</div><p className="mt-1 whitespace-pre-wrap">{comment.text}</p></div>)}</div></section>
-                      {selectedProject.modernization_plan?.status === "approved" && <CouncilPanel projectId={selectedProject.id} projectTitle={selectedProject.title} projectObjective={selectedProject.objective} runs={councilQuery.data ?? []} loading={councilQuery.isLoading || councilMutation.isPending} exportingFormat={exportingCouncilFormat} onExport={(runId, format) => void downloadCouncilReport(runId, format)} onAction={(args) => councilMutation.mutate(args)} />}
-                      {selectedProject.modernization_plan?.status === "approved" && <section className="no-print rounded-lg border border-kaizen/30 bg-kaizen/5 p-4"><p className="font-bold text-kaizen">Gerar conteúdo editorial</p><p className="mt-1 text-xs text-muted-foreground">Escolha uma aula, módulo ou vídeo. O resultado fica em draft e não é publicado no Workspace.</p><div className="mt-3 flex flex-wrap gap-3"><select aria-label="Item para geração" value={contentTarget} onChange={(event) => setContentTarget(event.target.value)} className="h-10 min-w-64 rounded-md border border-input bg-background px-3 text-sm"><option value="">Selecione um item</option>{contentTargets(selectedProject).map((target: { value: string; label: string }) => <option key={target.value} value={target.value}>{target.label}</option>)}</select><Button disabled={!contentTarget || generateItemMutation.isPending} onClick={() => generateItemMutation.mutate()}><Sparkles />Gerar conteúdo</Button></div></section>}
+                      {selectedProject.modernization_plan?.status === "approved" && <CouncilPanel projectId={selectedProject.id} projectTitle={selectedProject.title} projectObjective={selectedProject.objective} runs={councilQuery.data ?? []} loading={councilQuery.isLoading || councilMutation.isPending} exportingFormat={exportingCouncilFormat} onSave={() => void downloadStudioSection("council", "html")} onExport={(runId, format) => void downloadCouncilReport(runId, format)} onAction={(args) => councilMutation.mutate(args)} />}
+                      {selectedProject.modernization_plan?.status === "approved" && (
+                        <StudioSection
+                          id="studio-editorial-content"
+                          title="CONTEÚDO EDITORIAL"
+                          subtitle="Escolha o provider e uma aula, módulo ou vídeo. O resultado fica em draft e não é publicado no Workspace."
+                          defaultOpen
+                          className="border-kaizen/30 bg-kaizen/5"
+                          onSave={() => void downloadStudioSection("editorial_content", "html")}
+                          onExport={(format) => void downloadStudioSection("editorial_content", format)}
+                          exportingFormat={exportingSection?.section === "editorial_content" ? exportingSection.format : null}
+                          actions={providersQuery.data?.default_provider ? <Badge variant="outline">Padrão: {providersQuery.data.providers.find((provider) => provider.id === providersQuery.data?.default_provider)?.label ?? providersQuery.data.default_provider}</Badge> : undefined}
+                        >
+                          <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_auto] lg:items-end">
+                            <label className="space-y-1.5 text-sm">
+                              <span className="font-medium">Provider</span>
+                              <select
+                                aria-label="Provider para geração do conteúdo"
+                                value={selectedContentProvider}
+                                onChange={(event) => setSelectedContentProvider(event.target.value)}
+                                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                              >
+                                <option value="">Selecione um provider</option>
+                                {(providersQuery.data?.providers ?? []).map((provider) => (
+                                  <option key={provider.id} value={provider.id} disabled={!provider.selectable_for_content}>
+                                    {provider.label} — {provider.model}{provider.selectable_for_content ? "" : " — indisponível para conteúdo"}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="space-y-1.5 text-sm">
+                              <span className="font-medium">Conteúdo</span>
+                              <select
+                                aria-label="Item para geração"
+                                value={contentTarget}
+                                onChange={(event) => setContentTarget(event.target.value)}
+                                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                              >
+                                <option value="">Selecione um item</option>
+                                {contentTargets(selectedProject).map((target: { value: string; label: string }) => (
+                                  <option key={target.value} value={target.value}>{target.label}</option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <Button
+                              disabled={
+                                !contentTarget ||
+                                !selectedContentProvider ||
+                                !selectedContentProviderData?.selectable_for_content ||
+                                generateItemMutation.isPending
+                              }
+                              onClick={() => generateItemMutation.mutate()}
+                            >
+                              {generateItemMutation.isPending ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+                              Gerar conteúdo
+                            </Button>
+                          </div>
+
+                          {selectedContentProviderData && (
+                            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                              <Badge variant={selectedContentProviderData.available ? "default" : "destructive"}>
+                                {selectedContentProviderData.available ? "Configurado localmente" : "Não configurado"}
+                              </Badge>
+                              <Badge variant="outline">{selectedContentProviderData.model}</Badge>
+                              <Badge variant="outline">
+                                Structured Output: {selectedContentProviderData.structured_output ? "sim" : "não"}
+                              </Badge>
+                            </div>
+                          )}
+                        </StudioSection>
+                      )}
                       {isFormationFlow(selectedProject.project_type) && selectedProject.modernization_plan?.status === "approved" && <section className="rounded-lg border border-primary/30 p-4"><p className="font-bold">FORMAÇÃO EXECUTÁVEL</p><p className="mt-1 text-xs text-muted-foreground">Sincroniza o plano aprovado com SenseiFormation sem publicar aulas automaticamente.</p><Button className="mt-3" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate({ projectId: selectedProject.id, action: "materialize-formation" })}><GraduationCap />{selectedProject.formation_link ? `Sincronizar formação #${selectedProject.formation_link.formation}` : "Materializar formação"}</Button></section>}
-                      {!!selectedProject.artifacts?.length && <section className="rounded-lg border p-4"><p className="font-bold">ARTEFATOS EDITORIAIS</p><div className="mt-3 space-y-3">{selectedProject.artifacts.map((artifact) => <article key={artifact.id} className="rounded border bg-background p-3"><div className="flex flex-wrap items-center gap-2"><Badge>{artifact.status}</Badge><strong>{artifact.artifact_type}</strong><span className="text-xs text-muted-foreground">plano v{artifact.plan_version} · geração {artifact.generation}</span></div><div className="mt-2"><EditorialContentRenderer value={artifact.content} /></div><div className="mt-3 flex flex-wrap gap-2">{artifact.status === "DRAFT" && <Button size="sm" onClick={() => artifactMutation.mutate({ artifactId: artifact.id, status: "REVIEW" })}>Enviar para revisão</Button>}{artifact.status === "REVIEW" && <><Button size="sm" onClick={() => artifactMutation.mutate({ artifactId: artifact.id, status: "APPROVED" })}>Aprovar artefato</Button><Button size="sm" variant="outline" onClick={() => artifactMutation.mutate({ artifactId: artifact.id, status: "DRAFT" })}>Retornar a draft</Button></>}{artifact.status !== "DRAFT" && <><Button size="sm" variant="outline" onClick={() => void downloadArtifact(artifact.id, "docx")}>DOCX</Button><Button size="sm" variant="outline" onClick={() => void downloadArtifact(artifact.id, "html")}>HTML</Button>{["YOUTUBE_PACKAGE", "PREMIUM_CONTENT"].includes(artifact.artifact_type) && typeof artifact.content.teleprompter_text === "string" && artifact.content.teleprompter_text.trim() && <Button size="sm" variant="outline" onClick={() => setTeleprompterId(artifact.id)}>Teleprompter</Button>}</>}</div></article>)}</div></section>}
-                      {!!selectedProject.content_package?.generated_items?.length && <section className="rounded-lg border border-kaizen/30 bg-kaizen/5 p-4"><p className="font-bold text-kaizen">Histórico de gerações</p><p className="mt-1 text-xs text-muted-foreground">Registro original de cada geração. O status atual de revisão e aprovação aparece em Artefatos editoriais.</p><div className="mt-4 space-y-4">{selectedProject.content_package.generated_items.map((item: any) => <article key={item.id ?? `${item.target_type}-${item.target_id}-${item.generation}`} className="rounded-lg border bg-background p-4"><Badge variant="outline">{item.target_type} {item.target_index + 1} · plano v{item.plan_version ?? "legado"} · geração {item.generation ?? "legada"}</Badge><div className="mt-3"><EditorialContentRenderer value={item.content} /></div></article>)}</div></section>}
+                      {!!selectedProject.artifacts?.length && (
+                        <StudioSection
+                          id="studio-artifacts"
+                          title="ARTEFATOS EDITORIAIS"
+                          subtitle="Revisão, aprovação, exportação e acesso ao Teleprompter."
+                          defaultOpen
+                          onSave={() => void downloadStudioSection("artifacts", "html")}
+                          onExport={(format) => void downloadStudioSection("artifacts", format)}
+                          exportingFormat={exportingSection?.section === "artifacts" ? exportingSection.format : null}
+                        >
+                          <div className="space-y-3">
+                            {selectedProject.artifacts.map((artifact) => (
+                              <article key={artifact.id} className="rounded border bg-background p-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge>{artifact.status}</Badge>
+                                  <strong>{artifact.artifact_type}</strong>
+                                  <span className="text-xs text-muted-foreground">plano v{artifact.plan_version} · geração {artifact.generation}</span>
+                                </div>
+                                <div className="mt-2"><EditorialContentRenderer value={artifact.content} /></div>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {artifact.status === "DRAFT" && <Button size="sm" onClick={() => artifactMutation.mutate({ artifactId: artifact.id, status: "REVIEW" })}>Enviar para revisão</Button>}
+                                  {artifact.status === "REVIEW" && <>
+                                    <Button size="sm" onClick={() => artifactMutation.mutate({ artifactId: artifact.id, status: "APPROVED" })}>Aprovar artefato</Button>
+                                    <Button size="sm" variant="outline" onClick={() => artifactMutation.mutate({ artifactId: artifact.id, status: "DRAFT" })}>Retornar a draft</Button>
+                                  </>}
+                                  {artifact.status !== "DRAFT" && <>
+                                    <Button size="sm" variant="outline" onClick={() => void downloadArtifact(artifact.id, "docx")}>DOCX</Button>
+                                    <Button size="sm" variant="outline" onClick={() => void downloadArtifact(artifact.id, "html")}>HTML</Button>
+                                    {typeof artifact.content.teleprompter_text === "string" && artifact.content.teleprompter_text.trim() && <Button size="sm" variant="outline" onClick={() => setTeleprompterId(artifact.id)}>Teleprompter</Button>}
+                                  </>}
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        </StudioSection>
+                      )}
+                      {!!selectedProject.content_package?.generated_items?.length && (
+                        <StudioSection
+                          id="studio-generations"
+                          title="HISTÓRICO DE GERAÇÕES"
+                          subtitle="Registro original de cada geração. O status atual aparece em Artefatos editoriais."
+                          defaultOpen={false}
+                          className="border-kaizen/30 bg-kaizen/5"
+                          onSave={() => void downloadStudioSection("generations", "html")}
+                          onExport={(format) => void downloadStudioSection("generations", format)}
+                          exportingFormat={exportingSection?.section === "generations" ? exportingSection.format : null}
+                        >
+                          <div className="space-y-4">
+                            {selectedProject.content_package.generated_items.map((item: any) => (
+                              <article key={item.id ?? `${item.target_type}-${item.target_id}-${item.generation}`} className="rounded-lg border bg-background p-4">
+                                <Badge variant="outline">{item.target_type} {item.target_index + 1} · plano v{item.plan_version ?? "legado"} · geração {item.generation ?? "legada"}</Badge>
+                                <div className="mt-3"><EditorialContentRenderer value={item.content} /></div>
+                              </article>
+                            ))}
+                          </div>
+                        </StudioSection>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -1251,43 +1503,97 @@ const councilRoleLabels: Record<string, string> = {
   seo: "SEO", fact_checker: "Fact-checking",
 };
 
-function CouncilPanel({ projectId, projectTitle, projectObjective, runs, loading, exportingFormat, onExport, onAction }: { projectId: number; projectTitle: string; projectObjective: string; runs: CouncilRun[]; loading: boolean; exportingFormat: "pdf" | "docx" | "pptx" | null; onExport: (runId: number, format: "pdf" | "docx" | "pptx") => void; onAction: (args: { action: "run" | "approve" | "revision"; runId?: number; projectId: number }) => void }) {
+function CouncilPanel({ projectId, projectTitle, projectObjective, runs, loading, exportingFormat, onSave, onExport, onAction }: { projectId: number; projectTitle: string; projectObjective: string; runs: CouncilRun[]; loading: boolean; exportingFormat: "pdf" | "docx" | "pptx" | null; onSave: () => void; onExport: (runId: number, format: "pdf" | "docx" | "pptx") => void; onAction: (args: { action: "run" | "approve" | "revision"; runId?: number; projectId: number }) => void }) {
   const latest = runs[0];
   const awaitingDecision = latest?.status === "awaiting_human_approval";
   const active = latest && ["queued", "running", "reviewing"].includes(latest.status);
-  const [readingReport, setReadingReport] = useState(false);
 
-  const printReport = () => {
-    flushSync(() => setReadingReport(true));
-    window.print();
-  };
+  return (
+    <StudioSection
+      id="studio-council"
+      title="CONSELHO EDITORIAL"
+      subtitle="O Sensei Editorial coordena especialistas. A IA propõe e revisa; somente uma pessoa aprova."
+      defaultOpen={false}
+      onSave={latest ? onSave : undefined}
+      onExport={latest ? (format) => onExport(latest.id, format) : undefined}
+      exportingFormat={exportingFormat}
+      exportDisabled={!latest}
+      actions={
+        <Button disabled={loading || Boolean(active)} onClick={() => onAction({ action: "run", projectId })}>
+          {loading ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+          {latest ? "Executar novo Conselho" : "Executar Conselho"}
+        </Button>
+      }
+    >
+      {!latest ? (
+        <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">Nenhuma análise executada para este projeto.</p>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge>{latest.status}</Badge>
+            <Badge variant="outline">Conselho #{latest.id}</Badge>
+            <Badge variant="outline">Plano v{latest.plan_version}</Badge>
+            <span className="text-xs text-muted-foreground">{new Date(latest.created_at).toLocaleString("pt-BR")}</span>
+          </div>
 
-  return <section className="rounded-lg border border-primary/30 bg-primary/5 p-4" aria-labelledby="editorial-council-title">
-    <div className="no-print flex flex-wrap items-start justify-between gap-3">
-      <div><h4 id="editorial-council-title" className="font-bold">CONSELHO EDITORIAL</h4><p className="mt-1 text-xs text-muted-foreground">O Sensei Editorial coordena especialistas. A IA propõe e revisa; somente uma pessoa aprova.</p></div>
-      <Button disabled={loading || Boolean(active)} onClick={() => onAction({ action: "run", projectId })}>{loading ? <LoaderCircle className="animate-spin" /> : <Sparkles />}{latest ? "Executar novo Conselho" : "Executar Conselho"}</Button>
-    </div>
-    {!latest ? <p className="no-print mt-4 rounded-md border border-dashed p-4 text-sm text-muted-foreground">Nenhuma análise executada para este projeto.</p> : <div className="mt-4 space-y-4">
-      <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-2">
-        <div className="flex flex-wrap items-center gap-2"><Badge>{latest.status}</Badge><Badge variant="outline">Conselho #{latest.id}</Badge><Badge variant="outline">Plano v{latest.plan_version}</Badge><span className="text-xs text-muted-foreground">{new Date(latest.created_at).toLocaleString("pt-BR")}</span></div>
-        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Ações do relatório do Conselho Editorial">
-          <Button size="sm" variant="ghost" onClick={() => toast.success("O relatório do Conselho já está salvo no histórico do projeto.")}><Save />Salvar</Button>
-          <Button size="sm" variant={readingReport ? "default" : "ghost"} onClick={() => setReadingReport((v) => !v)}><BookOpen />{readingReport ? "Sair do modo leitura" : "Modo leitura"}</Button>
-          <Button size="sm" variant="ghost" onClick={printReport}><Printer />Imprimir</Button>
-          <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
-          {(["pdf", "docx", "pptx"] as const).map((format) => <Button key={format} size="sm" variant="ghost" disabled={exportingFormat !== null} onClick={() => onExport(latest.id, format)}>{exportingFormat === format ? <LoaderCircle className="animate-spin" /> : <FileText />}{format.toUpperCase()}</Button>)}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {latest.agent_runs.map((agent) => (
+              <article key={agent.id} className="rounded-md border bg-background p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <strong className="text-sm">{councilRoleLabels[agent.role] ?? agent.role}</strong>
+                  <Badge variant={agent.status === "failed" ? "destructive" : "outline"}>{agent.status}</Badge>
+                </div>
+                {agent.error_code ? (
+                  <p className="mt-2 text-xs text-destructive">Falha segura: {agent.error_code}</p>
+                ) : Object.keys(agent.output_payload ?? {}).length > 0 ? (
+                  <div className="mt-2"><EditorialContentRenderer value={agent.output_payload} /></div>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">Parecer ainda não disponível.</p>
+                )}
+              </article>
+            ))}
+          </div>
+
+          {Object.keys(latest.final_synthesis ?? {}).length > 0 && (
+            <div className="rounded-md border border-kaizen/30 bg-background p-4">
+              <p className="font-bold text-kaizen">Síntese final do Sensei Editorial</p>
+              <div className="mt-3"><EditorialContentRenderer value={latest.final_synthesis} /></div>
+            </div>
+          )}
+
+          {!awaitingDecision && (
+            <div className="rounded-md border bg-background p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Decisão humana registrada</p>
+              <p className="mt-2 font-semibold">{latest.status === "revision_requested" ? "REVISÃO SOLICITADA" : latest.status === "approved" ? "APROVADO" : (latest.human_decision || latest.status).replaceAll("_", " ").toUpperCase()}</p>
+              {latest.human_decision_by && <p className="mt-1 text-xs text-muted-foreground">Responsável: {latest.human_decision_by}</p>}
+              {latest.human_decision_at && <p className="text-xs text-muted-foreground">Data: {new Date(latest.human_decision_at).toLocaleString("pt-BR")}</p>}
+            </div>
+          )}
+
+          {awaitingDecision && (
+            <div className="no-print flex flex-wrap gap-2">
+              <Button disabled={loading} onClick={() => onAction({ action: "approve", runId: latest.id, projectId })}><CheckCircle2 />Aprovar</Button>
+              <Button disabled={loading} variant="outline" onClick={() => onAction({ action: "revision", runId: latest.id, projectId })}>Solicitar revisão</Button>
+            </div>
+          )}
+
+          {runs.length > 1 && (
+            <details className="no-print">
+              <summary className="cursor-pointer text-sm font-bold">Histórico das execuções ({runs.length})</summary>
+              <div className="mt-2 space-y-2">
+                {runs.map((run) => (
+                  <details key={run.id} className="rounded-md border bg-background p-3">
+                    <summary className="cursor-pointer text-sm">Conselho #{run.id} · plano v{run.plan_version} · {run.status}</summary>
+                    <JsonSummary title="Síntese" value={run.final_synthesis} />
+                  </details>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
-      </div>
-      <div className={readingReport ? "council-print-area mx-auto max-w-4xl rounded-xl bg-background p-6 sm:p-10" : "council-print-area"}>
-        {readingReport && <div className="mb-6 border-b pb-4"><p className="text-xs font-bold uppercase tracking-[0.2em] text-kaizen">Relatório do Conselho Editorial</p><h3 className="mt-2 font-display text-2xl font-bold">{projectTitle}</h3><p className="mt-2 text-sm text-muted-foreground">{projectObjective}</p></div>}
-        <div className="grid gap-3 sm:grid-cols-2">{latest.agent_runs.map((agent) => <article key={agent.id} className="rounded-md border bg-background p-3"><div className="flex items-center justify-between gap-2"><strong className="text-sm">{councilRoleLabels[agent.role] ?? agent.role}</strong><Badge variant={agent.status === "failed" ? "destructive" : "outline"}>{agent.status}</Badge></div>{agent.error_code ? <p className="mt-2 text-xs text-destructive">Falha segura: {agent.error_code}</p> : Object.keys(agent.output_payload ?? {}).length > 0 ? <div className="mt-2"><EditorialContentRenderer value={agent.output_payload} /></div> : <p className="mt-2 text-xs text-muted-foreground">Parecer ainda não disponível.</p>}</article>)}</div>
-        {Object.keys(latest.final_synthesis ?? {}).length > 0 && <div className="mt-4 rounded-md border border-kaizen/30 bg-background p-4"><p className="font-bold text-kaizen">Síntese final do Sensei Editorial</p><div className="mt-3"><EditorialContentRenderer value={latest.final_synthesis} /></div></div>}
-        {!awaitingDecision && <div className="mt-4 rounded-md border bg-background p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Decisão humana registrada</p><p className="mt-2 font-semibold">{latest.status === "revision_requested" ? "REVISÃO SOLICITADA" : latest.status === "approved" ? "APROVADO" : (latest.human_decision || latest.status).replaceAll("_", " ").toUpperCase()}</p>{latest.human_decision_by && <p className="mt-1 text-xs text-muted-foreground">Responsável: {latest.human_decision_by}</p>}{latest.human_decision_at && <p className="text-xs text-muted-foreground">Data: {new Date(latest.human_decision_at).toLocaleString("pt-BR")}</p>}</div>}
-      </div>
-      {awaitingDecision && <div className="no-print flex flex-wrap gap-2"><Button disabled={loading} onClick={() => onAction({ action: "approve", runId: latest.id, projectId })}><CheckCircle2 />Aprovar</Button><Button disabled={loading} variant="outline" onClick={() => onAction({ action: "revision", runId: latest.id, projectId })}>Solicitar revisão</Button></div>}
-      {runs.length > 1 && <details className="no-print"><summary className="cursor-pointer text-sm font-bold">Histórico das execuções ({runs.length})</summary><div className="mt-2 space-y-2">{runs.map((run) => <details key={run.id} className="rounded-md border bg-background p-3"><summary className="cursor-pointer text-sm">Conselho #{run.id} · plano v{run.plan_version} · {run.status}</summary><JsonSummary title="Síntese" value={run.final_synthesis} /></details>)}</div></details>}
-    </div>}
-  </section>;
+      )}
+    </StudioSection>
+  );
 }
 
 function contentTargets(project: StudioProject) {

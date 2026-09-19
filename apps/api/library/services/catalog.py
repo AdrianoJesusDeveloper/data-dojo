@@ -8,8 +8,8 @@ from django.db import transaction
 from library.models import LibrarySource
 
 
-CATALOG_EXTENSIONS = {".pdf", ".epub", ".docx", ".ipynb", ".py", ".java", ".js", ".ts", ".md"}
-EXTRACTABLE_EXTENSIONS = {".pdf", ".epub"}
+CATALOG_EXTENSIONS = {".pdf", ".epub", ".docx", ".txt", ".ipynb", ".py", ".java", ".js", ".ts", ".md"}
+EXTRACTABLE_EXTENSIONS = {".pdf", ".epub", ".docx", ".txt"}
 
 
 def library_root() -> Path:
@@ -79,6 +79,8 @@ def scan_library() -> dict:
         # nenhum arquivo físico do acervo.
         if file_hash in hashes:
             duplicates += 1
+            if existing is not None:
+                seen.add(relative)
             continue
 
         hashes[file_hash] = relative

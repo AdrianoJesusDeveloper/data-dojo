@@ -4,6 +4,21 @@ import os
 import re
 import shutil
 from pathlib import Path
+from contextvars import ContextVar
+
+progress_callback = ContextVar("library_progress_callback", default=None)
+
+
+class OCRFailure(RuntimeError):
+    def __init__(self, page_number):
+        self.page_number = page_number
+        super().__init__(f"O OCR falhou na página {page_number}.")
+
+
+def report_progress(current, total, stage):
+    callback = progress_callback.get()
+    if callback:
+        callback(current, total, stage)
 
 
 def _normalize_text(text: str) -> str:
@@ -31,6 +46,7 @@ def _extract_with_pypdf(pdf_path: str) -> list[tuple[int, str]]:
         text = _normalize_text(page.extract_text() or "")
         if text:
             pages.append((page_number, text))
+        report_progress(page_number, len(reader.pages), "Extraindo páginas")
 
     return pages
 
@@ -79,6 +95,8 @@ def _extract_with_ocr(pdf_path: str) -> list[tuple[int, str]]:
 
     try:
         for page_number, page in enumerate(document, start=1):
+            if _normalize_text(page.get_text()):
+                continue
             pix = page.get_pixmap(matrix=pymupdf.Matrix(2, 2), alpha=False)
             image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
@@ -89,12 +107,13 @@ def _extract_with_ocr(pdf_path: str) -> list[tuple[int, str]]:
                     "O PDF parece ser digitalizado, mas o executável Tesseract OCR "
                     "não foi encontrado no sistema. Instale o Tesseract e adicione-o ao PATH."
                 ) from exc
-            except pytesseract.TesseractError:
-                text = pytesseract.image_to_string(image)
+            except pytesseract.TesseractError as exc:
+                raise OCRFailure(page_number) from exc
 
             text = _normalize_text(text)
             if text:
                 pages.append((page_number, text))
+            report_progress(page_number, len(document), "OCR")
     finally:
         document.close()
 
@@ -230,6 +249,10 @@ def extract_document(document_path: str) -> list[tuple[int, str]]:
 
     if extension == ".epub":
         return extract_text_from_epub(document_path)
+
+    if extension in {".docx", ".txt"}:
+        from .reader_content import flow_sections
+        return [(section["position"], section["text"]) for section in flow_sections(document_path)]
 
     raise ValueError(
         f"Formato de documento ainda não suportado: {extension or 'sem extensão'}"

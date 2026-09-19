@@ -55,6 +55,7 @@ from .services.didactic_export import build_export_snapshot, export_filename, re
 from .services.didactic_publication import DidacticPublicationError, create_preview, publish_preview
 from .services.studio_export import artifact_filename, render_artifact_docx, render_artifact_html
 from .services.studio_plan_export import MIMES as PLAN_EXPORT_MIMES, export_filename as plan_export_filename, render_plan_export
+from .services.studio_section_export import SECTION_EXPORT_MIMES, section_export_filename, render_section_export
 from .services.studio_formation import StudioFormationError, materialize_premium_formation
 from .services.studio_research import StudioResearchError, build_research_context, generate_grounded_dossier, research_prompt_context
 from ai.services import (
@@ -73,6 +74,7 @@ logger = logging.getLogger(__name__)
 
 
 PLAN_STRUCTURED_OUTPUT_PROVIDERS = {"openai", "groq"}
+CONTENT_STRUCTURED_OUTPUT_PROVIDERS = {"openai", "groq"}
 
 
 class StudioPlanProviderSelectionError(ValueError):
@@ -130,6 +132,64 @@ def _plan_provider_metadata(provider_name):
         "available": available,
         "structured_output": structured_output,
         "selectable_for_plan": available and structured_output,
+    }
+
+
+class StudioContentProviderSelectionError(ValueError):
+    def __init__(self, detail: str, *, code: str, status_code: int):
+        super().__init__(detail)
+        self.detail = detail
+        self.code = code
+        self.status_code = status_code
+
+
+def _resolve_content_provider(raw_provider):
+    if raw_provider in (None, ""):
+        raw_provider = getattr(settings, "CONTENT_STUDIO_PROVIDER", "")
+
+    if not isinstance(raw_provider, str):
+        raise StudioContentProviderSelectionError(
+            "O provider selecionado é inválido.",
+            code="invalid_provider",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    canonical = canonical_provider_name(raw_provider.strip())
+    if not canonical or canonical not in SENSEI_PROVIDER_CATALOG:
+        raise StudioContentProviderSelectionError(
+            "O provider selecionado não é reconhecido.",
+            code="invalid_provider",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if canonical not in CONTENT_STRUCTURED_OUTPUT_PROVIDERS:
+        raise StudioContentProviderSelectionError(
+            "Este provider ainda não está habilitado para geração estruturada de conteúdo.",
+            code="unsupported_for_content",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not provider_is_available(canonical):
+        raise StudioContentProviderSelectionError(
+            "O provider selecionado não está configurado neste ambiente.",
+            code="provider_unavailable",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+    return canonical
+
+
+def _content_provider_metadata(provider_name):
+    metadata = SENSEI_PROVIDER_CATALOG[provider_name]
+    available = provider_is_available(provider_name)
+    structured_output = provider_name in CONTENT_STRUCTURED_OUTPUT_PROVIDERS
+    return {
+        "id": provider_name,
+        "label": metadata["label"],
+        "model": get_provider_model(provider_name),
+        "available": available,
+        "structured_output": structured_output,
+        "selectable_for_content": available and structured_output,
     }
 
 
@@ -346,7 +406,9 @@ class StudioProviderListView(APIView):
         for provider_id, metadata in SENSEI_PROVIDER_CATALOG.items():
             canonical = canonical_provider_name(provider_id) or provider_id
             available = provider_is_available(canonical)
-            structured_output = canonical in PLAN_STRUCTURED_OUTPUT_PROVIDERS
+            plan_structured_output = canonical in PLAN_STRUCTURED_OUTPUT_PROVIDERS
+            content_structured_output = canonical in CONTENT_STRUCTURED_OUTPUT_PROVIDERS
+            structured_output = plan_structured_output or content_structured_output
 
             providers.append(
                 {
@@ -355,7 +417,8 @@ class StudioProviderListView(APIView):
                     "model": get_provider_model(canonical),
                     "available": available,
                     "structured_output": structured_output,
-                    "selectable_for_plan": available and structured_output,
+                    "selectable_for_plan": available and plan_structured_output,
+                    "selectable_for_content": available and content_structured_output,
                 }
             )
 
@@ -547,11 +610,13 @@ class LibrarySourceProcessView(APIView):
     permission_classes = [IsLocalStudioAdmin]
 
     def post(self, request, pk):
-        with transaction.atomic():
+        from .services.book_storage import identity_lock, check_duplicate
+        from .services.catalog import _sha256
+        with identity_lock():
             source = generics.get_object_or_404(
                 LibrarySource.objects.select_for_update().prefetch_related("book"), pk=pk
             )
-            if source.status != "supported" or source.extension.lower() not in {"pdf", "epub"}:
+            if source.status != "supported" or source.extension.lower() not in {"pdf", "epub", "docx", "txt"}:
                 return Response(
                     {"detail": "Esta fonte não está disponível para processamento."},
                     status=status.HTTP_409_CONFLICT,
@@ -589,7 +654,9 @@ class LibrarySourceProcessView(APIView):
                     )
 
                 if book is None:
-                    book = Book(title=Path(source.filename).stem[:255], source=source)
+                    digest = _sha256(candidate)
+                    check_duplicate(digest)
+                    book = Book(title=Path(source.filename).stem[:255], source=source, sha256=digest)
 
                 with candidate.open("rb") as stream:
                     book.file.save(Path(source.filename).name, File(stream), save=False)
@@ -1028,6 +1095,15 @@ class StudioGenerateContentView(APIView):
         serializer.is_valid(raise_exception=True)
         target_type = serializer.validated_data["target_type"]
         target_index = serializer.validated_data["target_index"]
+
+        try:
+            provider_name = _resolve_content_provider(request.data.get("provider"))
+        except StudioContentProviderSelectionError as exc:
+            return Response(
+                {"detail": exc.detail, "error_code": exc.code},
+                status=exc.status_code,
+            )
+
         plan_data = project.modernization_plan.proposed_architecture
         semantic_project_type = normalize_project_type(project.project_type)
         if semantic_project_type == "content":
@@ -1052,6 +1128,7 @@ class StudioGenerateContentView(APIView):
                 target_type,
                 target_index,
                 target,
+                provider_name=provider_name,
             )
         except AIProviderError as exc:
             logger.warning(
@@ -1060,12 +1137,25 @@ class StudioGenerateContentView(APIView):
                 project.pk,
                 target_type,
                 target_index,
-                getattr(exc, "provider", "unknown"),
+                getattr(exc, "provider", provider_name),
                 getattr(exc, "code", "unknown"),
             )
+            error_code = getattr(exc, "code", "unknown")
+            response_status = status.HTTP_503_SERVICE_UNAVAILABLE
+            if error_code == "payload_too_large":
+                response_status = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            elif error_code == "rate_limit":
+                response_status = status.HTTP_429_TOO_MANY_REQUESTS
+
             return Response(
-                {"detail": "Não foi possível gerar o pacote de conteúdo."},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                {
+                    "detail": str(exc),
+                    "provider": canonical_provider_name(
+                        getattr(exc, "provider", provider_name)
+                    ) or provider_name,
+                    "error_code": error_code,
+                },
+                status=response_status,
             )
         except (RuntimeError, ValueError) as exc:
             logger.warning(
@@ -1096,6 +1186,8 @@ class StudioGenerateContentView(APIView):
                 "plan_version": plan_version,
                 "generation": generation,
                 "status": "draft",
+                "provider": provider_name,
+                "model": get_provider_model(provider_name),
                 "content": content,
                 "created_at": timezone.now().isoformat(),
             })
@@ -1213,6 +1305,54 @@ class StudioPlanExportView(APIView):
         return response
 
 
+class StudioSectionExportView(APIView):
+    permission_classes = [IsLocalStudioAdmin]
+
+    def get(self, request, pk, section, export_format):
+        if export_format not in SECTION_EXPORT_MIMES:
+            return Response(
+                {"detail": "Formato de exportação não suportado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        project = generics.get_object_or_404(
+            StudioProject.objects.select_related(
+                "modernization_plan",
+                "research_context",
+                "content_package",
+            ).prefetch_related(
+                "research_context__evidence",
+                "dossier_versions",
+                "artifacts",
+                "council_runs__agent_runs",
+            ),
+            pk=pk,
+            created_by=request.user,
+        )
+
+        try:
+            payload = render_section_export(project, section, export_format)
+            filename = section_export_filename(project, section, export_format)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except (RuntimeError, TypeError):
+            logger.exception(
+                "Falha ao exportar seção do Content Studio project_id=%s section=%s format=%s",
+                project.pk,
+                section,
+                export_format,
+            )
+            return Response(
+                {"detail": "Não foi possível exportar esta seção do Content Studio."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        response = HttpResponse(payload, content_type=SECTION_EXPORT_MIMES[export_format])
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+
 class StudioArtifactTransitionView(APIView):
     permission_classes = [IsLocalStudioAdmin]
 
@@ -1292,6 +1432,8 @@ class BookProcessView(APIView):
     def post(self, request, pk):
         with transaction.atomic():
             book = generics.get_object_or_404(Book.objects.select_for_update(), pk=pk)
+            if book.lifecycle != "active" or book.duplicate_of_id:
+                return Response({"detail": "Restaure o livro ou processe o registro original."}, status=409)
             if book.status == "processing":
                 return Response({"detail": "Livro já está sendo processado."}, status=status.HTTP_409_CONFLICT)
             previous_state = {

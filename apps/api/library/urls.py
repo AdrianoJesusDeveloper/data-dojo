@@ -1,4 +1,5 @@
 from django.urls import path
+from .reader_api import (LibraryBooksView, LibraryBookDetailView, BookCoverView, MediaListView, MediaDetailView, MediaFileView, ReaderMetadataView, ReaderFileView, ReaderSectionView, ReaderProgressView, ReaderMarksView, ReaderMarkDetailView, ReaderSearchView)
 from .views import StudioDossierView, StudioDossierTransitionView
 
 from .views import (
@@ -6,7 +7,7 @@ from .views import (
     LibrarySourceListView, LibrarySourceProcessView, ScriptDetailView, ScriptGenerateView,
     ScriptListView, StudioApprovalView, StudioArchiveView, StudioCommentListCreateView,
     StudioCommentResolveView, StudioGenerateContentView, StudioGeneratePlanView,
-    StudioPermanentDeleteView, StudioPlanEditView, StudioPlanVersionListView, StudioPlanExportView,
+    StudioPermanentDeleteView, StudioPlanEditView, StudioPlanVersionListView, StudioPlanExportView, StudioSectionExportView,
     StudioProjectDetailView, StudioProjectListCreateView, StudioProviderCheckView, StudioProviderListView, StudioStatusView, TrilhaListView,
     StudioArtifactExportView, StudioArtifactLinkView, StudioArtifactTransitionView, StudioMaterializeFormationView, StudioResearchView,
     StudioCouncilApproveView, StudioCouncilRevisionView, StudioCouncilRunDetailView, StudioCouncilRunListCreateView, StudioCouncilExportView,
@@ -21,6 +22,19 @@ from .views import (
 )
 
 urlpatterns = [
+    path("catalog/books/", LibraryBooksView.as_view(), name="library-visual-books"),
+    path("books/<int:pk>/", LibraryBookDetailView.as_view(), name="library-book-detail"),
+    path("books/<int:pk>/cover/", BookCoverView.as_view(), name="library-book-cover"),
+    path("media/", MediaListView.as_view(), name="library-media"),
+    path("media/<int:pk>/", MediaDetailView.as_view(), name="library-media-detail"),
+    path("media/<int:pk>/file/", MediaFileView.as_view(), name="library-media-file"),
+    path("books/<int:pk>/reader/", ReaderMetadataView.as_view(), name="library-reader"),
+    path("books/<int:pk>/file/", ReaderFileView.as_view(), name="library-reader-file"),
+    path("books/<int:pk>/sections/<int:position>/", ReaderSectionView.as_view(), name="library-reader-section"),
+    path("books/<int:pk>/progress/", ReaderProgressView.as_view(), name="library-reader-progress"),
+    path("books/<int:pk>/marks/", ReaderMarksView.as_view(), name="library-reader-marks"),
+    path("books/<int:pk>/marks/<int:mark_pk>/", ReaderMarkDetailView.as_view(), name="library-reader-mark"),
+    path("books/<int:pk>/search/", ReaderSearchView.as_view(), name="library-reader-search"),
     path("studio/status/", StudioStatusView.as_view(), name="library-studio-status"),
     path("studio/providers/", StudioProviderListView.as_view(), name="library-studio-providers"),
     path("studio/providers/check/", StudioProviderCheckView.as_view(), name="library-studio-provider-check"),
@@ -41,6 +55,7 @@ urlpatterns = [
     path("studio/projects/<int:pk>/plan/", StudioPlanEditView.as_view(), name="library-studio-plan-edit"),
     path("studio/projects/<int:pk>/plan/versions/", StudioPlanVersionListView.as_view(), name="library-studio-plan-versions"),
     path("studio/projects/<int:pk>/plan/export/<str:export_format>/", StudioPlanExportView.as_view(), name="library-studio-plan-export"),
+    path("studio/projects/<int:pk>/section-export/<str:section>/<str:export_format>/", StudioSectionExportView.as_view(), name="library-studio-section-export"),
     path("studio/projects/<int:pk>/comments/", StudioCommentListCreateView.as_view(), name="library-studio-comments"),
     path("studio/projects/<int:pk>/comments/<int:comment_pk>/resolve/", StudioCommentResolveView.as_view(), name="library-studio-comment-resolve"),
     path("studio/projects/<int:pk>/archive/", StudioArchiveView.as_view(), name="library-studio-archive"),

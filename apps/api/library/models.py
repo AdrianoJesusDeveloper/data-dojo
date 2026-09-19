@@ -70,12 +70,90 @@ class Book(models.Model):
     error_message = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)
+    sha256 = models.CharField(max_length=64, blank=True, db_index=True)
+    duplicate_of = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="duplicates")
+    lifecycle = models.CharField(max_length=12, default="active", choices=[("active", "Ativo"), ("archived", "Arquivado"), ("discarded", "Descartado")], db_index=True)
+    category = models.CharField(max_length=100, blank=True)
+    is_favorite = models.BooleanField(default=False)
+    cover_asset = models.ForeignKey("MediaAsset", null=True, blank=True, on_delete=models.SET_NULL, related_name="covered_books")
+    error_code = models.CharField(max_length=40, blank=True)
+    error_stage = models.CharField(max_length=80, blank=True)
+    technical_error = models.TextField(blank=True)
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(fields=["sha256"], condition=~models.Q(sha256="") & models.Q(duplicate_of__isnull=True), name="unique_original_book_hash")]
 
     def __str__(self):
         return self.title
+
+
+class MediaAsset(models.Model):
+    CATEGORIES = [(value, value) for value in ("BOOK_COVER", "BOOK_THUMBNAIL", "LOGO", "BACKGROUND", "OTHER")]
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    file = models.FileField(upload_to="library/assets/")
+    original_filename = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=80)
+    file_size = models.PositiveBigIntegerField()
+    width = models.PositiveIntegerField()
+    height = models.PositiveIntegerField()
+    sha256 = models.CharField(max_length=64, unique=True)
+    category = models.CharField(max_length=20, choices=CATEGORIES, default="OTHER")
+    source_type = models.CharField(max_length=20, default="upload")
+    source_url = models.URLField(blank=True)
+    author = models.CharField(max_length=255, blank=True)
+    license = models.CharField(max_length=255, blank=True)
+    is_favorite = models.BooleanField(default=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class BookSection(models.Model):
+    """Original extracted text, also used for OCR search; chunks remain the RAG index."""
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="sections")
+    position = models.PositiveIntegerField()
+    location = models.CharField(max_length=500)
+    title = models.CharField(max_length=500, blank=True)
+    text = models.TextField()
+    html = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["position"]
+        constraints = [models.UniqueConstraint(fields=["book", "position"], name="unique_book_section")]
+
+
+class ReadingProgress(models.Model):
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="reading_progress")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    location = models.CharField(max_length=500, blank=True)
+    position = models.PositiveIntegerField(default=1)
+    offset = models.FloatField(default=0, validators=[MinValueValidator(0), MaxValueValidator(1)])
+    progress_percentage = models.FloatField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["book", "user"], name="unique_book_user_progress")]
+
+
+class ReadingMark(models.Model):
+    """One location contract shared by bookmarks, annotations and text highlights."""
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="reading_marks")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    kind = models.CharField(max_length=12, choices=[("bookmark", "Marcador"), ("annotation", "Anotação"), ("highlight", "Destaque")])
+    location = models.CharField(max_length=500)
+    position = models.PositiveIntegerField(default=1)
+    offset = models.FloatField(default=0, validators=[MinValueValidator(0), MaxValueValidator(1)])
+    selected_text = models.TextField(blank=True)
+    start_offset = models.PositiveIntegerField(null=True, blank=True)
+    end_offset = models.PositiveIntegerField(null=True, blank=True)
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["position", "id"]
 
 
 class BookChunk(models.Model):

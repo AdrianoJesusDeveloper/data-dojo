@@ -15,6 +15,6 @@ def buscar_chunks_relevantes(query: str, book_ids: list[int], top_k=8) -> list[B
     if not query.strip() or not book_ids or top_k < 1:
         return []
     query_embedding = generate_embedding(query)
-    chunks = BookChunk.objects.filter(book_id__in=book_ids, embedding__isnull=False).select_related("book")
+    chunks = BookChunk.objects.filter(book_id__in=book_ids, embedding__isnull=False, book__lifecycle="active", book__duplicate_of__isnull=True).select_related("book")
     ranked = sorted(chunks, key=lambda chunk: cosine_similarity(query_embedding, chunk.embedding), reverse=True)
     return ranked[:top_k]

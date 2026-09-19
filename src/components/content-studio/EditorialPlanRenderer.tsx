@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StudioSection, type StudioSectionExportFormat } from "@/components/content-studio/StudioSection";
 import {
   isFormationFlow,
   type EditorialProjectType,
@@ -11,10 +12,15 @@ import {
 type JsonObject = Record<string, unknown>;
 export type EditorialCitation = { id: number; book_title: string; page_number: number | null; excerpt: string };
 
+type PlanSubsection = "modules" | "exercises";
+
 type Props = {
   plan: JsonObject;
   projectType: EditorialProjectType;
   citations?: EditorialCitation[];
+  onSectionSave?: (section: PlanSubsection) => void;
+  onSectionExport?: (section: PlanSubsection, format: StudioSectionExportFormat) => void;
+  exportingSection?: { section: string; format: StudioSectionExportFormat } | null;
 };
 
 const isObject = (value: unknown): value is JsonObject => Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -120,7 +126,14 @@ function Sources({ sources, citations }: { sources: unknown; citations: Editoria
   return <section id="fontes" className="scroll-mt-24"><h3 className="font-display text-2xl font-bold">Fontes</h3><div className="mt-3 grid gap-2 sm:grid-cols-2">{all.length ? all.map((source) => <details key={source.id} className="group self-start rounded-lg border bg-card p-3"><summary className="flex cursor-pointer list-none items-center justify-between gap-3"><span className="truncate text-xs font-semibold">{source.book_title}{source.page_number != null ? ` · p. ${source.page_number}` : ""}</span><ChevronDown className="h-4 w-4 shrink-0 transition group-open:rotate-180" /></summary>{source.excerpt && <p className="mt-3 whitespace-pre-wrap border-l-2 border-kaizen pl-3 text-xs text-muted-foreground">{source.excerpt.length > 360 ? `${source.excerpt.slice(0, 360)}…` : source.excerpt}</p>}</details>) : <p className="text-sm text-muted-foreground">Nenhuma fonte vinculada ao plano.</p>}</div></section>;
 }
 
-export function EditorialPlanRenderer({ plan, projectType, citations = [] }: Props) {
+export function EditorialPlanRenderer({
+  plan,
+  projectType,
+  citations = [],
+  onSectionSave,
+  onSectionExport,
+  exportingSection = null,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
   const nested = pick(plan, "editorial_plan", "proposed_architecture");
   const persistedPlan = "proposed_architecture" in plan || "source_summary" in plan;
@@ -130,11 +143,22 @@ export function EditorialPlanRenderer({ plan, projectType, citations = [] }: Pro
   const premium = isFormationFlow(projectType);
   const modules = list(editorial.modules).filter(isObject);
   const videos = list(pick(editorial, "videos", "lessons")).filter(isObject);
-  const nav = premium ? [["visao-geral", "Visão geral"], ["modulos", "Módulos"], ["aulas", "Aulas"], ["projeto-final", "Projeto final"], ["fontes", "Fontes"]] : [["visao-geral", "Visão geral"], ["videos", "Vídeos"], ["fontes", "Fontes"]];
+  const nav = premium
+    ? [["visao-geral", "Visão geral"], ["modulos", "Módulos"], ["aulas", "Aulas"], ["exercicios", "Exercícios"], ["projeto-final", "Projeto final"], ["fontes", "Fontes"]]
+    : [["visao-geral", "Visão geral"], ["videos", "Vídeos"], ["fontes", "Fontes"]];
   return <div className="space-y-6">
     <nav aria-label="Índice do plano" className="sticky top-2 z-10 flex flex-wrap items-center gap-2 rounded-xl border bg-background/95 p-3 shadow-sm backdrop-blur">{nav.map(([id, title]) => <a key={id} href={`#${id}`} className="rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground">{title}</a>)}<span className="ml-auto flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => setExpanded(true)}>Expandir tudo</Button><Button type="button" size="sm" variant="outline" onClick={() => setExpanded(false)}>Recolher tudo</Button></span></nav>
     <section id="visao-geral" className="scroll-mt-24 rounded-xl border bg-gradient-to-br from-kaizen/10 to-background p-6"><Badge>{premium ? "Formação Premium" : "Trilha YouTube"}</Badge><h2 className="mt-3 font-display text-3xl font-extrabold">{text(editorial.title) || "Plano editorial"}</h2><dl className="mt-6 grid gap-5 md:grid-cols-2"><Field title={premium ? "Objetivo geral" : "Objetivo"} value={pick(editorial, "general_objective", "objective")} />{premium && <Field title="Objetivo profissional" value={editorial.professional_objective} />}<Field title="Objetivos específicos" value={editorial.specific_objectives} /><Field title="Público" value={editorial.target_audience} /><Field title="Nível" value={editorial.level} /><Field title="Pré-requisitos" value={editorial.prerequisites} /><Field title={premium ? "Carga horária" : "Duração estimada"} value={pick(editorial, "total_workload", "estimated_total_duration")} /><Field title="Competências" value={editorial.competencies} /><Field title="Stack / ferramentas" value={pick(editorial, "technology_stack", "tools")} />{!premium && <Field title="Quantidade de vídeos" value={editorial.video_count ?? videos.length} />}</dl></section>
-    {premium ? <PremiumBody editorial={editorial} modules={modules} expanded={expanded} /> : <section id="videos" className="scroll-mt-24 space-y-4"><div><h3 className="font-display text-2xl font-bold">Aulas / vídeos</h3><p className="text-sm text-muted-foreground">1 tema = 1 aula = 1 vídeo</p></div>{videos.map((video, index) => <Lesson key={index} lesson={video} index={index} youtube expanded={expanded} />)}</section>}
+    {premium ? (
+      <PremiumBody
+        editorial={editorial}
+        modules={modules}
+        expanded={expanded}
+        onSectionSave={onSectionSave}
+        onSectionExport={onSectionExport}
+        exportingSection={exportingSection}
+      />
+    ) : <section id="videos" className="scroll-mt-24 space-y-4"><div><h3 className="font-display text-2xl font-bold">Aulas / vídeos</h3><p className="text-sm text-muted-foreground">1 tema = 1 aula = 1 vídeo</p></div>{videos.map((video, index) => <Lesson key={index} lesson={video} index={index} youtube expanded={expanded} />)}</section>}
     <Sources sources={editorial.sources} citations={citations} />
   </div>;
 }
@@ -151,25 +175,88 @@ function LegacyPlanFallback({ plan, citations }: { plan: JsonObject; citations: 
   </div>;
 }
 
-function PremiumBody({ editorial, modules, expanded }: { editorial: JsonObject; modules: JsonObject[]; expanded: boolean }) {
+function PremiumBody({
+  editorial,
+  modules,
+  expanded,
+  onSectionSave,
+  onSectionExport,
+  exportingSection,
+}: {
+  editorial: JsonObject;
+  modules: JsonObject[];
+  expanded: boolean;
+  onSectionSave?: (section: PlanSubsection) => void;
+  onSectionExport?: (section: PlanSubsection, format: StudioSectionExportFormat) => void;
+  exportingSection?: { section: string; format: StudioSectionExportFormat } | null;
+}) {
   let lessonIndex = 0;
+
   return <>
-    <section id="modulos" className="scroll-mt-24 space-y-3">
-      <div><h3 className="font-display text-2xl font-bold">Módulos</h3><p className="text-sm text-muted-foreground">Abra somente o módulo que deseja revisar.</p></div>
-      {modules.map((module, moduleIndex) => (
-        <details key={moduleIndex} open={expanded} className="group rounded-xl border bg-secondary/10">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
-            <div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Módulo {moduleIndex + 1}</p><h4 className="truncate font-display text-lg font-bold">{text(module.title)}</h4></div>
-            <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition group-open:rotate-180" />
-          </summary>
-          <div className="border-t p-4">
-            <div className="grid gap-3 sm:grid-cols-3"><Field title="Objetivo" value={module.objective} /><Field title="Competências" value={module.competencies} /><Field title="Carga horária" value={module.workload} /></div>
-            <div id={moduleIndex === 0 ? "aulas" : undefined} className="mt-5 space-y-3">{list(module.lessons).filter(isObject).map((lesson) => <Lesson key={lessonIndex} lesson={lesson} index={lessonIndex++} expanded={expanded} />)}</div>
-            <div className="mt-5 grid gap-4 md:grid-cols-2"><Field title="Exercícios" value={module.exercises} /><Field title="Kata" value={module.kata} /><Field title="Projeto prático" value={module.practical_project} /><Field title="Avaliação" value={module.assessment} /></div>
-          </div>
-        </details>
-      ))}
-    </section>
+    <StudioSection
+      id="studio-plan-modules"
+      title="MÓDULOS"
+      subtitle="Abra somente o módulo que deseja revisar."
+      defaultOpen={false}
+      onSave={onSectionSave ? () => onSectionSave("modules") : undefined}
+      onExport={onSectionExport ? (format) => onSectionExport("modules", format) : undefined}
+      exportingFormat={exportingSection?.section === "modules" ? exportingSection.format : null}
+    >
+      <section id="modulos" className="scroll-mt-24 space-y-3">
+        {modules.map((module, moduleIndex) => (
+          <details key={moduleIndex} open={expanded} className="group rounded-xl border bg-secondary/10">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
+              <div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Módulo {moduleIndex + 1}</p><h4 className="truncate font-display text-lg font-bold">{text(module.title)}</h4></div>
+              <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition group-open:rotate-180" />
+            </summary>
+            <div className="border-t p-4">
+              <div className="grid gap-3 sm:grid-cols-3"><Field title="Objetivo" value={module.objective} /><Field title="Competências" value={module.competencies} /><Field title="Carga horária" value={module.workload} /></div>
+              <div id={moduleIndex === 0 ? "aulas" : undefined} className="mt-5 space-y-3">{list(module.lessons).filter(isObject).map((lesson) => <Lesson key={lessonIndex} lesson={lesson} index={lessonIndex++} expanded={expanded} />)}</div>
+            </div>
+          </details>
+        ))}
+      </section>
+    </StudioSection>
+
+    <StudioSection
+      id="studio-plan-exercises"
+      title="EXERCÍCIOS"
+      subtitle="Exercícios, katas, projetos práticos, avaliações e desafios das aulas."
+      defaultOpen={false}
+      onSave={onSectionSave ? () => onSectionSave("exercises") : undefined}
+      onExport={onSectionExport ? (format) => onSectionExport("exercises", format) : undefined}
+      exportingFormat={exportingSection?.section === "exercises" ? exportingSection.format : null}
+    >
+      <section id="exercicios" className="scroll-mt-24 space-y-4">
+        {modules.map((module, moduleIndex) => (
+          <article key={moduleIndex} className="rounded-xl border bg-secondary/10 p-4">
+            <h4 className="font-display text-lg font-bold">{text(module.title) || `Módulo ${moduleIndex + 1}`}</h4>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <Field title="Exercícios" value={module.exercises} />
+              <Field title="Kata" value={module.kata} />
+              <Field title="Projeto prático" value={module.practical_project} />
+              <Field title="Avaliação" value={module.assessment} />
+            </div>
+            <div className="mt-4 space-y-3">
+              {list(module.lessons).filter(isObject).map((lesson, lessonIndex) => (
+                <details key={lessonIndex} className="group rounded-lg border bg-background">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-3">
+                    <span className="font-semibold">{text(lesson.title) || `Aula ${lessonIndex + 1}`}</span>
+                    <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
+                  </summary>
+                  <div className="grid gap-4 border-t p-4 md:grid-cols-2">
+                    <Field title="Exercício" value={lesson.exercise} />
+                    <Field title="Desafio sem IA" value={lesson.without_ai_challenge} />
+                    <div className="md:col-span-2"><AuthorshipChallenge value={lesson.authorship_challenge} /></div>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </article>
+        ))}
+      </section>
+    </StudioSection>
+
     <details id="projeto-final" open={expanded} className="group scroll-mt-24 rounded-xl border">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4"><h3 className="font-display text-xl font-bold">Projeto final e certificação</h3><ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition group-open:rotate-180" /></summary>
       <div className="border-t p-4"><div className="grid gap-5 md:grid-cols-2"><Field title="Projetos" value={editorial.practical_projects} /><Field title="Projeto final" value={editorial.final_project} /><Field title="Avaliações" value={editorial.assessment_criteria} /><Field title="Requisitos de conclusão" value={editorial.completion_requirements} /><Field title="Certificação" value={editorial.certification_requirements} /></div></div>

@@ -1,0 +1,9 @@
+::highlight(dojo-reader) { background-color: #facc1570; color: inherit; }
+.reader-prose p, .reader-prose ul, .reader-prose ol, .reader-prose table { margin-block: 1em; }
+.reader-prose h1, .reader-prose h2, .reader-prose h3 { font-weight: 700; font-size: 1.4em; margin-block: 1.5em .6em; }
+.reader-prose ul { list-style: disc; padding-left: 1.5em; }
+.reader-prose ol { list-style: decimal; padding-left: 1.5em; }
+.reader-prose td, .reader-prose th { border: 1px solid currentColor; padding: .4em; }
+.reader-prose table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.reader-prose a { text-decoration: underline; cursor: pointer; }
+.reader-prose pre { white-space: pre-wrap; }

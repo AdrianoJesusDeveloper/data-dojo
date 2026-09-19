@@ -667,7 +667,39 @@ def _content_response_schema(project_type: str, fields: list[str]) -> dict:
         "additionalProperties": False,
     }
 
-def generate_content_item(project, plan, target_type: str, target_index: int, target: dict) -> tuple[dict, str]:
+def _groq_content_template(fields: list[str]) -> str:
+    """Build a compact JSON skeleton so Groq sees every required key explicitly."""
+    challenge_template = {
+        field: "PREENCHER"
+        for field in AUTHORSHIP_CHALLENGE_SCHEMA["required_fields"]
+    }
+    content = {}
+    for field in fields:
+        if field == "authorship_challenge":
+            content[field] = challenge_template
+        elif field == "code":
+            content[field] = {
+                "language": "python",
+                "code": "PREENCHER",
+            }
+        else:
+            content[field] = "PREENCHER"
+
+    return json.dumps(
+        {"content": content},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def generate_content_item(
+    project,
+    plan,
+    target_type: str,
+    target_index: int,
+    target: dict,
+    provider_name: str | None = None,
+) -> tuple[dict, str]:
     premium_fields = [
         "objective", "explanatory_text", "concepts", "examples", "code", "demonstration",
         "guided_exercise", "kata", "challenge", "mini_project", "reflection", "ai_partnership",
@@ -697,23 +729,93 @@ Todos os campos obrigatórios devem ter conteúdo não vazio. Preserve o Desafio
 Não invente fontes, referências ou evidências. Se não há fontes verificadas, mantenha o aviso de rascunho não fundamentado e pontos a validar.
 Contrato editorial permanente:
 {editorial_prompt_context(project.project_type)}"""
-    user = json.dumps({
-        "project": {
-            "title": project.title,
-            "theme": project.theme,
-            "objective": project.objective,
-            "project_type": project.project_type,
-            "editorial_flow": semantic_project_type,
-        },
-        "approved_plan_untrusted_data": plan.proposed_architecture,
-        "source_summary_untrusted_data": plan.source_summary,
-        "selection": {"target_type": target_type, "target_index": target_index, "target": target},
-    }, ensure_ascii=False)
-    raw = chat_with_provider(
-        settings.CONTENT_STUDIO_PROVIDER,
-        [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        response_schema=_content_response_schema(project.project_type, fields),
-    )
+    selected_provider = (provider_name or settings.CONTENT_STUDIO_PROVIDER).strip().lower()
+
+    if selected_provider == "groq":
+        challenge_fields = ", ".join(AUTHORSHIP_CHALLENGE_SCHEMA["required_fields"])
+        response_template = _groq_content_template(fields)
+        system = UNTRUSTED_CONTENT_POLICY + f"""Você é o Produtor Editorial do Data Driven Dojô.
+Gere SOMENTE o item editorial selecionado e retorne SOMENTE um objeto JSON com a chave content.
+Não use Markdown, cercas de código ou texto fora do JSON.
+
+REGRA MAIS IMPORTANTE:
+- Use EXATAMENTE o esqueleto JSON abaixo.
+- NÃO remova, renomeie ou omita nenhuma chave.
+- Substitua TODO valor "PREENCHER" por conteúdo real e útil.
+- O objeto raiz deve continuar tendo somente a chave content.
+- Mesmo quando um item não se aplicar, mantenha a chave e escreva uma explicação não vazia.
+
+ESQUELETO OBRIGATÓRIO:
+{response_template}
+
+Regras de conteúdo:
+- teleprompter_text: texto falável em português do Brasil, em parágrafos, pronto para gravação;
+- estimated_duration: texto curto com unidade de tempo;
+- code_demo: explique o código a demonstrar ou diga explicitamente que não se aplica;
+- code: objeto com language e code; para esta aula use código real ou exemplo didático mínimo;
+- authorship_challenge: objeto com TODOS estes campos: {challenge_fields};
+- strings obrigatórias não podem ser vazias;
+- preserve a sequência COMPREENDER → RACIOCINAR → ESTRUTURAR → CONSULTAR IA → CRITICAR → VALIDAR → IMPLEMENTAR → EXPLICAR;
+- não invente fontes, autores, URLs, páginas, pesquisas, estatísticas ou evidências;
+- quando não houver fonte verificada, marque claramente o que precisa ser validado;
+- gere conteúdo completo, mas conciso: não repita o plano, o enunciado ou metadados desnecessariamente;
+- não gere imagem, áudio ou vídeo.
+
+Antes de responder, confira silenciosamente se TODAS as chaves do ESQUELETO OBRIGATÓRIO continuam presentes.
+O backend fará a validação estrutural completa antes de persistir o resultado."""
+        user = json.dumps(
+            {
+                "project": {
+                    "title": project.title,
+                    "theme": project.theme,
+                    "objective": project.objective,
+                    "project_type": project.project_type,
+                    "editorial_flow": semantic_project_type,
+                },
+                "source_summary_untrusted_data": plan.source_summary,
+                "selection": {
+                    "target_type": target_type,
+                    "target_index": target_index,
+                    "target": target,
+                },
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        # Groq usa JSON Object mode: garante JSON sintaticamente válido sem
+        # impor ao provider o schema editorial completo. O Django continua
+        # responsável pelo contrato e pela validação canônica antes de persistir.
+        raw = chat_with_provider(
+            selected_provider,
+            [{"role": "system", "content": system + """
+IMPORTANTE PARA A RESPOSTA:
+- Retorne SOMENTE um objeto JSON válido.
+- O objeto raiz deve ter exatamente a chave content.
+- content deve ser um objeto JSON, nunca uma string.
+- Não use Markdown, cercas de código ou texto fora do JSON.
+- Inclua todos os campos editoriais obrigatórios pedidos acima.
+"""},
+             {"role": "user", "content": user}],
+            response_schema={"type": "json_object"},
+        )
+    else:
+        user = json.dumps({
+            "project": {
+                "title": project.title,
+                "theme": project.theme,
+                "objective": project.objective,
+                "project_type": project.project_type,
+                "editorial_flow": semantic_project_type,
+            },
+            "approved_plan_untrusted_data": plan.proposed_architecture,
+            "source_summary_untrusted_data": plan.source_summary,
+            "selection": {"target_type": target_type, "target_index": target_index, "target": target},
+        }, ensure_ascii=False)
+        raw = chat_with_provider(
+            selected_provider,
+            [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            response_schema=_content_response_schema(project.project_type, fields),
+        )
     try:
         data = _json(raw, {"content"})
     except (ValueError, json.JSONDecodeError) as exc:

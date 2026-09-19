@@ -25,7 +25,10 @@ import { Route as CommunityRouteImport } from './routes/community'
 import { Route as AiSalesRouteImport } from './routes/ai-sales'
 import { Route as AiRouteImport } from './routes/ai'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LibraryIndexRouteImport } from './routes/library.index'
+import { Route as LibraryMediaRouteImport } from './routes/library.media'
 import { Route as ProfessionalStudioOpportunitiesOpportunityIdBriefingRouteImport } from './routes/professional-studio.opportunities.$opportunityId.briefing'
+import { Route as LibraryBooksBookIdReadRouteImport } from './routes/library.books.$bookId.read'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -107,12 +110,27 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LibraryIndexRoute = LibraryIndexRouteImport.update({
+  id: '/library/',
+  path: '/library/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryMediaRoute = LibraryMediaRouteImport.update({
+  id: '/library/media',
+  path: '/library/media',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute =
   ProfessionalStudioOpportunitiesOpportunityIdBriefingRouteImport.update({
     id: '/opportunities/$opportunityId/briefing',
     path: '/opportunities/$opportunityId/briefing',
     getParentRoute: () => ProfessionalStudioRoute,
   } as any)
+const LibraryBooksBookIdReadRoute = LibraryBooksBookIdReadRouteImport.update({
+  id: '/library/books/$bookId/read',
+  path: '/library/books/$bookId/read',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -131,6 +149,9 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/store': typeof StoreRoute
   '/workspace': typeof WorkspaceRoute
+  '/library/media': typeof LibraryMediaRoute
+  '/library/': typeof LibraryIndexRoute
+  '/library/books/$bookId/read': typeof LibraryBooksBookIdReadRoute
   '/professional-studio/opportunities/$opportunityId/briefing': typeof ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute
 }
 export interface FileRoutesByTo {
@@ -150,6 +171,9 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/store': typeof StoreRoute
   '/workspace': typeof WorkspaceRoute
+  '/library/media': typeof LibraryMediaRoute
+  '/library': typeof LibraryIndexRoute
+  '/library/books/$bookId/read': typeof LibraryBooksBookIdReadRoute
   '/professional-studio/opportunities/$opportunityId/briefing': typeof ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute
 }
 export interface FileRoutesById {
@@ -170,6 +194,9 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/store': typeof StoreRoute
   '/workspace': typeof WorkspaceRoute
+  '/library/media': typeof LibraryMediaRoute
+  '/library/': typeof LibraryIndexRoute
+  '/library/books/$bookId/read': typeof LibraryBooksBookIdReadRoute
   '/professional-studio/opportunities/$opportunityId/briefing': typeof ProfessionalStudioOpportunitiesOpportunityIdBriefingRoute
 }
 export interface FileRouteTypes {
@@ -191,6 +218,9 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/store'
     | '/workspace'
+    | '/library/media'
+    | '/library/'
+    | '/library/books/$bookId/read'
     | '/professional-studio/opportunities/$opportunityId/briefing'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -210,6 +240,9 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/store'
     | '/workspace'
+    | '/library/media'
+    | '/library'
+    | '/library/books/$bookId/read'
     | '/professional-studio/opportunities/$opportunityId/briefing'
   id:
     | '__root__'
@@ -229,6 +262,9 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/store'
     | '/workspace'
+    | '/library/media'
+    | '/library/'
+    | '/library/books/$bookId/read'
     | '/professional-studio/opportunities/$opportunityId/briefing'
   fileRoutesById: FileRoutesById
 }
@@ -249,6 +285,9 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   StoreRoute: typeof StoreRoute
   WorkspaceRoute: typeof WorkspaceRoute
+  LibraryMediaRoute: typeof LibraryMediaRoute
+  LibraryIndexRoute: typeof LibraryIndexRoute
+  LibraryBooksBookIdReadRoute: typeof LibraryBooksBookIdReadRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -365,12 +404,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/library/': {
+      id: '/library/'
+      path: '/library'
+      fullPath: '/library/'
+      preLoaderRoute: typeof LibraryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library/media': {
+      id: '/library/media'
+      path: '/library/media'
+      fullPath: '/library/media'
+      preLoaderRoute: typeof LibraryMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/professional-studio/opportunities/$opportunityId/briefing': {
       id: '/professional-studio/opportunities/$opportunityId/briefing'
       path: '/opportunities/$opportunityId/briefing'
       fullPath: '/professional-studio/opportunities/$opportunityId/briefing'
       preLoaderRoute: typeof ProfessionalStudioOpportunitiesOpportunityIdBriefingRouteImport
       parentRoute: typeof ProfessionalStudioRoute
+    }
+    '/library/books/$bookId/read': {
+      id: '/library/books/$bookId/read'
+      path: '/library/books/$bookId/read'
+      fullPath: '/library/books/$bookId/read'
+      preLoaderRoute: typeof LibraryBooksBookIdReadRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -404,6 +464,9 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   StoreRoute: StoreRoute,
   WorkspaceRoute: WorkspaceRoute,
+  LibraryMediaRoute: LibraryMediaRoute,
+  LibraryIndexRoute: LibraryIndexRoute,
+  LibraryBooksBookIdReadRoute: LibraryBooksBookIdReadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

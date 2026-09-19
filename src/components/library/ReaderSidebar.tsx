@@ -1,0 +1,16 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { bookUrl, type ReadingMark, type TocEntry } from "./library-api";
+
+export function ReaderSidebar({ bookId, toc, marks, onNavigate, onDelete, onEdit }: { bookId: number; toc: TocEntry[]; marks: ReadingMark[]; onNavigate: (position: number, offset?: number) => void; onDelete: (mark: ReadingMark) => void; onEdit: (mark: ReadingMark, note: string) => void }) {
+  const [tab, setTab] = useState("toc"); const [term, setTerm] = useState(""); const [search, setSearch] = useState("");
+  const query = useQuery({ queryKey: ["reader-search", bookId, search], enabled: search.length >= 2, queryFn: async () => (await api.get<{ count: number; results: { position: number; location: string; title: string; snippet: string; offset: number }[] }>(`${bookUrl(bookId)}search/`, { params: { q: search } })).data });
+  return <aside aria-label="Painel de leitura" className="w-full shrink-0 space-y-4 overflow-auto border-r bg-card p-4 md:w-80"><nav className="flex flex-wrap gap-2">{[["toc", "Índice"], ["search", "Busca"], ["marks", "Marcações"]].map(([value, label]) => <Button size="sm" key={value} variant={tab === value ? "default" : "outline"} onClick={() => setTab(value)}>{label}</Button>)}</nav>
+    {tab === "toc" && <ol className="space-y-2">{toc.map(entry => <li key={entry.position}><button className="text-left text-sm text-primary hover:underline" onClick={() => onNavigate(entry.position)}>{entry.title}</button></li>)}</ol>}
+    {tab === "search" && <><form className="flex gap-2" onSubmit={e => { e.preventDefault(); setSearch(term.trim()); }}><Input aria-label="Buscar no livro" value={term} onChange={e => setTerm(e.target.value)} /><Button type="submit">Buscar</Button></form>{query.isFetching && <p>Buscando…</p>}{query.isError && <p role="alert">Não foi possível buscar.</p>}{query.data && <p>{query.data.count} seções/páginas encontradas{query.data.count > 100 && " · mostrando as primeiras 100"}</p>}<ul className="space-y-3">{query.data?.results.map(result => <li key={result.position}><button className="rounded border p-3 text-left text-sm" onClick={() => onNavigate(result.position, result.offset)}><strong>{result.title}</strong><p>{result.snippet}</p></button></li>)}</ul></>}
+    {tab === "marks" && <><p className="text-xs text-muted-foreground">Selecione texto e use “Destacar” ou “Anotar”.</p>{marks.length === 0 && <p>Você ainda não tem marcações.</p>}{marks.map(mark => <article key={mark.id} className="space-y-2 rounded border p-3 text-sm"><button className="text-primary" onClick={() => onNavigate(mark.position, mark.offset)}>{mark.kind === "bookmark" ? "Marcador" : mark.kind === "annotation" ? "Anotação" : "Destaque"} · {mark.position}</button>{mark.selected_text && <blockquote className="border-l-2 pl-2">{mark.selected_text}</blockquote>}<p>{mark.note}</p><div className="flex gap-2">{mark.kind !== "highlight" && <Button size="sm" variant="outline" onClick={() => { const value = window.prompt("Texto da marcação", mark.note); if (value !== null) onEdit(mark, value); }}>Editar</Button>}<Button size="sm" variant="ghost" onClick={() => onDelete(mark)}>Excluir</Button></div></article>)}</>}
+  </aside>;
+}
