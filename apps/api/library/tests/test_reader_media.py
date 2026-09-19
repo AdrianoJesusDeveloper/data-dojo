@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.test import override_settings
 from django.urls import reverse
 from PIL import Image
@@ -376,6 +377,28 @@ class LibraryReaderMediaTests(APITestCase):
         self.assertEqual(first.status_code, status.HTTP_201_CREATED)
         self.assertEqual(second.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(Book.objects.count(), 1)
+
+    def test_backfill_book_id_only_hashes_selected_book(self):
+        selected = self.create_book(
+            "selected.txt",
+            b"conteudo selecionado",
+        )
+        untouched = self.create_book(
+            "untouched.txt",
+            b"conteudo nao selecionado",
+        )
+
+        call_command(
+            "backfill_library_metadata",
+            book_id=selected.pk,
+            verbosity=0,
+        )
+
+        selected.refresh_from_db()
+        untouched.refresh_from_db()
+
+        self.assertTrue(selected.sha256)
+        self.assertEqual(untouched.sha256, "")
 
     def test_catalog_lifecycle_and_favorites(self):
         active = self.create_book(
