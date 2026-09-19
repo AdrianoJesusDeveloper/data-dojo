@@ -1,5 +1,5 @@
 from django.urls import path
-from .reader_api import (LibraryBooksView, LibraryBookDetailView, BookCoverView, MediaListView, MediaDetailView, MediaFileView, ReaderMetadataView, ReaderFileView, ReaderSectionView, ReaderProgressView, ReaderMarksView, ReaderMarkDetailView, ReaderSearchView)
+from .reader_api import (LibraryBooksView, LibraryBookDetailView, BookCoverView, MediaListView, MediaDetailView, MediaFileView, ReaderMetadataView, ReaderTocView, ReaderFileView, ReaderSectionView, ReaderProgressView, ReaderMarksView, ReaderMarkDetailView, ReaderSearchView)
 from .views import StudioDossierView, StudioDossierTransitionView
 
 from .views import (
@@ -29,6 +29,7 @@ urlpatterns = [
     path("media/<int:pk>/", MediaDetailView.as_view(), name="library-media-detail"),
     path("media/<int:pk>/file/", MediaFileView.as_view(), name="library-media-file"),
     path("books/<int:pk>/reader/", ReaderMetadataView.as_view(), name="library-reader"),
+    path("books/<int:pk>/toc/", ReaderTocView.as_view(), name="library-reader-toc"),
     path("books/<int:pk>/file/", ReaderFileView.as_view(), name="library-reader-file"),
     path("books/<int:pk>/sections/<int:position>/", ReaderSectionView.as_view(), name="library-reader-section"),
     path("books/<int:pk>/progress/", ReaderProgressView.as_view(), name="library-reader-progress"),
