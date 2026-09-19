@@ -4,90 +4,461 @@
 
 # Data Driven Dojô ⚔️📊
 
-### **Treine fundamentos. Construa projetos. Evolua com Kaizen.**
+### **Aprender. Construir. Ensinar. Evoluir.**
 
-Uma plataforma educacional gamificada para formação de profissionais de **dados, engenharia, IA e tecnologia**, combinando trilhas, prática, desafios, progressão e comunidade.
+Plataforma local-first de aprendizagem, produção e prática profissional em **Dados, IA, Engenharia, Cloud e Automação**, construída como um ecossistema integrado de estudo, execução e criação.
+
+**Determinação · Disciplina · Direção · Kaizen**
 
 <br>
 
-**Determinação · Disciplina · Direção**
-
-<br><br>
-
-[![React](https://img.shields.io/badge/React-19-1C1C1C?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-1C1C1C?style=for-the-badge&logo=typescript&logoColor=3178C6)](https://www.typescriptlang.org/)
-[![Django](https://img.shields.io/badge/Django-1C1C1C?style=for-the-badge&logo=django&logoColor=44B78B)](https://www.djangoproject.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-1C1C1C?style=for-the-badge&logo=postgresql&logoColor=4169E1)](https://www.postgresql.org/)
-[![AWS](https://img.shields.io/badge/AWS-1C1C1C?style=for-the-badge&logo=amazonaws&logoColor=FF9900)](https://aws.amazon.com/)
+![React](https://img.shields.io/badge/React-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-20232A?style=for-the-badge&logo=typescript&logoColor=3178C6)
+![Django](https://img.shields.io/badge/Django-6-20232A?style=for-the-badge&logo=django&logoColor=44B78B)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-20232A?style=for-the-badge&logo=postgresql&logoColor=4169E1)
+![Celery](https://img.shields.io/badge/Celery-5-20232A?style=for-the-badge&logo=celery&logoColor=37814A)
+![Redis](https://img.shields.io/badge/Redis-Local-20232A?style=for-the-badge&logo=redis&logoColor=DC382D)
 
 </div>
+
 ---
 
-## 🖼️ Showcase da aplicação
+## 🧭 O que é o Data Driven Dojô
 
-> **A vitrine visual do Data Driven Dojô.** Esta seção está preparada para receber as capturas reais das principais áreas da aplicação. As imagens devem mostrar o produto funcionando, preservando sua identidade visual.
+O **Data Driven Dojô** é um ambiente integrado para transformar estudo em competência prática.
 
-### 🥋 Visão geral
+A proposta central é simples:
 
-![Data Driven Dojô — Visão geral](docs/screenshots/01-home.png)
+```text
+Fundamento → Prática → Projeto → Evidência → Conteúdo → Evolução
+```
 
-*Visão geral da plataforma, identidade e experiência de entrada no Dojô.*
+Em vez de separar aprendizado, portfólio, produção de conteúdo, pesquisa e execução profissional em ferramentas isoladas, o Dojô conecta tudo em um mesmo fluxo.
 
-### 📊 Dashboard
+Hoje o projeto funciona principalmente como uma aplicação **local-first**, executada no computador do operador, com módulos privados para estudo, produção e trabalho.
 
-![Data Driven Dojô — Dashboard](docs/screenshots/02-dashboard.png)
+---
 
-*Progresso, XP, faixa, streak, atividade e próximos objetivos.*
+## 🧩 Ecossistema 3DS
 
-### 🎓 Trilhas de aprendizagem
+O projeto está evoluindo em torno de quatro núcleos conectados:
 
-![Data Driven Dojô — Trilhas](docs/screenshots/03-trilhas.png)
+### 📚 Biblioteca do Sensei
 
-*Jornadas organizadas por competências e objetivos profissionais.*
+Biblioteca privada para estudo, pesquisa e RAG.
 
-### 📚 Cursos, módulos e aulas
+Principais capacidades atuais:
 
-![Data Driven Dojô — Cursos](docs/screenshots/04-cursos.png)
+- catálogo visual de livros;
+- PDF, EPUB, DOCX e TXT;
+- OCR de PDFs escaneados e mistos;
+- extração de texto, chunks e embeddings;
+- deduplicação por SHA-256;
+- capas automáticas e mídia associada;
+- busca interna;
+- progresso de leitura;
+- marcadores;
+- anotações;
+- destaques;
+- índice automático;
+- índice manual editável;
+- Reader integrado para PDF e formatos textuais;
+- **Narrador V1 local**, usando as vozes disponíveis no navegador/sistema;
+- processamento assíncrono com Celery + Redis;
+- integração do acervo com fluxos de RAG.
 
-*Experiência de aprendizagem orientada por fundamentos, prática e progressão.*
+> O arquivo original do livro é preservado. Índices, progresso, marcações, traduções futuras e demais metadados são tratados como camadas separadas.
 
-### ⚔️ Workspace / Desafios
+### 🧠 Content Studio
 
-![Data Driven Dojô — Workspace](docs/screenshots/05-workspace.png)
+Ambiente privado para pesquisa, planejamento editorial e geração assistida por IA.
 
-*Ambiente para transformar conhecimento em prática e resolução de problemas.*
+Inclui:
 
-### 🥋 Faixas e Kaizen XP
+- projetos editoriais;
+- Dossiê Mestre;
+- pesquisa fundamentada;
+- planos versionados;
+- geração de módulos, aulas e vídeos;
+- Conselho Editorial multiagente;
+- aprovação humana;
+- histórico de versões;
+- Teleprompter;
+- exportações por seção;
+- suporte a múltiplos providers de IA.
 
-![Data Driven Dojô — Progressão](docs/screenshots/06-progressao.png)
+A IA propõe e acelera. **A decisão final permanece humana.**
 
-*Sistema de progressão que torna consistência e evolução visíveis.*
+### 💼 Project Studio
 
-### 👥 Comunidade
+Ambiente de apoio à execução profissional.
 
-![Data Driven Dojô — Comunidade](docs/screenshots/07-comunidade.png)
+Direção do módulo:
 
-*Espaço para compartilhar aprendizados, projetos e evolução.*
-
-### 💼 Portfolio
-
-![Data Driven Dojô — Portfolio](docs/screenshots/08-portfolio.png)
-
-*Projetos e evidências práticas de competência para conexão com o mercado.*
+- organizar oportunidades;
+- registrar briefing;
+- estruturar execução;
+- produzir entregáveis;
+- reunir evidências;
+- transformar trabalhos reais em competências e portfólio;
+- apoiar atividades freelancer e geração de renda.
 
 ### 🤖 IA Sensei
 
-![Data Driven Dojô — IA Sensei](docs/screenshots/09-ai-sensei.png)
+Camada de mentoria e orquestração do ecossistema.
 
-*Ecossistema de mentores especializados, conversas persistidas e seleção segura de provedores de IA.*
+O objetivo não é substituir o aprendizado, mas orientar:
 
-### 📱 Experiência responsiva
+- o que estudar;
+- o que construir;
+- como validar;
+- como transformar aprendizado em projeto;
+- como transformar projeto em conteúdo;
+- como transformar experiência em evidência profissional.
 
-![Data Driven Dojô — Responsividade](docs/screenshots/10-responsive.png)
+---
 
-*Experiência consistente do desktop ao mobile sem perder a essência do Dojô.*
+## 🏗️ Arquitetura atual
 
-### 📸 Estrutura das imagens
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                    DATA DRIVEN DOJÔ                         │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  React + TypeScript + Vite                                  │
+│  ├── TanStack Router                                         │
+│  ├── TanStack Query                                          │
+│  ├── Tailwind CSS                                            │
+│  └── Radix UI                                                │
+│                         │                                    │
+│                         ▼                                    │
+│                Django REST Framework                         │
+│  ├── Core educacional                                       │
+│  ├── Biblioteca do Sensei                                   │
+│  ├── Content Studio                                         │
+│  ├── Professional / Project Studio                          │
+│  ├── IA / Providers                                         │
+│  └── 3DStore                                                │
+│                         │                                    │
+│              ┌──────────┴──────────┐                         │
+│              ▼                     ▼                         │
+│        PostgreSQL 18             Redis                       │
+│                                     │                        │
+│                                     ▼                        │
+│                               Celery Worker                  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Estratégia local-first
+
+No estágio atual:
+
+- PostgreSQL roda localmente;
+- Redis roda localmente/WSL;
+- Celery executa tarefas assíncronas;
+- Content Studio, Project Studio e Biblioteca do Sensei são privados;
+- o acervo permanece no computador do operador;
+- Docker não é requisito para o fluxo principal atual;
+- a arquitetura permanece preparada para futura expansão sem forçar migração prematura.
+
+---
+
+## 🧱 Stack técnica
+
+### Frontend
+
+`React 19` · `TypeScript 5` · `Vite 7` · `TanStack Router` · `TanStack Query` · `Tailwind CSS` · `Radix UI`
+
+### Backend
+
+`Python` · `Django 6` · `Django REST Framework` · `Celery` · `dj-rest-auth`
+
+### Dados e processamento
+
+`PostgreSQL 18` · `Redis` · `PyMuPDF` · `pytesseract` · `Pillow` · `sentence-transformers`
+
+### IA
+
+Arquitetura preparada para providers configuráveis, incluindo integrações compatíveis com:
+
+`OpenAI` · `Gemini` · `DeepSeek` · `Anthropic` · endpoints compatíveis
+
+---
+
+## 📚 Biblioteca do Sensei — estado atual
+
+### Ingestão e catálogo
+
+- [x] cadastro de fontes;
+- [x] processamento de livros;
+- [x] OCR por página;
+- [x] suporte a PDFs mistos;
+- [x] deduplicação por hash;
+- [x] tratamento de duplicidade no upload;
+- [x] lifecycle de livros;
+- [x] favoritos;
+- [x] capas e thumbnails;
+- [x] grid/lista;
+- [x] filtros;
+- [x] busca visual;
+- [x] status de disponibilidade;
+- [x] progresso de processamento.
+
+### Reader
+
+- [x] PDF integrado;
+- [x] EPUB;
+- [x] DOCX;
+- [x] TXT;
+- [x] navegação;
+- [x] zoom;
+- [x] modo leitura;
+- [x] tela cheia;
+- [x] continuar de onde parou;
+- [x] marcadores;
+- [x] anotações;
+- [x] destaques;
+- [x] busca interna;
+- [x] índice manual editável;
+- [x] índice automático;
+- [x] Narrador V1 implementado;
+- [ ] revalidar persistência do índice manual entre sessões;
+- [ ] Tradutor V1;
+- [ ] modo Original / Traduzido / Lado a lado;
+- [ ] integração Narrador + tradução.
+
+### Narrador V1
+
+O Narrador foi projetado para funcionar sem obrigar o uso de API paga.
+
+Capacidades:
+
+- ouvir página/seção atual;
+- continuar áudio;
+- pausar;
+- parar;
+- avançar/voltar;
+- velocidade de 0,5× a 2×;
+- escolha de idioma;
+- escolha de voz disponível no sistema;
+- retomada local da posição de áudio;
+- destaque do trecho narrado quando suportado;
+- fallback para texto extraído/OCR.
+
+---
+
+## 🧪 Qualidade e validação
+
+O projeto usa validação incremental antes de promover mudanças.
+
+### Frontend
+
+```powershell
+npm run typecheck
+npm run build
+```
+
+### Backend
+
+```powershell
+python .\apps\api\manage.py check
+python .\apps\api\manage.py makemigrations --check
+python .\apps\api\manage.py test library.tests -v 2
+```
+
+Estado recente da Biblioteca:
+
+- **245 testes** da suíte completa aprovados;
+- **13 testes focados** do Reader/Media aprovados após o índice manual;
+- PostgreSQL principal migrado até **library.0033_booktocentry**;
+- backups validados com `pg_dump` + `pg_restore --list`.
+
+---
+
+## 🧠 Princípios de produto
+
+### 1. Fundamentos antes de abstrações
+
+O Dojô não existe para esconder a tecnologia. Existe para ajudar a compreendê-la e usá-la melhor.
+
+### 2. IA como amplificador
+
+A IA orienta, revisa, questiona, sugere e automatiza tarefas operacionais, mas não substitui julgamento humano, estudo e validação.
+
+### 3. Aprender fazendo
+
+Toda trilha deve convergir para prática, projeto, evidência ou conteúdo.
+
+### 4. Local-first quando isso fizer sentido
+
+Privacidade, controle do acervo e baixo custo operacional são prioridades reais nesta fase.
+
+### 5. Evolução incremental
+
+O projeto evita reescritas desnecessárias. Cada sprint deve deixar o sistema mais utilizável e verificável.
+
+### 6. Kaizen
+
+Melhoria contínua é parte da arquitetura, do produto e do método de aprendizagem.
+
+---
+
+## 🔐 Privacidade e segurança operacional
+
+As áreas privadas do ecossistema são tratadas como ferramentas de uso interno.
+
+Diretrizes atuais:
+
+- segredos ficam em variáveis de ambiente;
+- livros e arquivos privados não são publicados;
+- Content Studio, Project Studio e Biblioteca não expõem conteúdo de trabalho a terceiros;
+- operações críticas usam confirmação explícita;
+- uploads passam por validação;
+- o acervo original é preservado;
+- traduções futuras serão armazenadas como derivados locais, nunca sobrescrevendo o original.
+
+---
+
+## 🗺️ Roadmap estratégico
+
+### 🟢 Base consolidada
+
+- [x] autenticação;
+- [x] cursos, módulos e aulas;
+- [x] workspace;
+- [x] comunidade;
+- [x] dashboard;
+- [x] gamificação;
+- [x] API Django REST;
+- [x] RAG da Biblioteca;
+- [x] jobs assíncronos;
+- [x] Content Studio privado;
+- [x] Project/Professional Studio base;
+- [x] Conselho Editorial;
+- [x] Reader avançado.
+
+### 🔵 Foco atual — Biblioteca do Sensei
+
+- [x] visualização moderna;
+- [x] reader;
+- [x] anotações e destaques;
+- [x] índice editável;
+- [x] narrador local V1;
+- [ ] corrigir persistência do índice manual onde ainda houver regressão;
+- [ ] Tradutor V1;
+- [ ] tradução por trecho/página;
+- [ ] cache local de traduções;
+- [ ] lado a lado original/tradução;
+- [ ] narrar original ou tradução.
+
+### 🟣 Próximos ciclos
+
+- [ ] fechar UX da Biblioteca;
+- [ ] ampliar Project Studio;
+- [ ] consolidar evidências profissionais;
+- [ ] reforçar Content Studio multiformato;
+- [ ] observabilidade;
+- [ ] E2E;
+- [ ] CI/CD;
+- [ ] preparação gradual para hospedagem futura.
+
+---
+
+## 🧭 Fluxo de trabalho do projeto
+
+```text
+Ideia
+  ↓
+Backlog
+  ↓
+Implementação em branch de trabalho
+  ↓
+Testes focados
+  ↓
+Teste completo
+  ↓
+Validação manual
+  ↓
+Backup/migration quando necessário
+  ↓
+Atualização do README
+  ↓
+Promoção de branch
+```
+
+> O README é tratado como **documentação viva**. Mudanças relevantes no repositório devem atualizar também a documentação, o estado funcional e o roadmap.
+
+---
+
+## 🗂️ Estrutura principal
+
+```text
+src/
+├── routes/
+├── pages/
+├── components/
+│   └── library/
+├── hooks/
+├── lib/
+├── assets/
+└── tests/
+
+apps/api/
+├── core/
+├── ai/
+├── store/
+├── library/
+├── professional/
+└── config/
+```
+
+---
+
+## 🚀 Execução local
+
+O fluxo principal atual usa serviços locais.
+
+### Frontend
+
+```powershell
+npm run dev
+```
+
+A interface principal é iniciada normalmente em:
+
+```text
+http://localhost:8080/
+```
+
+### Django
+
+```powershell
+python .\apps\api\manage.py runserver 127.0.0.1:8000
+```
+
+### Celery
+
+```powershell
+celery -A config worker --loglevel=INFO --pool=solo
+```
+
+### Serviços esperados
+
+| Serviço | Uso |
+|---|---|
+| Frontend | Interface React |
+| Django | API e regras de negócio |
+| PostgreSQL | Banco principal |
+| Redis | Broker/cache |
+| Celery | Processamento assíncrono |
+
+> Os scripts locais de inicialização podem configurar automaticamente variáveis e conexões específicas do ambiente do operador.
+
+---
+
+## 📸 Showcase
+
+A pasta `docs/screenshots/` é reservada para capturas reais das áreas principais:
 
 ```text
 docs/
@@ -106,473 +477,36 @@ docs/
     └── 10-responsive.png
 ```
 
-**Padrão recomendado:** capturas reais, sem dados pessoais ou segredos, preferencialmente em 1600×900 para desktop e 390×844 para mobile.
-
-> Os screenshots podem ser adicionados gradualmente. O README já está estruturado para receber cada destaque sem precisar ser reorganizado.
-
 ---
 
-## 🥋 A visão do Dojô
+## 🎯 Visão
 
-O **Data Driven Dojô** nasceu de uma ideia simples: aprender tecnologia não deve ser apenas consumir cursos. Deve ser uma jornada de **fundamentos → prática → desafio → feedback → evolução**.
+O Data Driven Dojô não pretende ser apenas uma plataforma de cursos.
 
-A experiência combina:
+A visão é construir um ambiente onde seja possível:
 
-- 🎓 **Trilhas de aprendizagem**;
-- ⚔️ **Desafios e exercícios**;
-- 🟠 **Pontos Kaizen (XP)**;
-- 🥋 **Sistema de faixas**;
-- 📈 **Dashboard de progresso**;
-- 🧪 **Workspace de prática**;
-- 👥 **Comunidade**;
-- 🤖 **Ecossistema IA Sensei** com mentores especializados.
+- aprender;
+- pesquisar;
+- praticar;
+- produzir;
+- trabalhar;
+- registrar evidências;
+- ensinar;
+- evoluir continuamente.
 
-> **O Dojô não quer formar apenas usuários de ferramentas. Quer formar profissionais capazes de pensar, construir e resolver problemas.**
-
----
-
-## 🎯 Posicionamento estratégico
-
-O produto está sendo estruturado como uma plataforma de **Learning Experience + Practice + Community**, com potencial de evoluir para um ecossistema de formação profissional.
-
-### Público prioritário
-
-**Iniciantes e profissionais em transição ou evolução para Data & Analytics, Data Science, Data Engineering, AI Engineering, Cloud Architecture e Full Stack Development.**
-
-### Proposta de valor
-
-| Desafio | Resposta do Dojô |
-|---|---|
-| Cursos fragmentados | Trilhas organizadas por competências |
-| Pouca prática | Exercícios, laboratórios e desafios |
-| Progresso invisível | XP, faixas, streak e indicadores |
-| Falta de feedback | Avaliação estruturada |
-| Aprendizado solitário | Comunidade e jornada compartilhada |
-| Excesso de teoria | Workspace orientado à execução |
-| IA sem direção | IA aplicada como mentora e camada de personalização |
-
----
-
-## 🧭 Jornada do aluno
-
-```text
-🥋 ENTRAR NO DOJÔ
-        ↓
-🎯 DEFINIR OBJETIVO
-        ↓
-📚 ESCOLHER TRILHA
-        ↓
-🧠 APRENDER FUNDAMENTO
-        ↓
-⚔️ PRATICAR / DESAFIAR
-        ↓
-📝 RECEBER FEEDBACK
-        ↓
-🟠 GANHAR XP / KAIZEN
-        ↓
-🥋 AVANÇAR DE FAIXA
-        ↓
-🏗️ CONSTRUIR PROJETOS
-        ↓
-💼 PORTFÓLIO / CARREIRA
-        ↺
-      KAIZEN
-```
-
----
-
-## 🏗️ Arquitetura atual
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                     DATA DRIVEN DOJÔ                        │
-├─────────────────────────────────────────────────────────────┤
-│ React + TypeScript + Vite                                  │
-│ ├── TanStack Router                                         │
-│ ├── TanStack Query                                          │
-│ ├── Tailwind CSS                                            │
-│ └── Componentes reutilizáveis                               │
-│                         │                                   │
-│                         ▼                                   │
-│                 Django REST Framework                        │
-│ ├── Autenticação                                             │
-│ ├── Cursos / módulos / aulas                                │
-│ ├── Exercícios e avaliação                                  │
-│ ├── Ecossistema de agentes de IA                            │
-│ ├── 3DStore e operações comerciais                          │
-│ └── Biblioteca do Sensei / RAG                              │
-│                         │                                   │
-│              ┌──────────┴──────────┐                        │
-│              ▼                     ▼                        │
-│        PostgreSQL               Redis                       │
-│                                    │                        │
-│                                    ▼                        │
-│                              Celery Workers                  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Camadas
-
-**Frontend** — experiência, navegação, gamificação e interação.
-
-**API** — regras de negócio, autenticação e entrega de conteúdo.
-
-**Dados** — PostgreSQL como base principal e Redis para cache/filas.
-
-**Workers** — Celery para tarefas assíncronas e evolução da plataforma.
-
----
-
-## ⚙️ Stack
-
-### Frontend
-
-`React` · `TypeScript` · `Vite` · `TanStack Router` · `TanStack Query` · `Tailwind CSS`
-
-### UX & UI
-
-`Radix UI` · `Lucide` · `Recharts` · `Sonner`
-
-### Backend
-
-`Python` · `Django` · `Django REST Framework` · `dj-rest-auth` · `Celery`
-
-### Dados & infraestrutura
-
-`PostgreSQL` · `SQLite (dev)` · `Redis` · `Celery` · `pypdf` · `sentence-transformers`
-
-### Qualidade
-
-`TypeScript Strict` · `ESLint` · `Prettier` · `Vitest` · `Testing Library`
-
----
-
-## ✨ Funcionalidades
-
-### 🎓 Aprendizagem
-
-- Cadastro de cursos;
-- módulos e aulas;
-- vídeos e conteúdo textual;
-- exercícios estruturados;
-- critérios de avaliação;
-- workspace de desafios.
-
-### 🥋 Gamificação
-
-- XP / Pontos Kaizen;
-- progressão por faixa;
-- streak;
-- indicadores de horas e evolução;
-- feedback visual.
-
-### 👥 Comunidade
-
-- feed;
-- posts;
-- curtidas;
-- comentários;
-- interação social.
-
-### 🤖 Ecossistema IA Sensei
-
-- Sensei coordenador e mentores especializados em dados, engenharia de IA, cloud, carreira, marketing e YouTube;
-- AI Sales público e agentes educacionais protegidos por autenticação;
-- conversas persistidas com histórico e isolamento por usuário;
-- continuidade de conversa pelo `conversation_id` retornado pela API; conversas anônimas usam identificador público e token privado, sem permitir reutilização por outro cliente;
-- suporte configurável a OpenAI, Gemini, DeepSeek e endpoint compatível com GitHub Copilot;
-- fallback controlado entre provedores e limites de uso por usuário.
-
-### 🛒 3DStore
-
-- catálogo organizado por categorias;
-- produtos próprios, afiliados e dropshipping;
-- carrinho, pedidos e checkout desacoplado;
-- pagamento sandbox seguro para desenvolvimento;
-- avaliações e perguntas vinculadas aos produtos;
-- rastreamento de redirecionamentos para parceiros.
-
-### 📚 Biblioteca do Sensei
-
-- upload e validação de livros técnicos em PDF;
-- extração, divisão em chunks e embeddings locais;
-- recuperação semântica com indicação de livro e página;
-- processamento assíncrono com Celery e Redis;
-- geração de roteiros estruturados a partir das fontes recuperadas;
-- catálogo privado com indexação recursiva do acervo local e detecção de duplicidades;
-- **DDJ Content Studio** com projetos editoriais dos tipos **Formação Premium** e **Trilha YouTube**;
-- planos editoriais estruturados, edição humana e histórico imutável por versão;
-- comentários editoriais vinculados ao plano, projeto, módulo, aula, vídeo ou seção;
-- geração seletiva de conteúdo por módulo, aula ou vídeo, sempre mantida como draft;
-- visão editorial legível, visão técnica em JSON, impressão/exportação e prévia como aluno;
-- fluxo explícito de aprovação humana, solicitação de revisão, arquivamento e exclusão confirmada;
-- **Conselho Editorial Multiagente** coordenado pelo Sensei Editorial, com pareceres especializados, Fact Checker e síntese final aguardando decisão humana;
-- proteção por feature flag, acesso administrativo e restrição ao ambiente local;
-- desativação obrigatória do Studio na configuração de produção.
-
-#### Conselho Editorial e segurança operacional
-
-O Conselho não é um conjunto de chats independentes. Uma execução versionada coordena sequencialmente os papéis `technical`, `pedagogy`, `learning_science`, `technical_content`, `youtube`, `social_media`, `seo` e `fact_checker`, preserva proveniência das fontes e termina em `awaiting_human_approval`. A IA propõe, debate e sintetiza; somente uma pessoa pode aprovar ou solicitar revisão. Não existe publicação automática no Workspace, YouTube ou redes sociais.
-
-As fronteiras implementadas incluem isolamento por proprietário do projeto, exigência de usuário `is_staff`, opção de acesso somente por loopback, payloads limitados, erros sanitizados e tratamento de fontes RAG e pareceres anteriores como dados não confiáveis. Runs ativas usam heartbeat/lease, são revalidadas contra a versão e o estado aprovado do plano e não podem ser retomadas depois de expiradas. O histórico expõe as 50 execuções mais recentes em ordem determinística.
-
-#### Fluxo do operador
-
-1. Examinar o acervo privado e processar um PDF elegível para RAG.
-2. Criar uma Formação Premium ou Trilha YouTube e gerar o plano editorial.
-3. Revisar fontes, editar o plano, consultar versões e registrar comentários estruturados.
-4. Aprovar explicitamente o plano antes de gerar um módulo, aula ou vídeo em draft.
-5. Conferir a visão editorial, a visão técnica e a prévia não publicada do aluno.
-6. Executar o Conselho Editorial e decidir humanamente entre aprovação e nova revisão.
-
-Os endpoints administrativos ficam sob `/api/library/`: projetos e planos em `studio/projects/`, versões em `studio/projects/<id>/plan/versions/`, comentários em `studio/projects/<id>/comments/`, geração seletiva em `studio/projects/<id>/generate-content/` e Conselho em `studio/projects/<id>/council-runs/`. As decisões do Conselho usam `studio/council-runs/<id>/approve/` e `studio/council-runs/<id>/request-revision/`.
-
-### 📊 Dashboard
-
-A plataforma transforma atividade de aprendizagem em sinais de progresso para responder:
-
-**Onde estou? · O que estou aprendendo? · Quanto pratiquei? · Qual é o próximo passo?**
-
----
-
-## 🚀 Usabilidade, performance e responsividade
-
-A evolução prioriza uma experiência consistente em **desktop, tablet e mobile**, sem abandonar a identidade visual do Dojô.
-
-### Usabilidade
-
-- hierarquia visual orientada à tarefa;
-- estados de carregamento e erro claros;
-- navegação previsível;
-- foco de teclado visível;
-- alvos de toque adequados;
-- mensagens de erro orientadas à ação.
-
-### Performance
-
-- cache de queries com TanStack Query;
-- revalidação controlada;
-- preloading por intenção de navegação;
-- redução de refetch desnecessário;
-- tipagem estática contra regressões;
-- suporte a redução de movimento.
-
-### Responsividade
-
-- viewport preparado para dispositivos móveis;
-- prevenção de overflow horizontal;
-- mídias responsivas;
-- tipografia adaptada;
-- interações compatíveis com toque.
-
-> **A identidade não foi redesenhada. Foi organizada para funcionar melhor em mais contextos.**
-
----
-
-## 🎨 Identidade do Dojô — preservada
-
-### Tipografia oficial
-
-- **Exo 2** — títulos e identidade;
-- **Open Sans** — interface e leitura;
-- **Roboto Mono** — código, dados e elementos técnicos.
-
-### Paleta oficial
-
-- `#1C1C1C` — Graphite / fundo;
-- `#242424` — cards;
-- `#0057B8` — Deep Blue / ação;
-- `#E63946` — Samurai / energia e alertas;
-- `#FFA500` — Kaizen / progresso e destaque;
-- `#E5E5E5` — texto principal.
-
-A linguagem visual continua baseada na combinação de **dojo, samurai, disciplina e Kaizen**.
-
----
-
-## 🧩 Arquitetura de código
-
-```text
-src/
-├── routes/          # URLs e composição de rotas
-├── pages/           # Páginas da aplicação
-├── components/      # Componentes reutilizáveis
-├── hooks/           # Hooks compartilhados
-├── lib/             # Estado, helpers e serviços
-├── assets/          # Recursos visuais
-└── tests/           # Testes
-
-apps/api/
-├── core/            # Domínio educacional, comunidade e portfólio
-├── ai/              # Agentes, conversas, provedores e orquestração
-├── store/           # Catálogo, carrinho, pedidos e pagamentos
-├── library/         # Biblioteca do Sensei, ingestão e RAG
-└── config/          # Configuração Django, URLs e Celery
-```
-
-> `routes/` define o endereço; `pages/` compõe a experiência; componentes, hooks e serviços reutilizáveis ficam separados para facilitar evolução e manutenção.
-
----
-
-## 📈 Escalabilidade: direção do produto
-
-O objetivo é crescer em **conteúdo, usuários, funcionalidades e negócio** sem transformar a aplicação em um monólito difícil de manter.
-
-### Evolução planejada
-
-```text
-MVP
- │
- ├── Conteúdo estruturado
- ├── Gamificação
- ├── Workspace
- └── Comunidade
-       │
-       ▼
-PLATAFORMA
- │
- ├── Perfis de aprendizagem
- ├── Trilhas por carreira
- ├── Avaliação avançada
- ├── Projetos práticos
- └── Métricas de retenção
-       │
-       ▼
-ECOSSISTEMA
- │
- ├── IA Sensei
- ├── Personalização
- ├── Mentoria
- ├── Certificações
- ├── Portfólio profissional
- └── Integrações / APIs
-```
-
----
-
-## 🗺️ Roadmap estratégico
-
-### 🟢 Fundamentos
-
-- [x] Autenticação
-- [x] Cursos, módulos e aulas
-- [x] Exercícios estruturados
-- [x] Dashboard de progresso
-- [x] Gamificação inicial
-- [x] Workspace
-- [x] Comunidade
-- [x] API Django REST
-
-### 🟡 Produto
-
-- [ ] Progresso persistido por usuário e aula
-- [ ] Avaliação de desafios mais robusta
-- [ ] Trilhas por competência
-- [ ] Onboarding orientado ao objetivo profissional
-- [ ] Melhorias mobile
-- [ ] Observabilidade de produto
-
-### 🔵 Escala
-
-- [x] Jobs assíncronos para ingestão de livros
-- [ ] Cache estratégico para leitura e consultas frequentes
-- [ ] Testes E2E
-- [ ] CI/CD
-- [ ] Observabilidade técnica
-- [ ] Segurança e gestão de permissões
-
-### 🟠 IA Sensei
-
-- [ ] Mentoria contextual
-- [ ] Feedback personalizado
-- [ ] Geração de exercícios
-- [ ] Recomendações de trilha
-- [x] Base RAG da Biblioteca do Sensei
-- [x] Agentes especializados
-- [x] Catálogo privado do acervo local
-- [x] DDJ Content Studio privado com aprovações humanas
-- [ ] Permissões administrativas granulares para produção
-
-### 🟣 Mercado
-
-- [ ] Portfólio orientado a carreira
-- [ ] Certificações e badges verificáveis
-- [ ] Métricas de competência
-- [ ] Experiências B2C / B2B
-- [ ] Integrações com ecossistema profissional
-
----
-
-## 🧪 Desenvolvimento local
-
-Os manuais operacionais completos são mantidos localmente pela administração do projeto e não são publicados no repositório.
-
-Resumo das URLs recomendadas:
-
-| Componente | Endereço local |
-|---|---|
-| Frontend | `http://127.0.0.1:8083/` |
-| API Django | `http://127.0.0.1:8000/` |
-| Django Admin | `http://127.0.0.1:8000/admin/` |
-| 3DStore | `http://127.0.0.1:8083/store` |
-| Dojo Command Center | `http://127.0.0.1:8501/` |
-| API dos agentes | `http://127.0.0.1:8000/api/ai/` |
-| API da Biblioteca | `http://127.0.0.1:8000/api/library/` |
-| DDJ Content Studio (administrativo local) | `http://127.0.0.1:8080/content-studio` |
-
-### Qualidade antes de publicar
-
-```powershell
-npm.cmd run lint
-npm.cmd run typecheck
-npm.cmd test -- --run
-npm.cmd run build
-```
-
-Para a descoberta completa dos testes Django, execute os comandos a partir de `apps/api`:
-
-```powershell
-Set-Location apps/api
-..\..\.venv\Scripts\python.exe manage.py check
-..\..\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run
-..\..\.venv\Scripts\python.exe manage.py test
-```
-
-As migrations da Biblioteca chegam atualmente a `0009_editorial_council`. Revise o plano de migração e faça backup do banco antes de aplicar migrations em qualquer ambiente persistente.
-
----
-
-## 📐 Princípios de engenharia
-
-**Fundamentos antes de abstrações.** A tecnologia deve servir ao problema.
-
-**Experiência antes da complexidade.** Uma funcionalidade boa é aquela que o aluno entende e consegue usar.
-
-**Performance é parte da UX.** Tempo de resposta, cache e carregamento fazem parte do produto.
-
-**Segurança por padrão.** Segredos não pertencem ao código e permissões devem ser explícitas.
-
-**Observabilidade antes de escala.** Não se escala aquilo que não se consegue medir.
-
-**Kaizen.** Cada versão deve ser melhor que a anterior sem perder a essência.
-
----
-
-## 🥋 A filosofia
+Tudo conectado pela mesma filosofia:
 
 > **Determinação para começar.**  
 > **Disciplina para continuar.**  
 > **Direção para evoluir.**
-
-O Data Driven Dojô é um experimento contínuo sobre **como aprender tecnologia de forma prática, mensurável e sustentável**.
-
-**Treinar. Construir. Ensinar. Evoluir.**
 
 ---
 
 <div align="center">
 
 ### 🥋 Data Driven Dojô
+
+**Treinar. Construir. Ensinar. Evoluir.**
 
 **Kaizen — um passo melhor a cada dia.**
 
