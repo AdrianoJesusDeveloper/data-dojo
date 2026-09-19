@@ -183,7 +183,10 @@ export function ReaderSidebar({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setDraft(current => [...current, { title: "Novo item", position: Math.min(total, (current.at(-1)?.position ?? 0) + 1) || 1 }])}
+                onClick={() => setDraft(current => {
+                  const lastPosition = current.length ? current[current.length - 1].position : 0;
+                  return [...current, { title: "Novo item", position: Math.min(total, lastPosition + 1) || 1 }];
+                })}
               >
                 + Adicionar item
               </Button>
