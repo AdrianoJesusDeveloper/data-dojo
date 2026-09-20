@@ -109,10 +109,19 @@ def build_didactic_context(unit):
     )
 
     book_ids = []
+    ranges_by_book = {}
+    source_by_book = {}
     for source in sources:
         linked_book = getattr(source.source, "book", None) if source.source_id else None
         if linked_book and linked_book.status == "ready":
+            if not source.approved_ranges:
+                raise DidacticContentError(
+                    f"A fonte aprovada '{source.title}' não possui intervalos PDF estruturados. "
+                    "Revise a curadoria antes de gerar a aula."
+                )
             book_ids.append(linked_book.id)
+            ranges_by_book[linked_book.id] = source.approved_ranges
+            source_by_book[linked_book.id] = source
 
     source_excerpts = []
     if book_ids:
@@ -124,12 +133,23 @@ def build_didactic_context(unit):
                 *plan.practices,
             ]
         )
-        for chunk in buscar_chunks_relevantes(query, book_ids, top_k=8):
+        for chunk in buscar_chunks_relevantes(
+            query,
+            book_ids,
+            top_k=8,
+            allowed_ranges_by_book=ranges_by_book,
+        ):
+            approved_source = source_by_book[chunk.book_id]
             source_excerpts.append(
                 {
+                    "source_id": approved_source.id,
+                    "library_source_id": approved_source.source_id,
                     "book_id": chunk.book_id,
                     "book_title": chunk.book.title,
-                    "page": chunk.page_number,
+                    "pdf_page": chunk.page_number,
+                    "chunk_id": chunk.id,
+                    "chunk_index": chunk.chunk_index,
+                    "approved_ranges": approved_source.approved_ranges,
                     "content": chunk.content[:1800],
                 }
             )
@@ -145,7 +165,7 @@ def build_didactic_context(unit):
         "practices": plan.practices,
         "expected_evidence": plan.expected_evidence,
         "completion_criteria": plan.completion_criteria,
-        "approved_sources": [{"id": source.id, "title": source.title, "reference": source.reference, "category": source.category, "source_type": source.source_type, "priority": source.priority, "location": source.location, "objective": source.objective} for source in sources],
+        "approved_sources": [{"id": source.id, "title": source.title, "reference": source.reference, "category": source.category, "source_type": source.source_type, "priority": source.priority, "location": source.location, "approved_ranges": source.approved_ranges, "objective": source.objective} for source in sources],
         "approved_source_excerpts": source_excerpts,
         "source_policy": formation.source_policy,
         "source_mode": source_mode,
@@ -186,7 +206,10 @@ def generate_didactic_lesson(unit: SenseiStudyUnit, user):
     if source_mode == DidacticLesson.SourceMode.APPROVED_SOURCES:
         grounding_instruction = (
             "Use somente o contexto confiável, os metadados das fontes aprovadas e os trechos recuperados do acervo fornecidos. "
-            "Quando houver trechos recuperados, fundamente explicações neles e preserve a proveniência por livro/página. "
+            "Os trechos recuperados já foram limitados aos intervalos PDF aprovados pela revisão humana. "
+            "Fundamente as afirmações factuais nesses trechos e preserve a proveniência por livro e pdf_page. "
+            "Se um conceito não estiver sustentado pelos trechos fornecidos, não o atribua à fonte e não invente páginas. "
+            "Não cite capítulo ou página que não apareça no contexto fornecido. "
             "Não invente referências, autores, links, documentos, páginas ou citações."
         )
     else:
@@ -227,6 +250,21 @@ def generate_didactic_lesson(unit: SenseiStudyUnit, user):
     lesson.ai_provider = provider
     lesson.ai_model = model
     lesson.generated_at = timezone.now()
+    lesson.grounding_snapshot = {
+        "version": 1,
+        "captured_at": lesson.generated_at.isoformat(),
+        "provider": provider,
+        "model": model,
+        "sources": context.get("approved_sources", []),
+        "excerpts": context.get("approved_source_excerpts", []),
+    } if source_mode == DidacticLesson.SourceMode.APPROVED_SOURCES else {
+        "version": 1,
+        "captured_at": lesson.generated_at.isoformat(),
+        "provider": provider,
+        "model": model,
+        "sources": [],
+        "excerpts": [],
+    }
     lesson.author = user
     lesson.reviewed_by = None
     lesson.reviewed_at = None
