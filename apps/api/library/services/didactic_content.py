@@ -153,6 +153,11 @@ def build_didactic_context(unit):
                     "content": chunk.content[:1800],
                 }
             )
+        if not source_excerpts:
+            raise DidacticContentError(
+                "GROUNDING_EMPTY: nenhuma evidência textual foi recuperada dentro dos intervalos PDF aprovados. "
+                "Revise as páginas da curadoria ou reprocesse o livro antes de gerar a aula."
+            )
 
     return {
         "formation": formation.title,
