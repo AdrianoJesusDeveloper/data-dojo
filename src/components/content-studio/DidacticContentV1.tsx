@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Eye, LoaderCircle, Printer, Upload, WandSparkles } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -79,10 +79,12 @@ export function DidacticContentV1({
   formationId,
   unitId,
   enabled,
+  hasApprovedSource = false,
 }: {
   formationId: number;
   unitId: number;
   enabled: boolean;
+  hasApprovedSource?: boolean;
 }) {
   const client = useQueryClient();
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -90,6 +92,11 @@ export function DidacticContentV1({
   const [exporting, setExporting] = useState<"docx" | "html" | null>(null);
   const [publicationScope, setPublicationScope] = useState<PublicationScope>("LESSON");
   const [publicationPreview, setPublicationPreview] = useState<PublicationPreview | null>(null);
+  useEffect(() => {
+    if (hasApprovedSource && generationError?.includes("Fontes insuficientes")) {
+      setGenerationError(null);
+    }
+  }, [generationError, hasApprovedSource]);
   const queryKey = ["sensei-didactic-content", formationId, unitId];
   const query = useQuery({
     queryKey,
