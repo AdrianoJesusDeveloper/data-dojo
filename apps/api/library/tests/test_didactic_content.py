@@ -66,14 +66,15 @@ class DidacticContentApiTests(APITestCase):
             source_type="TECHNICAL_BOOK",
             title="Python prático",
             reference="Edição local",
-            location="Capítulo 2, páginas 30-45",
+            location="Capítulo 2, PDF p.30 a 45",
+            approved_ranges=[{"pdf_start": 30, "pdf_end": 45}],
             objective="Fundamentar estruturas de dados",
             priority=1,
             justification="Fonte revisada e diretamente relacionada.",
             editorial_status="APPROVED",
         )
         retrieve.return_value = [
-            SimpleNamespace(book_id=book.id, book=book, page_number=33, content="Listas são coleções mutáveis em Python."),
+            SimpleNamespace(id=99, book_id=book.id, book=book, page_number=33, chunk_index=7, content="Listas são coleções mutáveis em Python."),
         ]
 
         from library.services.didactic_content import build_didactic_context
@@ -83,9 +84,66 @@ class DidacticContentApiTests(APITestCase):
         self.assertEqual(source_mode, DidacticLesson.SourceMode.APPROVED_SOURCES)
         self.assertEqual(len(sources), 1)
         self.assertEqual(context["approved_source_excerpts"][0]["book_title"], "Python prático")
-        self.assertEqual(context["approved_source_excerpts"][0]["page"], 33)
+        self.assertEqual(context["approved_source_excerpts"][0]["pdf_page"], 33)
+        self.assertEqual(context["approved_source_excerpts"][0]["chunk_id"], 99)
+        self.assertEqual(context["approved_source_excerpts"][0]["approved_ranges"], [{"pdf_start": 30, "pdf_end": 45}])
         self.assertIn("coleções mutáveis", context["approved_source_excerpts"][0]["content"])
         retrieve.assert_called_once()
+        _, kwargs = retrieve.call_args
+        self.assertEqual(kwargs["allowed_ranges_by_book"], {book.id: [{"pdf_start": 30, "pdf_end": 45}]})
+
+    @patch.dict(os.environ, {"SENSEI_AI_PROVIDER": "groq", "GROQ_API_KEY": "test-key", "GROQ_MODEL": "didactic-model"}, clear=False)
+    @patch("library.services.didactic_content.buscar_chunks_relevantes")
+    @patch("library.services.didactic_content.chat_with_provider")
+    def test_generation_persists_exact_grounding_snapshot(self, provider, retrieve):
+        source = LibrarySource.objects.create(
+            relative_path="didactic/grounded.pdf",
+            filename="grounded.pdf",
+            extension="pdf",
+            status="supported",
+        )
+        book = Book.objects.create(
+            title="Grounded Python",
+            source=source,
+            file="library/books/grounded.pdf",
+            status="ready",
+        )
+        approved = SenseiUnitSource.objects.create(
+            unit=self.unit,
+            source=source,
+            category="FOUNDATIONAL",
+            source_type="TECHNICAL_BOOK",
+            title="Grounded Python",
+            reference="Edição local",
+            location="Capítulo 6, PDF p.122 a 135",
+            approved_ranges=[{"pdf_start": 122, "pdf_end": 135}],
+            objective="Fundamentar",
+            priority=1,
+            justification="Fonte revisada.",
+            editorial_status="APPROVED",
+        )
+        retrieve.return_value = [
+            SimpleNamespace(
+                id=321,
+                book_id=book.id,
+                book=book,
+                page_number=124,
+                chunk_index=123,
+                content="As listas são mutáveis e aceitam alterações no local.",
+            ),
+        ]
+        provider.return_value = self.ai_response()
+
+        response = self.request("post", {})
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        lesson = DidacticLesson.objects.get(pk=response.data["id"])
+        self.assertEqual(lesson.grounding_snapshot["provider"], "groq")
+        self.assertEqual(lesson.grounding_snapshot["model"], "didactic-model")
+        self.assertEqual(lesson.grounding_snapshot["sources"][0]["id"], approved.id)
+        excerpt = lesson.grounding_snapshot["excerpts"][0]
+        self.assertEqual((excerpt["book_id"], excerpt["pdf_page"], excerpt["chunk_id"]), (book.id, 124, 321))
+        self.assertEqual(excerpt["approved_ranges"], [{"pdf_start": 122, "pdf_end": 135}])
 
     @patch.dict(os.environ, {"SENSEI_AI_PROVIDER": "groq", "GROQ_API_KEY": "test-key", "GROQ_MODEL": "didactic-model"}, clear=False)
     @patch("library.services.didactic_content.chat_with_provider")
