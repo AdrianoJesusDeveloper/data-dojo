@@ -573,6 +573,8 @@ class SenseiUnitSourceReviewSerializer(serializers.Serializer):
         if attrs["editorial_status"] == SenseiUnitSource.EditorialStatus.APPROVED:
             if not proposal.justification.strip() or not (proposal.source_id or proposal.url or proposal.reference.strip()):
                 raise serializers.ValidationError("Aprovação exige justificativa e proveniência identificável.")
+            if not proposal.location.strip():
+                raise serializers.ValidationError("Aprovação exige capítulo, seção, páginas ou trecho confirmado por revisão humana.")
         elif not attrs.get("rejection_reason", "").strip():
             raise serializers.ValidationError({"rejection_reason": "Informe o motivo da rejeição."})
         return attrs
