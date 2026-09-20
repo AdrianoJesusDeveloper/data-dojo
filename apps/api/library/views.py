@@ -1815,6 +1815,7 @@ class SenseiDidacticLessonView(APIView):
         if (
             next_status == DidacticLesson.Status.REVIEW
             and lesson.source_mode == DidacticLesson.SourceMode.APPROVED_SOURCES
+            and lesson.sources.exists()
             and not (lesson.grounding_snapshot or {}).get("sources")
         ):
             return Response(
