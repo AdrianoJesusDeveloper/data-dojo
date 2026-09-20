@@ -265,16 +265,14 @@ export function DidacticContentV1({
     },
     onError: (error: any) => {
       const detail = error?.response?.data?.detail;
-      setGenerationError(
+      const message =
         typeof detail === "string" && detail.includes("NEEDS_SOURCE")
           ? "Fontes insuficientes. NEEDS_SOURCE: uma fonte aprovada é necessária antes da geração."
-          : "Não foi possível gerar a aula neste momento.",
-      );
-      toast.error(
-        typeof detail === "string" && detail.includes("NEEDS_SOURCE")
-          ? "NEEDS_SOURCE: fontes aprovadas são necessárias para gerar esta aula."
-          : "Não foi possível gerar a aula neste momento.",
-      );
+          : typeof detail === "string" && detail.includes("SEMANTIC_MISMATCH")
+            ? "A resposta da IA foi rejeitada por incoerência temática com a unidade e suas fontes. Gere novamente."
+            : "Não foi possível gerar a aula neste momento.";
+      setGenerationError(message);
+      toast.error(message);
     },
   });
   const regenerate = useMutation({
