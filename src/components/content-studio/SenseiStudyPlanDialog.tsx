@@ -236,7 +236,63 @@ export function SenseiStudyPlanDialog({ formationId, unitId, unitTitle, onClose 
         <div className="mt-4 space-y-2">
           <h4 className="text-sm font-bold">3. Revisão editorial</h4>
           {!plan.source_proposals?.length && <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">Nenhuma proposta criada. Busque uma fonte no acervo para iniciar a curadoria.</p>}
-          {plan.source_proposals?.map((source) => <article key={source.id} className="rounded border bg-background p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><Badge variant="outline">{source.editorial_status}</Badge><h4 className="mt-1 font-medium">{source.title}</h4><p className="text-xs text-muted-foreground">{source.author_or_organization || "Fonte local"} · {source.location || "Referência específica pendente"}</p></div>{source.editorial_status === "PROPOSED" && <div className="flex gap-2"><Button size="sm" disabled={reviewSource.isPending} onClick={() => reviewSource.mutate({ id: source.id, editorial_status: "APPROVED" })}>Aprovar fonte</Button><Button size="sm" variant="destructive" disabled={reviewSource.isPending} onClick={() => { const reason = window.prompt("Motivo da rejeição"); if (reason?.trim()) reviewSource.mutate({ id: source.id, editorial_status: "REJECTED", rejection_reason: reason }); }}>Rejeitar</Button></div>}</div><p className="mt-2 text-xs">Justificativa: {source.justification || "Pendente"}</p>{source.approved_ranges?.length > 0 && <p className="mt-1 text-xs text-muted-foreground">Ranges PDF estruturados: {source.approved_ranges.map((range) => range.pdf_start === range.pdf_end ? `p.${range.pdf_start}` : `p.${range.pdf_start}–${range.pdf_end}`).join(", ")}</p>{source.editorial_status === "REJECTED" && source.rejection_reason && <p className="mt-1 text-xs text-destructive">Rejeitada: {source.rejection_reason}</p>}</article>)}
+          {plan.source_proposals?.map((source) => (
+            <article key={source.id} className="rounded border bg-background p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <Badge variant="outline">{source.editorial_status}</Badge>
+                  <h4 className="mt-1 font-medium">{source.title}</h4>
+                  <p className="text-xs text-muted-foreground">
+                    {source.author_or_organization || "Fonte local"} · {source.location || "Referência específica pendente"}
+                  </p>
+                </div>
+                {source.editorial_status === "PROPOSED" && (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={reviewSource.isPending}
+                      onClick={() => reviewSource.mutate({ id: source.id, editorial_status: "APPROVED" })}
+                    >
+                      Aprovar fonte
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={reviewSource.isPending}
+                      onClick={() => {
+                        const reason = window.prompt("Motivo da rejeição");
+                        if (reason?.trim()) {
+                          reviewSource.mutate({
+                            id: source.id,
+                            editorial_status: "REJECTED",
+                            rejection_reason: reason,
+                          });
+                        }
+                      }}
+                    >
+                      Rejeitar
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <p className="mt-2 text-xs">Justificativa: {source.justification || "Pendente"}</p>
+              {source.approved_ranges?.length > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Ranges PDF estruturados:{" "}
+                  {source.approved_ranges
+                    .map((range) =>
+                      range.pdf_start === range.pdf_end
+                        ? `p.${range.pdf_start}`
+                        : `p.${range.pdf_start}–${range.pdf_end}`,
+                    )
+                    .join(", ")}
+                </p>
+              )}
+              {source.editorial_status === "REJECTED" && source.rejection_reason && (
+                <p className="mt-1 text-xs text-destructive">Rejeitada: {source.rejection_reason}</p>
+              )}
+            </article>
+          ))}
         </div>
       </section>
       <List title="Práticas e exercícios" items={plan.practices} /><List title="Evidências esperadas" items={plan.expected_evidence} /><List title="Critérios para considerar estudada" items={plan.completion_criteria} />
