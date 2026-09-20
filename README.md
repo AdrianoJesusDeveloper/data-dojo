@@ -84,6 +84,8 @@ A ponte entre a Biblioteca do Sensei e o conteúdo didático agora possui um flu
 - recuperação de trechos relevantes do livro aprovado via RAG para fundamentar a aula;
 - preservação da proveniência por livro e página;
 - nenhuma fonte é aprovada automaticamente pela IA.
+- fontes rejeitadas podem ser corrigidas e reenviadas sem criar vínculo duplicado;
+- tentativas de duplicar uma proposta já ativa retornam conflito controlado, nunca erro 500.
 
 > A IA pode ajudar a localizar e usar o acervo, mas a decisão sobre o que se torna fonte oficial da unidade continua humana.
 
