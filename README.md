@@ -107,6 +107,8 @@ A geração didática baseada na Biblioteca agora aplica uma camada adicional de
 
 > Para fontes locais, a página operacional é sempre a página física do PDF/Reader. A paginação impressa pode continuar registrada no texto de localização como referência bibliográfica complementar.
 
+> **Backfill real validado:** a fonte piloto de *Aprendendo Python* foi convertida para ranges físicos `122–135`, `136–152`, `79–99` e `98`. A paginação impressa registrada em texto livre, inclusive um valor digitado incorretamente, não foi interpretada como range operacional.
+
 ### 🧠 Content Studio
 
 Ambiente privado para pesquisa, planejamento editorial e geração assistida por IA.
@@ -268,7 +270,8 @@ Arquitetura preparada para providers configuráveis, incluindo integrações com
 - [x] RAG restrito aos intervalos PDF aprovados;
 - [x] snapshot auditável de grounding por aula;
 - [x] regeneração de rascunho com grounding atual;
-- [ ] validar Grounding Auditável V1 em uso real após migration 0034;
+- [x] migration 0034 aplicada no PostgreSQL principal e backfill de ranges PDF validado em uso real;
+- [ ] regenerar a aula piloto e validar o snapshot de grounding em uso real;
 - [ ] modo Original / Traduzido / Lado a lado;
 - [ ] integração Narrador + tradução.
 
@@ -318,7 +321,7 @@ Estado recente da Biblioteca:
 
 - **245 testes** da suíte completa aprovados;
 - **13 testes focados** do Reader/Media aprovados após o índice manual;
-- PostgreSQL principal requer migração até **library.0034_grounding_ranges_snapshot**;
+- PostgreSQL principal migrado até **library.0034_grounding_ranges_snapshot**;
 - backups validados com `pg_dump` + `pg_restore --list`.
 
 ---
