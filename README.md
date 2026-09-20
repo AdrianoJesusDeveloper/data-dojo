@@ -91,6 +91,22 @@ A ponte entre a Biblioteca do Sensei e o conteúdo didático agora possui um flu
 
 > **Validação funcional da Curadoria de Fontes V2:** fluxo testado em uso real com fonte local processada, proposta revisada, aprovação humana e geração de aula em DRAFT via Groq. A validação editorial da qualidade/proveniência do conteúdo gerado continua sendo uma etapa humana separada.
 
+### 🧾 Grounding Auditável V1
+
+A geração didática baseada na Biblioteca agora aplica uma camada adicional de rastreabilidade:
+
+- intervalos aprovados são armazenados em formato estruturado por páginas físicas do PDF;
+- o RAG é restrito aos ranges aprovados pela curadoria humana;
+- geração com fonte local é bloqueada quando nenhum trecho é encontrado dentro dos ranges aprovados;
+- cada aula gerada preserva um snapshot do grounding realmente enviado ao provider;
+- o snapshot registra fonte, livro, página PDF, chunk, trecho, provider, modelo e data da geração;
+- aulas antigas sem snapshot precisam ser regeneradas antes de entrar em revisão editorial;
+- o Content Studio exibe a proveniência do grounding na própria interface;
+- o rascunho pode ser regenerado com as fontes e ranges aprovados mais recentes;
+- marcadores provisórios como `Capítulo X`, `XX–YY` e `a confirmar` não podem ser aprovados.
+
+> Para fontes locais, a página operacional é sempre a página física do PDF/Reader. A paginação impressa pode continuar registrada no texto de localização como referência bibliográfica complementar.
+
 ### 🧠 Content Studio
 
 Ambiente privado para pesquisa, planejamento editorial e geração assistida por IA.
@@ -249,6 +265,10 @@ Arquitetura preparada para providers configuráveis, incluindo integrações com
 - [ ] Tradutor V1;
 - [x] Curadoria de Fontes V2 integrada ao plano de estudo;
 - [x] Curadoria de Fontes V2 validada em uso real até a geração da aula com fonte aprovada;
+- [x] RAG restrito aos intervalos PDF aprovados;
+- [x] snapshot auditável de grounding por aula;
+- [x] regeneração de rascunho com grounding atual;
+- [ ] validar Grounding Auditável V1 em uso real após migration 0034;
 - [ ] modo Original / Traduzido / Lado a lado;
 - [ ] integração Narrador + tradução.
 
@@ -298,7 +318,7 @@ Estado recente da Biblioteca:
 
 - **245 testes** da suíte completa aprovados;
 - **13 testes focados** do Reader/Media aprovados após o índice manual;
-- PostgreSQL principal migrado até **library.0033_booktocentry**;
+- PostgreSQL principal requer migração até **library.0034_grounding_ranges_snapshot**;
 - backups validados com `pg_dump` + `pg_restore --list`.
 
 ---
