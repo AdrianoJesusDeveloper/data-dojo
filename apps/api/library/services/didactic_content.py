@@ -7,6 +7,7 @@ from django.utils import timezone
 from ai.services import AIProviderError, chat_with_provider
 from ..models import DidacticLesson, DidacticLessonSection, SenseiCompetencyProgress, SenseiLearningActivity, SenseiStudyUnit, SenseiUnitSource
 from .sensei_learning import SenseiLearningError, resolve_provider
+from .retrieval import buscar_chunks_relevantes
 
 
 SECTION_TYPES = {choice for choice, _ in DidacticLessonSection.SectionType.choices}
@@ -96,7 +97,7 @@ def build_didactic_context(unit):
     sources = list(
         unit.curated_sources.filter(
             editorial_status=SenseiUnitSource.EditorialStatus.APPROVED
-        ).order_by("priority", "id")
+        ).select_related("source__book").order_by("priority", "id")
     )
     if not sources and formation.source_policy == formation.SourcePolicy.REQUIRE_APPROVED_SOURCE:
         raise DidacticContentError("NEEDS_SOURCE: a aula exige ao menos uma fonte aprovada por revisão humana.")
@@ -106,6 +107,32 @@ def build_didactic_context(unit):
         if sources
         else DidacticLesson.SourceMode.AI_GENERATED_UNSOURCED
     )
+
+    book_ids = []
+    for source in sources:
+        linked_book = getattr(source.source, "book", None) if source.source_id else None
+        if linked_book and linked_book.status == "ready":
+            book_ids.append(linked_book.id)
+
+    source_excerpts = []
+    if book_ids:
+        query = "\n".join(
+            [
+                unit.title,
+                unit.objective,
+                *plan.learning_objectives,
+                *plan.practices,
+            ]
+        )
+        for chunk in buscar_chunks_relevantes(query, book_ids, top_k=8):
+            source_excerpts.append(
+                {
+                    "book_id": chunk.book_id,
+                    "book_title": chunk.book.title,
+                    "page": chunk.page_number,
+                    "content": chunk.content[:1800],
+                }
+            )
 
     return {
         "formation": formation.title,
@@ -119,6 +146,7 @@ def build_didactic_context(unit):
         "expected_evidence": plan.expected_evidence,
         "completion_criteria": plan.completion_criteria,
         "approved_sources": [{"id": source.id, "title": source.title, "reference": source.reference, "category": source.category, "source_type": source.source_type, "priority": source.priority, "location": source.location, "objective": source.objective} for source in sources],
+        "approved_source_excerpts": source_excerpts,
         "source_policy": formation.source_policy,
         "source_mode": source_mode,
         "audience": DidacticLesson.Audience.SENSEI,
@@ -157,8 +185,9 @@ def generate_didactic_lesson(unit: SenseiStudyUnit, user):
     allowed_section_types = ", ".join(sorted(SECTION_TYPES))
     if source_mode == DidacticLesson.SourceMode.APPROVED_SOURCES:
         grounding_instruction = (
-            "Use somente o contexto confiável e as fontes aprovadas fornecidas. "
-            "Não invente referências, autores, links, documentos ou citações."
+            "Use somente o contexto confiável, os metadados das fontes aprovadas e os trechos recuperados do acervo fornecidos. "
+            "Quando houver trechos recuperados, fundamente explicações neles e preserve a proveniência por livro/página. "
+            "Não invente referências, autores, links, documentos, páginas ou citações."
         )
     else:
         grounding_instruction = (
