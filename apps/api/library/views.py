@@ -1918,8 +1918,65 @@ class SenseiUnitSourceListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         return self.get_unit().curated_sources.select_related("source")
 
-    def perform_create(self, serializer):
-        serializer.save(unit=self.get_unit(), curated_by=self.request.user, editorial_status=SenseiUnitSource.EditorialStatus.PROPOSED)
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        unit = self.get_unit()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        source = serializer.validated_data.get("source")
+
+        existing = None
+        if source is not None:
+            existing = (
+                SenseiUnitSource.objects.select_for_update()
+                .filter(unit=unit, source=source)
+                .first()
+            )
+
+        if existing is not None:
+            if existing.editorial_status != SenseiUnitSource.EditorialStatus.REJECTED:
+                return Response(
+                    {
+                        "detail": (
+                            "Esta fonte já possui uma proposta para esta unidade "
+                            f"com status {existing.editorial_status}."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            previous_rejection = existing.rejection_reason.strip()
+            for field, value in serializer.validated_data.items():
+                if field != "source":
+                    setattr(existing, field, value)
+
+            if previous_rejection:
+                history = f"Rejeição anterior: {previous_rejection}"
+                existing.notes = "\n".join(
+                    part for part in (existing.notes.strip(), history) if part
+                )
+
+            existing.curated_by = request.user
+            existing.editorial_status = SenseiUnitSource.EditorialStatus.PROPOSED
+            existing.rejection_reason = ""
+            existing.reviewed_by = None
+            existing.reviewed_at = None
+            existing.save()
+
+            return Response(
+                SenseiUnitSourceSerializer(existing).data,
+                status=status.HTTP_200_OK,
+            )
+
+        proposal = serializer.save(
+            unit=unit,
+            curated_by=request.user,
+            editorial_status=SenseiUnitSource.EditorialStatus.PROPOSED,
+        )
+        return Response(
+            SenseiUnitSourceSerializer(proposal).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class SenseiUnitSourceReviewView(APIView):
