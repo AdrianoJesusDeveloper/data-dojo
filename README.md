@@ -100,6 +100,8 @@ A geração didática baseada na Biblioteca agora aplica uma camada adicional de
 - geração com fonte local é bloqueada quando nenhum trecho é encontrado dentro dos ranges aprovados;
 - cada aula gerada preserva um snapshot do grounding realmente enviado ao provider;
 - o snapshot registra fonte, livro, página PDF, chunk, trecho, provider, modelo e data da geração;
+- o snapshot V2 também preserva o contexto pedagógico confiável da geração e um fingerprint SHA-256 desse contexto;
+- respostas estruturalmente válidas, mas semanticamente desalinhadas com unidade/objetivos/fontes, são rejeitadas antes de serem salvas (`SEMANTIC_MISMATCH`);
 - aulas geradas com fontes aprovadas e sem snapshot precisam ser regeneradas antes de entrar em revisão editorial; aulas humanas sem fonte continuam seguindo o fluxo editorial normal;
 - o Content Studio exibe a proveniência do grounding na própria interface;
 - o rascunho pode ser regenerado com as fontes e ranges aprovados mais recentes;
@@ -271,7 +273,8 @@ Arquitetura preparada para providers configuráveis, incluindo integrações com
 - [x] snapshot auditável de grounding por aula;
 - [x] regeneração de rascunho com grounding atual;
 - [x] migration 0034 aplicada no PostgreSQL principal e backfill de ranges PDF validado em uso real;
-- [ ] regenerar a aula piloto e validar o snapshot de grounding em uso real;
+- [x] regenerar a aula piloto e validar ranges/chunks do grounding em uso real;
+- [ ] repetir a geração piloto após o guard semântico e validar que conteúdo fora do domínio é rejeitado;
 - [ ] modo Original / Traduzido / Lado a lado;
 - [ ] integração Narrador + tradução.
 
