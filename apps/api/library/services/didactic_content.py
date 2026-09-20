@@ -74,14 +74,42 @@ def _context_fingerprint(context):
 
 
 def _validate_semantic_alignment(sections, context):
-    trusted_text = " ".join(
+    pedagogical_text = " ".join(
         [
             str(context.get("unit", "")),
             str(context.get("unit_objective", "")),
             " ".join(context.get("learning_objectives", []) or []),
+        ]
+    )
+    pedagogical_tokens = _semantic_tokens(pedagogical_text)
+
+    objective_sections = [
+        item for item in sections
+        if item.get("section_type") == DidacticLessonSection.SectionType.LEARNING_OBJECTIVES
+    ]
+    if objective_sections and pedagogical_tokens:
+        generated_objective_tokens = _semantic_tokens(
+            " ".join(
+                f"{item.get('title', '')} {item.get('content', '')}"
+                for item in objective_sections
+            )
+        )
+        if len(pedagogical_tokens & generated_objective_tokens) < min(3, len(pedagogical_tokens)):
+            raise DidacticContentError(
+                "SEMANTIC_MISMATCH: os objetivos gerados não correspondem aos objetivos confiáveis da unidade. "
+                "A aula não foi salva."
+            )
+
+    excerpts = context.get("approved_source_excerpts", []) or []
+    if not excerpts:
+        return
+
+    trusted_text = " ".join(
+        [
+            pedagogical_text,
             " ".join(context.get("practices", []) or []),
             " ".join(item.get("title", "") for item in context.get("competencies", []) or []),
-            " ".join(item.get("content", "") for item in context.get("approved_source_excerpts", []) or []),
+            " ".join(item.get("content", "") for item in excerpts),
         ]
     )
     trusted_tokens = _semantic_tokens(trusted_text)
@@ -95,7 +123,7 @@ def _validate_semantic_alignment(sections, context):
         raise DidacticContentError("SEMANTIC_MISMATCH: não foi possível validar a coerência temática da aula gerada.")
 
     overlap = trusted_tokens & generated_tokens
-    required_overlap = min(6, max(2, len(trusted_tokens) // 20))
+    required_overlap = min(5, max(3, len(trusted_tokens) // 30))
     if len(overlap) < required_overlap:
         raise DidacticContentError(
             "SEMANTIC_MISMATCH: a resposta da IA não está suficientemente alinhada ao tema, "
