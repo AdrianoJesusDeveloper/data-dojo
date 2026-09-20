@@ -1812,6 +1812,15 @@ class SenseiDidacticLessonView(APIView):
         allowed = {"DRAFT": {"REVIEW", "ARCHIVED"}, "REVIEW": {"DRAFT", "APPROVED", "ARCHIVED"}, "APPROVED": {"REVIEW", "PUBLISHED", "ARCHIVED"}, "PUBLISHED": {"ARCHIVED"}, "ARCHIVED": {"DRAFT"}}
         if next_status and next_status != lesson.status and next_status not in allowed.get(lesson.status, set()):
             return Response({"detail": "Transição de status não permitida."}, status=status.HTTP_400_BAD_REQUEST)
+        if (
+            next_status == DidacticLesson.Status.REVIEW
+            and lesson.source_mode == DidacticLesson.SourceMode.APPROVED_SOURCES
+            and not (lesson.grounding_snapshot or {}).get("excerpts")
+        ):
+            return Response(
+                {"detail": "A aula não possui snapshot de grounding auditável. Regenere o rascunho com as fontes aprovadas atuais antes de enviar para revisão."},
+                status=status.HTTP_409_CONFLICT,
+            )
         update_human_lesson(lesson, request.user, serializer.validated_data)
         return Response(DidacticLessonSerializer(lesson).data)
 
