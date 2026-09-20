@@ -495,19 +495,28 @@ export function DidacticContentV1({
               {lesson.ai_model ? ` · ${lesson.ai_model}` : ""}
             </p>
           )}
-          {lesson.grounding_snapshot?.excerpts?.length ? (
+          {lesson.grounding_snapshot?.sources?.length ? (
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">GROUNDING AUDITÁVEL</Badge>
-                <span>{lesson.grounding_snapshot.excerpts.length} trecho(s) preservado(s)</span>
+                <span>{lesson.grounding_snapshot.sources.length} fonte(s) preservada(s)</span>
+                <span>{lesson.grounding_snapshot.excerpts?.length ?? 0} trecho(s) local(is)</span>
               </div>
-              <p className="mt-2 text-muted-foreground">
-                Páginas PDF usadas: {Array.from(new Set(lesson.grounding_snapshot.excerpts.map((item) => item.pdf_page).filter((value): value is number => typeof value === "number"))).sort((a, b) => a - b).join(", ")}
-              </p>
+              {(lesson.grounding_snapshot.excerpts?.length ?? 0) > 0 && (
+                <p className="mt-2 text-muted-foreground">
+                  Páginas PDF usadas: {Array.from(new Set((lesson.grounding_snapshot.excerpts ?? []).map((item) => item.pdf_page).filter((value): value is number => typeof value === "number"))).sort((a, b) => a - b).join(", ")}
+                </p>
+              )}
               <details className="mt-2">
                 <summary className="cursor-pointer font-medium">Ver proveniência do grounding</summary>
                 <div className="mt-2 space-y-2">
-                  {lesson.grounding_snapshot.excerpts.map((item) => (
+                  {(lesson.grounding_snapshot.sources ?? []).map((source) => (
+                    <div key={source.id} className="rounded border bg-background p-2">
+                      <b>{source.title}</b>
+                      <p className="mt-1 text-muted-foreground">{source.location}</p>
+                    </div>
+                  ))}
+                  {(lesson.grounding_snapshot.excerpts ?? []).map((item) => (
                     <div key={item.chunk_id} className="rounded border bg-background p-2">
                       <b>{item.book_title}</b> · PDF p.{item.pdf_page ?? "?"} · chunk {item.chunk_index}
                       <p className="mt-1 line-clamp-3 text-muted-foreground">{item.content}</p>
