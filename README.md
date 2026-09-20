@@ -69,6 +69,24 @@ Principais capacidades atuais:
 
 > O arquivo original do livro é preservado. Índices, progresso, marcações, traduções futuras e demais metadados são tratados como camadas separadas.
 
+### 🔎 Curadoria de Fontes V2
+
+A ponte entre a Biblioteca do Sensei e o conteúdo didático agora possui um fluxo explícito de curadoria humana:
+
+- busca de fontes já processadas no acervo local;
+- seleção de livro/fonte para a unidade de estudo;
+- confirmação humana de capítulo, seção, páginas ou trecho;
+- objetivo e justificativa editorial obrigatórios;
+- criação de proposta antes da aprovação;
+- aprovação/rejeição humana;
+- bloqueio `NEEDS_SOURCE` mantido quando a formação exige fonte aprovada;
+- liberação da geração didática imediatamente após aprovação;
+- recuperação de trechos relevantes do livro aprovado via RAG para fundamentar a aula;
+- preservação da proveniência por livro e página;
+- nenhuma fonte é aprovada automaticamente pela IA.
+
+> A IA pode ajudar a localizar e usar o acervo, mas a decisão sobre o que se torna fonte oficial da unidade continua humana.
+
 ### 🧠 Content Studio
 
 Ambiente privado para pesquisa, planejamento editorial e geração assistida por IA.
@@ -225,6 +243,7 @@ Arquitetura preparada para providers configuráveis, incluindo integrações com
 - [x] Narrador V1 validado em uso real;
 - [x] persistência do índice manual validada ao sair e reabrir o Reader;
 - [ ] Tradutor V1;
+- [x] Curadoria de Fontes V2 integrada ao plano de estudo;
 - [ ] modo Original / Traduzido / Lado a lado;
 - [ ] integração Narrador + tradução.
 
@@ -384,6 +403,8 @@ Teste completo
 Validação manual
   ↓
 Backup/migration quando necessário
+  ↓
+Curadoria de fontes aprovada antes da geração didática quando exigida
   ↓
 Atualização do README
   ↓
