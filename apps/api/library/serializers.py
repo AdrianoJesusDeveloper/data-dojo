@@ -600,9 +600,11 @@ class SenseiUnitSourceSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
         if not attrs.get("source") and not attrs.get("url") and not attrs.get("reference", "").strip():
             raise serializers.ValidationError("Informe uma fonte local, URL ou referência identificável.")
-        location = attrs.get("location")
-        if location is not None:
+        location = attrs.get("location", "")
+        if attrs.get("source"):
             attrs["approved_ranges"] = parse_approved_pdf_ranges(location)
+        elif "location" in attrs:
+            attrs["approved_ranges"] = []
         return attrs
 
 
