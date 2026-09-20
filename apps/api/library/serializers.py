@@ -17,10 +17,10 @@ from .models import (
 from .editorial_contracts import normalize_project_type
 
 PDF_RANGE_RE = re.compile(
-    r"PDF\\s*p\\.?\\s*(\\d+)\\s*(?:a|até|-|–|—)\\s*(\\d+)",
+    r"PDF\s*p\.?\s*(\d+)\s*(?:a|até|-|–|—)\s*(\d+)",
     re.IGNORECASE,
 )
-PDF_SINGLE_RE = re.compile(r"PDF\\s*p\\.?\\s*(\\d+)", re.IGNORECASE)
+PDF_SINGLE_RE = re.compile(r"PDF\s*p\.?\s*(\d+)", re.IGNORECASE)
 PROVISIONAL_LOCATION_TOKENS = ("capítulo x", "capitulo x", "xx-yy", "xx–yy", "a confirmar", "pendente")
 
 
