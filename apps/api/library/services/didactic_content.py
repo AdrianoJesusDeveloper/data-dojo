@@ -1,4 +1,6 @@
+import hashlib
 import json
+import re
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
@@ -40,6 +42,65 @@ LESSON_SCHEMA = {
 
 class DidacticContentError(RuntimeError):
     pass
+
+
+SEMANTIC_STOPWORDS = {
+    "a", "ao", "aos", "as", "com", "como", "da", "das", "de", "do", "dos", "e", "em",
+    "no", "nos", "na", "nas", "o", "os", "ou", "para", "por", "que", "se", "sem", "um",
+    "uma", "uns", "umas", "aplicar", "compreender", "explicar", "implementar", "utilizar",
+}
+
+
+def _semantic_tokens(value):
+    text = str(value or "").lower()
+    words = re.findall(r"[a-záàâãéêíóôõúç0-9_+#.-]{4,}", text)
+    return {word.strip("._-") for word in words if word.strip("._-") and word not in SEMANTIC_STOPWORDS}
+
+
+def _context_fingerprint(context):
+    payload = {
+        "formation": context.get("formation"),
+        "module": context.get("module"),
+        "unit": context.get("unit"),
+        "unit_objective": context.get("unit_objective"),
+        "learning_objectives": context.get("learning_objectives"),
+        "competencies": context.get("competencies"),
+        "practices": context.get("practices"),
+        "approved_sources": context.get("approved_sources"),
+        "approved_source_excerpts": context.get("approved_source_excerpts"),
+    }
+    serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _validate_semantic_alignment(sections, context):
+    trusted_text = " ".join(
+        [
+            str(context.get("unit", "")),
+            str(context.get("unit_objective", "")),
+            " ".join(context.get("learning_objectives", []) or []),
+            " ".join(context.get("practices", []) or []),
+            " ".join(item.get("title", "") for item in context.get("competencies", []) or []),
+            " ".join(item.get("content", "") for item in context.get("approved_source_excerpts", []) or []),
+        ]
+    )
+    trusted_tokens = _semantic_tokens(trusted_text)
+    generated_text = " ".join(
+        f"{item.get('title', '')} {item.get('content', '')}"
+        for item in sections
+    )
+    generated_tokens = _semantic_tokens(generated_text)
+
+    if not trusted_tokens or not generated_tokens:
+        raise DidacticContentError("SEMANTIC_MISMATCH: não foi possível validar a coerência temática da aula gerada.")
+
+    overlap = trusted_tokens & generated_tokens
+    required_overlap = min(6, max(2, len(trusted_tokens) // 20))
+    if len(overlap) < required_overlap:
+        raise DidacticContentError(
+            "SEMANTIC_MISMATCH: a resposta da IA não está suficientemente alinhada ao tema, "
+            "objetivos e fontes aprovadas da unidade. A aula não foi salva."
+        )
 
 
 def get_authorship_section(lesson):
@@ -249,6 +310,7 @@ def generate_didactic_lesson(unit: SenseiStudyUnit, user):
         },
     ]
     sections = _parse_response(chat_with_provider(provider, messages, response_schema=LESSON_SCHEMA), provider)
+    _validate_semantic_alignment(sections, context)
     lesson.title = unit.title
     lesson.status = DidacticLesson.Status.DRAFT
     lesson.source_mode = source_mode
@@ -256,17 +318,39 @@ def generate_didactic_lesson(unit: SenseiStudyUnit, user):
     lesson.ai_model = model
     lesson.generated_at = timezone.now()
     lesson.grounding_snapshot = {
-        "version": 1,
+        "version": 2,
         "captured_at": lesson.generated_at.isoformat(),
         "provider": provider,
         "model": model,
+        "context_fingerprint": _context_fingerprint(context),
+        "pedagogical_context": {
+            "formation": context.get("formation"),
+            "module": context.get("module"),
+            "unit": context.get("unit"),
+            "unit_objective": context.get("unit_objective"),
+            "learning_objectives": context.get("learning_objectives", []),
+            "competencies": context.get("competencies", []),
+            "practices": context.get("practices", []),
+            "completion_criteria": context.get("completion_criteria", []),
+        },
         "sources": context.get("approved_sources", []),
         "excerpts": context.get("approved_source_excerpts", []),
     } if source_mode == DidacticLesson.SourceMode.APPROVED_SOURCES else {
-        "version": 1,
+        "version": 2,
         "captured_at": lesson.generated_at.isoformat(),
         "provider": provider,
         "model": model,
+        "context_fingerprint": _context_fingerprint(context),
+        "pedagogical_context": {
+            "formation": context.get("formation"),
+            "module": context.get("module"),
+            "unit": context.get("unit"),
+            "unit_objective": context.get("unit_objective"),
+            "learning_objectives": context.get("learning_objectives", []),
+            "competencies": context.get("competencies", []),
+            "practices": context.get("practices", []),
+            "completion_criteria": context.get("completion_criteria", []),
+        },
         "sources": [],
         "excerpts": [],
     }
