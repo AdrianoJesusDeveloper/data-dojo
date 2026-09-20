@@ -1,6 +1,7 @@
 import json
 import os
 from io import BytesIO
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from docx import Document
@@ -13,7 +14,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from library.models import (
-    DidacticLesson, DidacticLessonSection, SenseiCompetency, SenseiCompetencyEvidence,
+    Book, DidacticLesson, DidacticLessonSection, LibrarySource, SenseiCompetency, SenseiCompetencyEvidence,
     SenseiCompetencyProgress, SenseiFormation, SenseiFormationModule, SenseiStudyUnit,
     SenseiUnitSource, SenseiUnitStudyPlan,
 )
@@ -43,6 +44,48 @@ class DidacticContentApiTests(APITestCase):
             {"section_type": "CONCEPT", "title": "Conceito", "content": "Explicação estruturada.", "metadata": {"depth": "core"}},
             {"section_type": "AUTHORSHIP_CHALLENGE", "title": "Desafio de autoria", "content": "Explique, aplique, reflita e entregue um artefato.", "metadata": {"requires_artifact": True}},
         ]})
+
+    @patch("library.services.didactic_content.buscar_chunks_relevantes")
+    def test_approved_library_source_adds_retrieved_excerpts_to_context(self, retrieve):
+        source = LibrarySource.objects.create(
+            relative_path="didactic/python.pdf",
+            filename="python.pdf",
+            extension="pdf",
+            status="supported",
+        )
+        book = Book.objects.create(
+            title="Python prático",
+            source=source,
+            file="library/books/python.pdf",
+            status="ready",
+        )
+        SenseiUnitSource.objects.create(
+            unit=self.unit,
+            source=source,
+            category="FOUNDATIONAL",
+            source_type="TECHNICAL_BOOK",
+            title="Python prático",
+            reference="Edição local",
+            location="Capítulo 2, páginas 30-45",
+            objective="Fundamentar estruturas de dados",
+            priority=1,
+            justification="Fonte revisada e diretamente relacionada.",
+            editorial_status="APPROVED",
+        )
+        retrieve.return_value = [
+            SimpleNamespace(book_id=book.id, book=book, page_number=33, content="Listas são coleções mutáveis em Python."),
+        ]
+
+        from library.services.didactic_content import build_didactic_context
+
+        context, sources, source_mode = build_didactic_context(self.unit)
+
+        self.assertEqual(source_mode, DidacticLesson.SourceMode.APPROVED_SOURCES)
+        self.assertEqual(len(sources), 1)
+        self.assertEqual(context["approved_source_excerpts"][0]["book_title"], "Python prático")
+        self.assertEqual(context["approved_source_excerpts"][0]["page"], 33)
+        self.assertIn("coleções mutáveis", context["approved_source_excerpts"][0]["content"])
+        retrieve.assert_called_once()
 
     @patch.dict(os.environ, {"SENSEI_AI_PROVIDER": "groq", "GROQ_API_KEY": "test-key", "GROQ_MODEL": "didactic-model"}, clear=False)
     @patch("library.services.didactic_content.chat_with_provider")
