@@ -188,6 +188,32 @@ class DidacticContentApiTests(APITestCase):
         self.assertFalse(SenseiCompetencyEvidence.objects.filter(competency=self.competency).exists())
         self.assertFalse(SenseiCompetencyProgress.objects.filter(competency=self.competency).exists())
 
+    def test_old_grounded_lesson_without_snapshot_is_blocked_before_review(self):
+        content_type = ContentType.objects.get_for_model(self.unit)
+        lesson = DidacticLesson.objects.create(
+            title="Aula antiga com fonte",
+            audience="SENSEI",
+            status="DRAFT",
+            source_mode=DidacticLesson.SourceMode.APPROVED_SOURCES,
+            learning_target_type=content_type,
+            learning_target_id=self.unit.id,
+            author=self.user,
+        )
+        source = self.approved_source()
+        lesson.sources.add(source)
+
+        review = self.client.patch(
+            self.url,
+            {"status": "REVIEW"},
+            format="json",
+            REMOTE_ADDR="127.0.0.1",
+        )
+
+        self.assertEqual(review.status_code, status.HTTP_409_CONFLICT, review.data)
+        self.assertIn("snapshot de grounding", review.data["detail"])
+        lesson.refresh_from_db()
+        self.assertEqual(lesson.status, "DRAFT")
+
     def test_editorial_workflow_draft_review_approved_is_separate_from_learning(self):
         content_type = ContentType.objects.get_for_model(self.unit)
         lesson = DidacticLesson.objects.create(title="Editorial", audience="SENSEI", status="DRAFT", learning_target_type=content_type, learning_target_id=self.unit.id, author=self.user)
