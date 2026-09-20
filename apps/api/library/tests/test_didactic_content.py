@@ -132,18 +132,107 @@ class DidacticContentApiTests(APITestCase):
                 content="As listas são mutáveis e aceitam alterações no local.",
             ),
         ]
-        provider.return_value = self.ai_response()
+        provider.return_value = json.dumps({"sections": [
+            {
+                "section_type": "LEARNING_OBJECTIVES",
+                "title": "Objetivos",
+                "content": "Explicar listas mutáveis, alterações no local e estruturas em Python.",
+                "metadata": {},
+            },
+            {
+                "section_type": "CONCEPT",
+                "title": "Listas mutáveis em Python",
+                "content": "Listas são estruturas mutáveis e aceitam alterações no local.",
+                "metadata": {},
+            },
+            {
+                "section_type": "AUTHORSHIP_CHALLENGE",
+                "title": "Desafio de autoria",
+                "content": "Implemente uma transformação de lista em Python e explique a mutabilidade observada.",
+                "metadata": {},
+            },
+        ]})
 
         response = self.request("post", {})
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         lesson = DidacticLesson.objects.get(pk=response.data["id"])
+        self.assertEqual(lesson.grounding_snapshot["version"], 2)
         self.assertEqual(lesson.grounding_snapshot["provider"], "groq")
         self.assertEqual(lesson.grounding_snapshot["model"], "didactic-model")
+        self.assertTrue(lesson.grounding_snapshot["context_fingerprint"])
+        self.assertEqual(lesson.grounding_snapshot["pedagogical_context"]["unit"], self.unit.title)
         self.assertEqual(lesson.grounding_snapshot["sources"][0]["id"], approved.id)
         excerpt = lesson.grounding_snapshot["excerpts"][0]
         self.assertEqual((excerpt["book_id"], excerpt["pdf_page"], excerpt["chunk_id"]), (book.id, 124, 321))
         self.assertEqual(excerpt["approved_ranges"], [{"pdf_start": 122, "pdf_end": 135}])
+
+    @patch.dict(os.environ, {"SENSEI_AI_PROVIDER": "groq", "GROQ_API_KEY": "test-key", "GROQ_MODEL": "didactic-model"}, clear=False)
+    @patch("library.services.didactic_content.buscar_chunks_relevantes")
+    @patch("library.services.didactic_content.chat_with_provider")
+    def test_rejects_cross_domain_marketing_lesson_for_python_grounding(self, provider, retrieve):
+        source = LibrarySource.objects.create(
+            relative_path="didactic/python-semantic.pdf",
+            filename="python-semantic.pdf",
+            extension="pdf",
+            status="supported",
+        )
+        book = Book.objects.create(
+            title="Python semântico",
+            source=source,
+            file="library/books/python-semantic.pdf",
+            status="ready",
+        )
+        SenseiUnitSource.objects.create(
+            unit=self.unit,
+            source=source,
+            category="FOUNDATIONAL",
+            source_type="TECHNICAL_BOOK",
+            title="Python semântico",
+            reference="Edição local",
+            location="Capítulo 6, PDF p.122 a 135",
+            approved_ranges=[{"pdf_start": 122, "pdf_end": 135}],
+            objective="Fundamentar estruturas de dados em Python",
+            priority=1,
+            justification="Fonte revisada.",
+            editorial_status="APPROVED",
+        )
+        retrieve.return_value = [
+            SimpleNamespace(
+                id=654,
+                book_id=book.id,
+                book=book,
+                page_number=124,
+                chunk_index=1,
+                content="Listas em Python são mutáveis e armazenam referências para objetos.",
+            ),
+        ]
+        provider.return_value = json.dumps({"sections": [
+            {
+                "section_type": "LEARNING_OBJECTIVES",
+                "title": "Objetivos da aula",
+                "content": "Explicar como marketing e aquisição conectam problemas reais a ofertas. Relacionar tráfego ao valor entregue ao cliente.",
+                "metadata": {},
+            },
+            {
+                "section_type": "CONCEPT",
+                "title": "Aquisição",
+                "content": "Defina público, oferta, campanha e orçamento para aquisição.",
+                "metadata": {},
+            },
+            {
+                "section_type": "AUTHORSHIP_CHALLENGE",
+                "title": "Desafio",
+                "content": "Crie uma campanha e explique a estratégia de tráfego.",
+                "metadata": {},
+            },
+        ]})
+
+        response = self.request("post", {})
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT, response.data)
+        self.assertIn("SEMANTIC_MISMATCH", response.data["detail"])
+        self.assertFalse(DidacticLesson.objects.filter(learning_target_id=self.unit.id).exists())
 
     @patch.dict(os.environ, {"SENSEI_AI_PROVIDER": "groq", "GROQ_API_KEY": "test-key", "GROQ_MODEL": "didactic-model"}, clear=False)
     @patch("library.services.didactic_content.chat_with_provider")
