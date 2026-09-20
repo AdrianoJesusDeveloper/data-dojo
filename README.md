@@ -101,7 +101,7 @@ A geração didática baseada na Biblioteca agora aplica uma camada adicional de
 - cada aula gerada preserva um snapshot do grounding realmente enviado ao provider;
 - o snapshot registra fonte, livro, página PDF, chunk, trecho, provider, modelo e data da geração;
 - o snapshot V2 também preserva o contexto pedagógico confiável da geração e um fingerprint SHA-256 desse contexto;
-- respostas estruturalmente válidas, mas semanticamente desalinhadas com unidade/objetivos/fontes, são rejeitadas antes de serem salvas (`SEMANTIC_MISMATCH`);
+- respostas estruturalmente válidas, mas semanticamente desalinhadas com unidade/objetivos/fontes, são rejeitadas antes de serem salvas (`SEMANTIC_MISMATCH`); a checagem específica de objetivos só é aplicada quando o contexto pedagógico possui vocabulário suficiente, evitando falso positivo em rascunhos genéricos;
 - aulas geradas com fontes aprovadas e sem snapshot precisam ser regeneradas antes de entrar em revisão editorial; aulas humanas sem fonte continuam seguindo o fluxo editorial normal;
 - o Content Studio exibe a proveniência do grounding na própria interface;
 - o rascunho pode ser regenerado com as fontes e ranges aprovados mais recentes;
