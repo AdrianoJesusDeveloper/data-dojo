@@ -10,6 +10,7 @@ from ai.services import AIProviderError, chat_with_provider
 from ..models import DidacticLesson, DidacticLessonSection, SenseiCompetencyProgress, SenseiLearningActivity, SenseiStudyUnit, SenseiUnitSource
 from .sensei_learning import SenseiLearningError, resolve_provider
 from .retrieval import buscar_chunks_relevantes
+from .claim_grounding import ClaimGroundingError, GROUNDING_INSTRUCTION, ground_sections, grounded_schema
 
 
 SECTION_TYPES = {choice for choice, _ in DidacticLessonSection.SectionType.choices}
@@ -328,7 +329,7 @@ def generate_didactic_lesson(unit: SenseiStudyUnit, user):
                 "Cada seção deve usar EXATAMENTE um dos valores permitidos em section_type: "
                 f"{allowed_section_types}. "
                 "Não crie, traduza, pluralize, abrevie ou adapte nomes de section_type. "
-                "O campo metadata deve ser sempre um objeto JSON vazio: {}. "
+                f"{GROUNDING_INSTRUCTION if source_mode == DidacticLesson.SourceMode.APPROVED_SOURCES else 'O campo metadata deve ser sempre um objeto JSON vazio: {}.'} "
                 "Inclua obrigatoriamente uma seção com section_type AUTHORSHIP_CHALLENGE, exigindo compreensão, "
                 "aplicação, explicação, reflexão e artefato quando adequado."
             ),
@@ -342,8 +343,14 @@ def generate_didactic_lesson(unit: SenseiStudyUnit, user):
             ),
         },
     ]
-    sections = _parse_response(chat_with_provider(provider, messages, response_schema=LESSON_SCHEMA), provider)
+    schema = grounded_schema(LESSON_SCHEMA) if source_mode == DidacticLesson.SourceMode.APPROVED_SOURCES else LESSON_SCHEMA
+    sections = _parse_response(chat_with_provider(provider, messages, response_schema=schema), provider)
     _validate_semantic_alignment(sections, context)
+    if source_mode == DidacticLesson.SourceMode.APPROVED_SOURCES:
+        try:
+            sections = ground_sections(sections, context)
+        except ClaimGroundingError as exc:
+            raise DidacticContentError(str(exc)) from exc
     lesson.title = unit.title
     lesson.status = DidacticLesson.Status.DRAFT
     lesson.source_mode = source_mode
@@ -417,6 +424,14 @@ def update_human_lesson(lesson, user, validated_data):
         update_fields.append("published_at")
     lesson.save(update_fields=update_fields)
     if sections is not None:
+        # A human edit cannot retain or forge the backend's extractive certification.
+        # Keep the historical snapshot intact; the reviewer sees an explicit human revision.
+        for item in sections:
+            metadata = dict(item.get("metadata", {}))
+            metadata.pop("claim_grounding", None)
+            metadata.pop("claims", None)
+            metadata["claim_grounding"] = {"version": 1, "kind": "human_edited", "validation": "not_source_assertion", "claims": []}
+            item["metadata"] = metadata
         lesson.sections.all().delete()
         DidacticLessonSection.objects.bulk_create([DidacticLessonSection(lesson=lesson, **item) for item in sections])
     return lesson

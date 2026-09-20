@@ -15,7 +15,12 @@ type Section = {
   title: string;
   content: string;
   order: number;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, unknown> & { claim_grounding?: {
+    version: number;
+    kind: string;
+    validation: string;
+    claims: Array<{ text: string; evidence: Array<{ source_id: number; book_id: number; chunk_id: number; pdf_page: number; quote: string }> }>;
+  } };
 };
 type GroundingExcerpt = {
   source_id: number;
@@ -663,6 +668,36 @@ export function DidacticContentV1({
                 <h4 className="font-bold">{section.title}</h4>
               </div>
               <div className="mt-3 whitespace-pre-wrap text-sm leading-6">{section.content}</div>
+              {lesson.source_mode === "APPROVED_SOURCES" && (
+                <div className="mt-3 border-t pt-3 text-xs">
+                  {section.metadata.claim_grounding?.kind === "source_derived" ? (
+                    <details>
+                      <summary className="cursor-pointer font-medium">Ver evidências das afirmações · citações literais verificadas</summary>
+                      <p className="mt-2 text-muted-foreground">Correspondência com o snapshot; interpretação e adequação pedagógica exigem revisão humana.</p>
+                      {section.metadata.claim_grounding.claims.map((claim, index) => (
+                        <div key={index} className="mt-3 space-y-2 rounded border p-3">
+                          <blockquote className="whitespace-pre-wrap font-medium">{claim.text}</blockquote>
+                          {claim.evidence.map((ref, evidenceIndex) => {
+                            const excerpt = lesson.grounding_snapshot?.excerpts?.find(item => item.chunk_id === ref.chunk_id && item.source_id === ref.source_id && item.book_id === ref.book_id && item.pdf_page === ref.pdf_page);
+                            return <div key={evidenceIndex} className="rounded bg-secondary/40 p-2">
+                              <p>{excerpt?.book_title ?? "Evidência indisponível no snapshot"} · PDF p.{ref.pdf_page} · chunk #{ref.chunk_id} · fonte #{ref.source_id}</p>
+                              {excerpt && <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{excerpt.content}</p>}
+                            </div>;
+                          })}
+                        </div>
+                      ))}
+                    </details>
+                  ) : section.metadata.claim_grounding?.kind === "references" ? (
+                    <p className="text-muted-foreground">Referências derivadas pelo backend das evidências do snapshot.</p>
+                  ) : (
+                    <p className="text-muted-foreground">{section.metadata.claim_grounding?.kind === "pedagogical"
+                      ? "Orientação pedagógica — não certificada como afirmação da fonte. Revise também as premissas dos exercícios."
+                      : section.metadata.claim_grounding?.kind === "human_edited"
+                        ? "Conteúdo editado por pessoa — evidências anteriores não certificam esta redação."
+                        : "Sem validação por afirmação nesta seção. O snapshot global não comprova cada afirmação."}</p>
+                  )}
+                </div>
+              )}
               {section.section_type === "AUTHORSHIP_CHALLENGE" && (
                 <div className="mt-4 border-t pt-4 print:hidden">
                   {challengeQuery.isLoading ? (

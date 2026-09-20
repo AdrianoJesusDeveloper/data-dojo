@@ -1,7 +1,6 @@
 import json
 import os
 from io import BytesIO
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from docx import Document
@@ -14,7 +13,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from library.models import (
-    Book, DidacticLesson, DidacticLessonSection, LibrarySource, SenseiCompetency, SenseiCompetencyEvidence,
+    Book, BookChunk, DidacticLesson, DidacticLessonSection, LibrarySource, SenseiCompetency, SenseiCompetencyEvidence,
     SenseiCompetencyProgress, SenseiFormation, SenseiFormationModule, SenseiStudyUnit,
     SenseiUnitSource, SenseiUnitStudyPlan,
 )
@@ -32,16 +31,27 @@ class DidacticContentApiTests(APITestCase):
         self.plan = SenseiUnitStudyPlan.objects.create(unit=self.unit, learning_objectives=["Explicar"], practices=["Praticar"], expected_evidence=["Artefato"], completion_criteria=["Justificar"])
         self.plan.related_competencies.add(self.competency)
         self.url = reverse("library-sensei-unit-didactic-content", kwargs={"pk": self.unit.pk})
+        embedding = patch("library.services.retrieval.generate_embedding", return_value=[1.0])
+        embedding.start()
+        self.addCleanup(embedding.stop)
 
     def request(self, method, data=None):
         return getattr(self.client, method)(self.url, data=data, format="json" if data is not None else None, REMOTE_ADDR="127.0.0.1")
 
-    def approved_source(self, title="Fonte aprovada"):
-        return SenseiUnitSource.objects.create(unit=self.unit, category="FOUNDATIONAL", source_type="TECHNICAL_BOOK", title=title, reference="Capítulo 1", location="Seção 1", objective="Fundamentar", priority=1, justification="Fonte revisada.", editorial_status="APPROVED")
+    def approved_source(self, title="Fonte aprovada", unit=None):
+        source = LibrarySource.objects.create(relative_path=f"fixture/{LibrarySource.objects.count()}.pdf", filename="fixture.pdf", extension="pdf", status="supported")
+        book = Book.objects.create(title=title, source=source, file="library/books/fixture.pdf", status="ready")
+        self.claim_chunk = BookChunk.objects.create(book=book, chunk_index=0, page_number=1, content="Explicação estruturada sobre fundamentos didáticos para praticar e justificar.", embedding=[1.0])
+        self.claim_source = SenseiUnitSource.objects.create(unit=unit or self.unit, source=source, category="FOUNDATIONAL", source_type="TECHNICAL_BOOK", title=title, reference="Capítulo 1", location="PDF p.1", approved_ranges=[{"pdf_start": 1, "pdf_end": 1}], objective="Fundamentar", priority=1, justification="Fonte revisada.", editorial_status="APPROVED")
+        return self.claim_source
+
+    def claim_metadata(self, chunk, source):
+        return {"claims": [{"text": chunk.content, "evidence": [{"source_id": source.id, "book_id": chunk.book_id, "chunk_id": chunk.id, "pdf_page": chunk.page_number, "quote": chunk.content}]}]}
 
     def ai_response(self):
+        chunk = getattr(self, "claim_chunk", None)
         return json.dumps({"sections": [
-            {"section_type": "CONCEPT", "title": "Conceito", "content": "Explicação estruturada.", "metadata": {"depth": "core"}},
+            {"section_type": "CONCEPT", "title": "Conceito", "content": chunk.content if chunk else "Explicação estruturada.", "metadata": self.claim_metadata(chunk, self.claim_source) if chunk else {}},
             {"section_type": "AUTHORSHIP_CHALLENGE", "title": "Desafio de autoria", "content": "Explique, aplique, reflita e entregue um artefato.", "metadata": {"requires_artifact": True}},
         ]})
 
@@ -73,9 +83,8 @@ class DidacticContentApiTests(APITestCase):
             justification="Fonte revisada e diretamente relacionada.",
             editorial_status="APPROVED",
         )
-        retrieve.return_value = [
-            SimpleNamespace(id=99, book_id=book.id, book=book, page_number=33, chunk_index=7, content="Listas são coleções mutáveis em Python."),
-        ]
+        chunk = BookChunk.objects.create(book=book, page_number=33, chunk_index=7, content="Listas são coleções mutáveis em Python.")
+        retrieve.return_value = [chunk]
 
         from library.services.didactic_content import build_didactic_context
 
@@ -85,7 +94,7 @@ class DidacticContentApiTests(APITestCase):
         self.assertEqual(len(sources), 1)
         self.assertEqual(context["approved_source_excerpts"][0]["book_title"], "Python prático")
         self.assertEqual(context["approved_source_excerpts"][0]["pdf_page"], 33)
-        self.assertEqual(context["approved_source_excerpts"][0]["chunk_id"], 99)
+        self.assertEqual(context["approved_source_excerpts"][0]["chunk_id"], chunk.id)
         self.assertEqual(context["approved_source_excerpts"][0]["approved_ranges"], [{"pdf_start": 30, "pdf_end": 45}])
         self.assertIn("coleções mutáveis", context["approved_source_excerpts"][0]["content"])
         retrieve.assert_called_once()
@@ -122,16 +131,8 @@ class DidacticContentApiTests(APITestCase):
             justification="Fonte revisada.",
             editorial_status="APPROVED",
         )
-        retrieve.return_value = [
-            SimpleNamespace(
-                id=321,
-                book_id=book.id,
-                book=book,
-                page_number=124,
-                chunk_index=123,
-                content="As listas são mutáveis e aceitam alterações no local.",
-            ),
-        ]
+        chunk = BookChunk.objects.create(book=book, page_number=124, chunk_index=123, content="As listas são mutáveis e aceitam alterações no local.")
+        retrieve.return_value = [chunk]
         provider.return_value = json.dumps({"sections": [
             {
                 "section_type": "LEARNING_OBJECTIVES",
@@ -142,8 +143,8 @@ class DidacticContentApiTests(APITestCase):
             {
                 "section_type": "CONCEPT",
                 "title": "Listas mutáveis em Python",
-                "content": "Listas são estruturas mutáveis e aceitam alterações no local.",
-                "metadata": {},
+                "content": chunk.content,
+                "metadata": self.claim_metadata(chunk, approved),
             },
             {
                 "section_type": "AUTHORSHIP_CHALLENGE",
@@ -164,7 +165,7 @@ class DidacticContentApiTests(APITestCase):
         self.assertEqual(lesson.grounding_snapshot["pedagogical_context"]["unit"], self.unit.title)
         self.assertEqual(lesson.grounding_snapshot["sources"][0]["id"], approved.id)
         excerpt = lesson.grounding_snapshot["excerpts"][0]
-        self.assertEqual((excerpt["book_id"], excerpt["pdf_page"], excerpt["chunk_id"]), (book.id, 124, 321))
+        self.assertEqual((excerpt["book_id"], excerpt["pdf_page"], excerpt["chunk_id"]), (book.id, 124, chunk.id))
         self.assertEqual(excerpt["approved_ranges"], [{"pdf_start": 122, "pdf_end": 135}])
 
     @patch.dict(os.environ, {"SENSEI_AI_PROVIDER": "groq", "GROQ_API_KEY": "test-key", "GROQ_MODEL": "didactic-model"}, clear=False)
@@ -197,16 +198,7 @@ class DidacticContentApiTests(APITestCase):
             justification="Fonte revisada.",
             editorial_status="APPROVED",
         )
-        retrieve.return_value = [
-            SimpleNamespace(
-                id=654,
-                book_id=book.id,
-                book=book,
-                page_number=124,
-                chunk_index=1,
-                content="Listas em Python são mutáveis e armazenam referências para objetos.",
-            ),
-        ]
+        retrieve.return_value = [BookChunk.objects.create(book=book, page_number=124, chunk_index=1, content="Listas em Python são mutáveis e armazenam referências para objetos.")]
         provider.return_value = json.dumps({"sections": [
             {
                 "section_type": "LEARNING_OBJECTIVES",
@@ -243,7 +235,7 @@ class DidacticContentApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         lesson = DidacticLesson.objects.get(pk=response.data["id"])
         self.assertEqual((lesson.status, lesson.audience, lesson.ai_provider, lesson.ai_model), ("DRAFT", "SENSEI", "groq", "didactic-model"))
-        self.assertEqual(list(lesson.sections.values_list("section_type", "order")), [("CONCEPT", 0), ("AUTHORSHIP_CHALLENGE", 1)])
+        self.assertEqual(list(lesson.sections.values_list("section_type", "order")), [("CONCEPT", 0), ("AUTHORSHIP_CHALLENGE", 1), ("REFERENCES", 2)])
         self.assertEqual(list(lesson.sources.values_list("id", flat=True)), [source.id])
         self.assertEqual(self.request("get").data["lesson"]["sections"][0]["title"], "Conceito")
 
@@ -400,7 +392,7 @@ class DidacticContentApiTests(APITestCase):
     @patch("library.services.didactic_content.chat_with_provider")
     def test_001_with_approved_source_records_approved_sources(self, provider):
         formation, unit = self._seed_named_unit("engenharia-ia-arquitetura-sistemas-inteligentes", "REQUIRE_APPROVED_SOURCE")
-        source = SenseiUnitSource.objects.create(unit=unit, category="FOUNDATIONAL", source_type="TECHNICAL_BOOK", title="Fonte 001", reference="Capítulo 1", objective="Fundamentar", priority=1, justification="Revisada", editorial_status="APPROVED")
+        source = self.approved_source("Fonte 001", unit=unit)
         provider.return_value = self.ai_response()
         response = self.client.post(reverse("library-sensei-unit-didactic-content", kwargs={"pk": unit.pk}), {}, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
@@ -408,6 +400,236 @@ class DidacticContentApiTests(APITestCase):
         self.assertEqual(lesson.source_mode, DidacticLesson.SourceMode.APPROVED_SOURCES)
         self.assertEqual(list(lesson.sources.values_list("id", flat=True)), [source.id])
         self.assertEqual(lesson.status, DidacticLesson.Status.DRAFT)
+
+    def generate_claim_payload(self, payload):
+        with patch("library.services.didactic_content.resolve_provider", return_value=("groq", "fixture-model", "test")), patch("library.services.didactic_content.chat_with_provider", return_value=payload):
+            return self.request("post", {})
+
+    def assert_claim_rejected(self, payload):
+        response = self.generate_claim_payload(payload)
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertIn("CLAIM_GROUNDING_INVALID", response.data["detail"])
+        self.assertFalse(DidacticLesson.objects.filter(learning_target_id=self.unit.id).exists())
+        self.assertFalse(DidacticLessonSection.objects.filter(lesson__learning_target_id=self.unit.id).exists())
+
+    def test_claim_valid_chunk_and_editorial_workflow(self):
+        self.approved_source()
+        response = self.generate_claim_payload(json.loads(self.ai_response()))
+        self.assertEqual(response.status_code, 201, response.data)
+        grounding = response.data["sections"][0]["metadata"]["claim_grounding"]
+        self.assertEqual(grounding["validation"], "extractive_snapshot_match")
+        self.assertEqual(grounding["claims"][0]["evidence"][0]["chunk_id"], self.claim_chunk.id)
+        snapshot = response.data["grounding_snapshot"]
+        for state in ("REVIEW", "APPROVED"):
+            updated = self.request("patch", {"status": state})
+            self.assertEqual(updated.status_code, 200, updated.data)
+            self.assertEqual(updated.data["grounding_snapshot"], snapshot)
+            self.assertEqual(updated.data["sections"][0]["metadata"]["claim_grounding"], grounding)
+
+    def test_claim_nonexistent_chunk_rejected(self):
+        self.approved_source()
+        removed = BookChunk.objects.create(book=self.claim_chunk.book, chunk_index=99, page_number=1, content="Removido")
+        removed_id = removed.id
+        removed.delete()
+        payload = json.loads(self.ai_response())
+        payload["sections"][0]["metadata"]["claims"][0]["evidence"][0]["chunk_id"] = removed_id
+        self.assert_claim_rejected(payload)
+
+    def legacy_ai_lesson_with_v2(self, status="DRAFT"):
+        source = self.approved_source()
+        lesson = DidacticLesson.objects.create(
+            title="Piloto legado", audience="SENSEI", status=status,
+            source_mode="APPROVED_SOURCES", ai_provider="groq", ai_model="legacy-model",
+            learning_target_type=ContentType.objects.get_for_model(self.unit),
+            learning_target_id=self.unit.id, author=self.user,
+            grounding_snapshot={"version": 2, "provider": "groq", "context_fingerprint": "preservar",
+                                "sources": [{"id": source.id}], "excerpts": []},
+        )
+        lesson.sources.add(source)
+        DidacticLessonSection.objects.create(lesson=lesson, section_type="CONCEPT", title="Conceito legado", content=self.claim_chunk.content, order=0, metadata={})
+        return lesson
+
+    def test_legacy_ai_v2_without_claim_state_cannot_enter_review(self):
+        lesson = self.legacy_ai_lesson_with_v2()
+        before = self.request("get").data["lesson"]
+        response = self.request("patch", {"status": "REVIEW"})
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertIn("Regenere", response.data["detail"])
+        self.assertIn("Claim-Level Grounding", response.data["detail"])
+        self.assertEqual(self.request("get").data["lesson"], before)
+        lesson.refresh_from_db()
+        self.assertEqual(lesson.status, "DRAFT")
+
+    def test_legacy_pilot_already_in_review_cannot_be_approved(self):
+        lesson = self.legacy_ai_lesson_with_v2(status="REVIEW")
+        before = self.request("get").data["lesson"]
+        response = self.request("patch", {"status": "APPROVED"})
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertIn("CLAIM_GROUNDING_REQUIRED", response.data["detail"])
+        self.assertEqual(self.request("get").data["lesson"], before)
+        lesson.refresh_from_db()
+        self.assertIsNone(lesson.reviewed_at)
+        self.assertIsNone(lesson.reviewed_by)
+
+    def test_legacy_claim_guard_cannot_be_bypassed_by_metadata_in_same_patch(self):
+        lesson = self.legacy_ai_lesson_with_v2()
+        section = self.request("get").data["lesson"]["sections"][0]
+        section["metadata"] = {"claim_grounding": {"version": 1, "kind": "human_edited", "validation": "not_source_assertion", "claims": []}}
+        response = self.request("patch", {"status": "REVIEW", "sections": [section]})
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertEqual(lesson.sections.get().metadata, {})
+
+    def test_invalid_explicit_claim_state_does_not_unlock_review(self):
+        lesson = self.legacy_ai_lesson_with_v2()
+        section = lesson.sections.get()
+        for state in ({}, {"version": 1, "kind": "unknown"}, {"version": 1, "kind": "source_derived", "validation": "extractive_snapshot_match", "claims": []}, {"version": 1, "kind": "pedagogical", "validation": "not_source_assertion", "claims": []}):
+            with self.subTest(state=state):
+                section.metadata = {"claim_grounding": state}
+                section.save()
+                self.assertEqual(self.request("patch", {"status": "REVIEW"}).status_code, 409)
+
+    def test_unsourced_ai_legacy_lesson_retains_editorial_workflow(self):
+        lesson = self.legacy_ai_lesson_with_v2()
+        lesson.sources.clear()
+        lesson.source_mode = "AI_GENERATED_UNSOURCED"
+        lesson.grounding_snapshot = {}
+        lesson.save()
+        for state in ("REVIEW", "APPROVED"):
+            response = self.request("patch", {"status": state})
+            self.assertEqual(response.status_code, 200, response.data)
+
+    def test_human_edited_sections_stay_uncertified_through_review_and_approval(self):
+        self.approved_source()
+        generated = self.generate_claim_payload(json.loads(self.ai_response()))
+        self.assertEqual(generated.status_code, 201, generated.data)
+        section = generated.data["sections"][0]
+        section["content"] = "Texto humano revisado sem alegação de validação da fonte."
+        edited = self.request("patch", {"sections": [section]})
+        self.assertEqual(edited.status_code, 200, edited.data)
+        expected = {"version": 1, "kind": "human_edited", "validation": "not_source_assertion", "claims": []}
+        for state in ("REVIEW", "APPROVED"):
+            response = self.request("patch", {"status": state})
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data["sections"][0]["metadata"]["claim_grounding"], expected)
+            self.assertEqual(response.data["grounding_snapshot"], generated.data["grounding_snapshot"])
+
+    def test_claim_grounded_section_modified_without_invalidation_is_blocked(self):
+        self.approved_source()
+        response = self.generate_claim_payload(json.loads(self.ai_response()))
+        self.assertEqual(response.status_code, 201, response.data)
+        lesson = DidacticLesson.objects.get(pk=response.data["id"])
+        lesson.sections.filter(section_type="CONCEPT").update(content="Texto diferente com certificado antigo.")
+        blocked = self.request("patch", {"status": "REVIEW"})
+        self.assertEqual(blocked.status_code, 409, blocked.data)
+
+    def test_claim_real_chunk_outside_generation_rejected(self):
+        self.approved_source()
+        outside = BookChunk.objects.create(book=self.claim_chunk.book, chunk_index=1, page_number=2, content=self.claim_chunk.content, embedding=[1.0])
+        payload = json.loads(self.ai_response())
+        ref = payload["sections"][0]["metadata"]["claims"][0]["evidence"][0]
+        ref.update(chunk_id=outside.id, pdf_page=2)
+        self.assert_claim_rejected(payload)
+
+    def test_claim_wrong_pdf_page_rejected(self):
+        self.approved_source()
+        payload = json.loads(self.ai_response())
+        payload["sections"][0]["metadata"]["claims"][0]["evidence"][0]["pdf_page"] = 2
+        self.assert_claim_rejected(payload)
+
+    def test_claim_other_real_source_rejected(self):
+        self.approved_source()
+        payload = json.loads(self.ai_response())
+        other = SenseiUnitSource.objects.create(unit=self.unit, category="FOUNDATIONAL", source_type="TECHNICAL_BOOK", title="Outra fonte", objective="Outro", editorial_status="PROPOSED")
+        payload["sections"][0]["metadata"]["claims"][0]["evidence"][0]["source_id"] = other.id
+        self.assert_claim_rejected(payload)
+
+    def test_claim_wrong_book_rejected(self):
+        self.approved_source()
+        payload = json.loads(self.ai_response())
+        other = Book.objects.create(title="Outro livro", file="library/books/other.pdf")
+        payload["sections"][0]["metadata"]["claims"][0]["evidence"][0]["book_id"] = other.id
+        self.assert_claim_rejected(payload)
+
+    def test_grounded_factual_section_without_claims_rejected(self):
+        self.approved_source()
+        payload = json.loads(self.ai_response())
+        payload["sections"][0]["metadata"] = {}
+        self.assert_claim_rejected(payload)
+
+    def test_grounded_lesson_with_only_pedagogical_sections_rejected(self):
+        self.approved_source()
+        payload = json.loads(self.ai_response())
+        payload["sections"][0]["section_type"] = "EXERCISE"
+        payload["sections"][0]["metadata"] = {"claims": []}
+        self.assert_claim_rejected(payload)
+
+    def test_source_without_retrievable_excerpts_cannot_certify_generation(self):
+        SenseiUnitSource.objects.create(unit=self.unit, category="FOUNDATIONAL", source_type="TECHNICAL_BOOK", title="Somente referência", objective="Fundamentar", editorial_status="APPROVED")
+        self.assert_claim_rejected(json.loads(self.ai_response()))
+
+    def test_python_incident_valid_ids_do_not_support_invented_claim(self):
+        self.approved_source("Python, tipos e estruturas de dados")
+        self.unit.title = "Python, tipos e estruturas de dados"
+        self.unit.objective = "Explicar tipos mutáveis e estruturas de dados em Python"
+        self.unit.save()
+        self.claim_chunk.content = "Listas em Python são mutáveis e armazenam referências para objetos."
+        self.claim_chunk.save()
+        payload = json.loads(self.ai_response())
+        section = payload["sections"][0]
+        # Same domain, real IDs and correct quote; invented performance guarantee.
+        unsupported = "Listas em Python são mutáveis e garantem buscas em tempo constante para qualquer objeto."
+        section["content"] = unsupported
+        section["metadata"]["claims"][0]["text"] = unsupported
+        self.assert_claim_rejected(payload)
+
+    def test_unsupported_remainder_after_valid_claim_rejected(self):
+        self.approved_source()
+        payload = json.loads(self.ai_response())
+        payload["sections"][0]["content"] += "\nUma garantia adicional inventada."
+        self.assert_claim_rejected(payload)
+
+    def test_invented_quote_even_with_valid_ids_rejected(self):
+        self.approved_source()
+        payload = json.loads(self.ai_response())
+        claim = payload["sections"][0]["metadata"]["claims"][0]
+        claim["text"] += " Garantia universal."
+        claim["evidence"][0]["quote"] = claim["text"]
+        payload["sections"][0]["content"] = claim["text"]
+        self.assert_claim_rejected(payload)
+
+    def test_references_derived_and_pedagogical_text_not_certified(self):
+        self.approved_source()
+        payload = json.loads(self.ai_response())
+        payload["sections"].append({"section_type": "REFERENCES", "title": "Inventada", "content": "Autor imaginário, página 9000", "metadata": {}})
+        response = self.generate_claim_payload(payload)
+        self.assertEqual(response.status_code, 201, response.data)
+        references = response.data["sections"][-1]
+        self.assertNotIn("imaginário", references["content"])
+        self.assertIn(f"chunk #{self.claim_chunk.id}", references["content"])
+        self.assertEqual(response.data["sections"][1]["metadata"]["claim_grounding"]["validation"], "not_source_assertion")
+
+    def test_human_edit_removes_stale_or_forged_certification_preserves_snapshot(self):
+        self.approved_source()
+        response = self.generate_claim_payload(json.loads(self.ai_response()))
+        self.assertEqual(response.status_code, 201, response.data)
+        section = response.data["sections"][0]
+        section["content"] = "Uma redação humana diferente."
+        updated = self.request("patch", {"sections": [section]})
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertEqual(updated.data["sections"][0]["metadata"]["claim_grounding"]["kind"], "human_edited")
+        self.assertEqual(updated.data["grounding_snapshot"], response.data["grounding_snapshot"])
+
+    def test_failed_regeneration_preserves_archived_lesson_and_snapshot(self):
+        self.approved_source()
+        response = self.generate_claim_payload(json.loads(self.ai_response()))
+        self.assertEqual(response.status_code, 201, response.data)
+        self.request("patch", {"status": "ARCHIVED"})
+        before = self.request("get").data["lesson"]
+        payload = json.loads(self.ai_response())
+        payload["sections"][0]["metadata"] = {}
+        failed = self.generate_claim_payload(payload)
+        self.assertEqual(failed.status_code, 409)
+        self.assertEqual(self.request("get").data["lesson"], before)
 
     def test_001_without_approved_source_blocks_safely(self):
         _, unit = self._seed_named_unit("engenharia-ia-arquitetura-sistemas-inteligentes", "REQUIRE_APPROVED_SOURCE")

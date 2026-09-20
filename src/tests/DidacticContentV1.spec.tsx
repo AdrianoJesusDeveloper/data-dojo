@@ -15,6 +15,28 @@ const renderContent = (formationId = 501, unitId = 10) => render(<QueryClientPro
 beforeEach(() => { get.mockReset(); post.mockReset(); patchApi.mockReset(); toastError.mockReset(); toastSuccess.mockReset(); });
 
 describe("DidacticContentV1", () => {
+  it("shows section claim evidence from the snapshot and distinguishes pedagogical prose", async () => {
+    const base = lesson().lesson;
+    const evidence = { source_id: 7, book_id: 8, chunk_id: 9, pdf_page: 124, quote: "Listas são mutáveis." };
+    const payload = { lesson: { ...base, grounding_snapshot: { version: 2, sources: [{ id: 7, title: "Fonte Python", location: "PDF p.124" }], excerpts: [{ ...evidence, book_title: "Livro Python", chunk_index: 3, library_source_id: 4, approved_ranges: [{ pdf_start: 122, pdf_end: 135 }], content: "Listas são mutáveis. Contexto integral do trecho." }] }, sections: [
+      { ...base.sections[0], metadata: { claim_grounding: { version: 1, kind: "source_derived", validation: "extractive_snapshot_match", claims: [{ text: evidence.quote, evidence: [evidence] }] } } },
+      { ...base.sections[1], metadata: { claim_grounding: { version: 1, kind: "pedagogical", validation: "not_source_assertion", claims: [] } } },
+    ] } };
+    get.mockImplementation((url: string) => Promise.resolve({ data: url.includes("authorship-challenge") ? { section: null, activity: null } : payload }));
+    renderContent();
+    expect(await screen.findByText(/Ver evidências das afirmações/)).toBeInTheDocument();
+    expect(screen.getByText(/Livro Python · PDF p.124 · chunk #9 · fonte #7/)).toBeInTheDocument();
+    expect(screen.getByText(/Orientação pedagógica — não certificada/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Contexto integral do trecho/).length).toBeGreaterThan(0);
+  });
+
+  it("does not claim that a legacy snapshot certifies every assertion", async () => {
+    get.mockResolvedValue({ data: lesson() });
+    renderContent();
+    expect((await screen.findAllByText(/Sem validação por afirmação nesta seção/)).length).toBe(2);
+    expect(screen.queryByText(/Ver evidências das afirmações/)).not.toBeInTheDocument();
+  });
+
   it("moves the lesson from DRAFT to REVIEW to APPROVED and updates the cache immediately", async () => {
     get.mockImplementation((url: string) => url.includes("authorship-challenge")
       ? Promise.resolve({ data: { section: lesson().lesson.sections[1], activity: null } })

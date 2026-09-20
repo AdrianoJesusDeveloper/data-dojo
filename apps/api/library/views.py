@@ -51,6 +51,7 @@ from .services.editorial_council import CouncilExecutionError, start_editorial_c
 from .services.council_export import COUNCIL_EXPORT_MIMES, council_export_filename, render_council_export
 from .services.sensei_learning import SenseiLearningError, available_providers, generate_activity, resolve_provider, review_response
 from .services.didactic_content import DidacticContentError, generate_didactic_lesson, get_authorship_activity, get_authorship_section, start_authorship_challenge, update_human_lesson
+from .services.claim_grounding import has_editorial_claim_state
 from .services.didactic_export import build_export_snapshot, export_filename, render_lesson_docx, render_lesson_html
 from .services.didactic_publication import DidacticPublicationError, create_preview, publish_preview
 from .services.studio_export import artifact_filename, render_artifact_docx, render_artifact_html
@@ -1803,9 +1804,10 @@ class SenseiDidacticLessonView(APIView):
             return Response({"detail": "Não foi possível gerar a aula neste momento."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response(DidacticLessonSerializer(lesson).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
+    @transaction.atomic
     def patch(self, request, pk):
         unit = self.get_unit(request, pk)
-        lesson = generics.get_object_or_404(DidacticLesson, learning_target_type=ContentType.objects.get_for_model(unit), learning_target_id=unit.id, audience=DidacticLesson.Audience.SENSEI)
+        lesson = generics.get_object_or_404(DidacticLesson.objects.select_for_update(), learning_target_type=ContentType.objects.get_for_model(unit), learning_target_id=unit.id, audience=DidacticLesson.Audience.SENSEI)
         serializer = DidacticLessonUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         next_status = serializer.validated_data.get("status")
@@ -1820,6 +1822,18 @@ class SenseiDidacticLessonView(APIView):
         ):
             return Response(
                 {"detail": "A aula não possui snapshot de grounding auditável. Regenere o rascunho com as fontes aprovadas atuais antes de enviar para revisão."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        snapshot = lesson.grounding_snapshot or {}
+        has_ai_provenance = bool(lesson.ai_provider or lesson.ai_model or lesson.generated_at or snapshot.get("provider") or snapshot.get("model"))
+        if (
+            next_status in {DidacticLesson.Status.REVIEW, DidacticLesson.Status.APPROVED}
+            and lesson.source_mode == DidacticLesson.SourceMode.APPROVED_SOURCES
+            and has_ai_provenance
+            and not has_editorial_claim_state(lesson)
+        ):
+            return Response(
+                {"detail": "CLAIM_GROUNDING_REQUIRED: a aula não possui estado válido de grounding por afirmação em todas as seções. Regenere o rascunho com Claim-Level Grounding atual antes de enviar para revisão ou aprovar."},
                 status=status.HTTP_409_CONFLICT,
             )
         update_human_lesson(lesson, request.user, serializer.validated_data)

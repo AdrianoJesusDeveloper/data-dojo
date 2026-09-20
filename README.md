@@ -112,6 +112,75 @@ A geração didática baseada na Biblioteca agora aplica uma camada adicional de
 
 > **Backfill real validado:** a fonte piloto de *Aprendendo Python* foi convertida para ranges físicos `122–135`, `136–152`, `79–99` e `98`. A paginação impressa registrada em texto livre, inclusive um valor digitado incorretamente, não foi interpretada como range operacional.
 
+### 🔗 Claim-Level Grounding V1
+
+Gerações novas em `APPROVED_SOURCES` validam as afirmações contra os
+`approved_source_excerpts` da **mesma geração**, mantendo o Grounding Snapshot V2
+e seu fingerprint inalterados. A implementação usa os JSONFields existentes;
+nenhuma migration foi adicionada (última migration: `0034_grounding_ranges_snapshot`).
+
+- O contrato do provider recebe `metadata.claims`, com `text` e `evidence`:
+  `source_id` (ID de `SenseiUnitSource`), `book_id`, `chunk_id`, `pdf_page` e `quote`.
+- Todos os identificadores e a página física devem corresponder ao mesmo trecho
+  do snapshot atual. Um chunk real fora desse conjunto também é rejeitado.
+- **V1 extrativa e conservadora:** `text` deve ser igual a `quote`, e a citação
+  deve existir literalmente no trecho enviado ao provider. IDs válidos ou
+  similaridade lexical não certificam uma paráfrase nem uma afirmação nova.
+- Seções factuais devem ter conteúdo integralmente coberto pelos claims, unidos
+  por duas quebras de linha. Texto adicional, citação inventada, evidência ausente
+  ou identidade divergente produz `CLAIM_GROUNDING_INVALID` (HTTP 409), sem
+  persistir a geração inválida. Falha de regeneração preserva a versão anterior.
+- Objetivos, prática guiada, exercícios, autoria, projetos, reflexão,
+  autoavaliação e critérios de domínio podem usar `claims: []`. Esses textos são
+  identificados como **orientação pedagógica, não como afirmações da fonte**;
+  premissas factuais devem ser separadas em seções sustentadas por evidência.
+- `REFERENCES` é construída pelo backend a partir das evidências verificadas;
+  referências livres propostas pelo modelo não são fonte de verdade.
+- O resultado é registrado em `metadata.claim_grounding`, incluindo versão,
+  classificação, tipo de validação e evidências canônicas. O Content Studio
+  permite consultar afirmação, livro, página PDF, chunk, fonte e trecho contextual.
+- Edições humanas removem a certificação anterior da redação substituída, sem
+  alterar o snapshot histórico. Aulas humanas e `AI_GENERATED_UNSOURCED` mantêm
+  seu fluxo editorial. Aulas antigas não recebem certificação retroativa.
+- A guarda editorial no backend bloqueia `REVIEW` e `APPROVED` para aulas com
+  fontes aprovadas e proveniência de IA sem estado válido de claim grounding em
+  todas as seções, **mesmo com Snapshot V2 presente**. Uma aula piloto legada já
+  em REVIEW também recebe HTTP 409 e orientação para regenerar com Claim-Level
+  Grounding atual. Retorne-a a DRAFT antes de usar a regeneração existente.
+  O backend revalida as afirmações contra o snapshot histórico, não aceita
+  metadados enviados no mesmo PATCH como atalho e preserva `human_edited` como
+  estado humano explicitamente não certificado durante revisão/aprovação.
+
+**Limitações:** correspondência extrativa não é um verificador geral de verdade,
+interpretação ou implicação lógica. Citações podem ser selecionadas fora de
+contexto; títulos e premissas embutidas nas instruções ainda exigem revisão humana.
+Paráfrases factuais são rejeitadas nesta V1. Fontes apenas bibliográficas, sem
+trecho recuperado no snapshot, não bastam para uma nova geração grounded.
+O guard `SEMANTIC_MISMATCH` continua independente: sua heurística temática não
+é usada como prova de sustentação factual. Não houve nova chamada externa,
+modelo avaliador, fila, serviço ou alteração na arquitetura local.
+
+**Validação automatizada (2026-09-20):**
+
+- `python .\apps\api\manage.py check`: aprovado;
+- `python .\apps\api\manage.py makemigrations --check`: nenhuma alteração detectada;
+- compilação Python: aprovada;
+- 48 testes focados de conteúdo didático/curadoria/RAG: aprovados;
+- 16 testes frontend: aprovados;
+- `npm run typecheck`: aprovado;
+- `npm run build`: aprovado;
+- suíte completa `library.tests`: **279 testes executados, OK, com 1 skipped** por ausência de privilégio para symlink no Windows;
+- o teste anteriormente incompatível de `SenseiFormation` foi atualizado para respeitar a exigência atual de range PDF estruturado e passou isoladamente e na suíte completa;
+- os testes utilizaram banco de teste isolado criado e destruído pelo Django; o PostgreSQL principal não foi alterado;
+- a guarda editorial está incluída nos testes focados, inclusive o piloto legado já em REVIEW, a tentativa de enviar certificação no mesmo PATCH, metadados inválidos, edição humana e preservação do snapshot.
+
+O build concluiu com avisos já conhecidos sobre `::highlight`, bundles maiores que 500 kB e opção `platform` do empacotador; esses componentes/configurações não foram alterados nesta entrega.
+
+**Ainda não validado em uso real.** O operador deverá regenerar um rascunho com
+fontes aprovadas, abrir “Ver evidências das afirmações”, conferir cada passagem
+no livro/PDF e revisar também as premissas dos exercícios. Depois, testar
+DRAFT → REVIEW → APPROVED. A aprovação editorial não é automática.
+
 ### 🧠 Content Studio
 
 Ambiente privado para pesquisa, planejamento editorial e geração assistida por IA.
@@ -323,7 +392,8 @@ python .\apps\api\manage.py test library.tests -v 2
 
 Estado recente da Biblioteca:
 
-- **245 testes** da suíte completa aprovados;
+- histórico anterior: **245 testes** da suíte completa aprovados;
+- execução atual do Claim-Level Grounding V1: **279 testes executados na suíte completa, OK, com 1 skipped** por limitação de symlink no ambiente Windows;
 - **13 testes focados** do Reader/Media aprovados após o índice manual;
 - PostgreSQL principal migrado até **library.0034_grounding_ranges_snapshot**;
 - backups validados com `pg_dump` + `pg_restore --list`.

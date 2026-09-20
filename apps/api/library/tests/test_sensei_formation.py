@@ -158,7 +158,7 @@ class SenseiFormationApiTests(APITestCase):
             response = self.request("post", reverse("library-sensei-unit-sources", kwargs={"unit_pk": unit.pk}), {
                 "source": source.pk, "category": "PRIMARY" if index == 0 else "FOUNDATIONAL",
                 "source_type": "PAPER" if index == 0 else "TECHNICAL_BOOK", "title": f"Fonte {index}",
-                "reference": "Referência curada", "location": "Seção verificada", "objective": "Apoiar o estudo",
+                "reference": "Referência curada", "location": "Seção verificada — PDF p.1 a 1", "objective": "Apoiar o estudo",
                 "priority": index + 1, "is_required": index == 0, "justification": "Fonte adequada à unidade.",
             })
             self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
