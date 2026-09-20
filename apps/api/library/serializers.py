@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import re
 
 from django.conf import settings
 from rest_framework import serializers
@@ -14,6 +15,44 @@ from .models import (
 )
 
 from .editorial_contracts import normalize_project_type
+
+PDF_RANGE_RE = re.compile(
+    r"PDF\\s*p\\.?\\s*(\\d+)\\s*(?:a|até|-|–|—)\\s*(\\d+)",
+    re.IGNORECASE,
+)
+PDF_SINGLE_RE = re.compile(r"PDF\\s*p\\.?\\s*(\\d+)", re.IGNORECASE)
+PROVISIONAL_LOCATION_TOKENS = ("capítulo x", "capitulo x", "xx-yy", "xx–yy", "a confirmar", "pendente")
+
+
+def parse_approved_pdf_ranges(location: str) -> list[dict]:
+    location = (location or "").strip()
+    ranges = []
+    consumed = []
+
+    for match in PDF_RANGE_RE.finditer(location):
+        start = int(match.group(1))
+        end = int(match.group(2))
+        if end < start:
+            start, end = end, start
+        ranges.append({"pdf_start": start, "pdf_end": end})
+        consumed.append(match.span())
+
+    for match in PDF_SINGLE_RE.finditer(location):
+        if any(left <= match.start() < right for left, right in consumed):
+            continue
+        page = int(match.group(1))
+        ranges.append({"pdf_start": page, "pdf_end": page})
+
+    unique = []
+    seen = set()
+    for item in ranges:
+        key = (item["pdf_start"], item["pdf_end"])
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
+
 
 
 class LibrarySourceSerializer(serializers.ModelSerializer):
@@ -56,11 +95,11 @@ class DidacticLessonSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DidacticLesson
-        fields = ("id", "title", "audience", "status", "source_mode", "learning_target_type", "learning_target_id", "ai_provider", "ai_model", "generated_at", "author", "reviewed_by", "reviewed_at", "published_at", "origin_lesson_id", "origin_updated_at", "workspace_lesson_id", "student_is_stale", "source_ids", "source_provenance", "sections", "created_at", "updated_at")
+        fields = ("id", "title", "audience", "status", "source_mode", "learning_target_type", "learning_target_id", "ai_provider", "ai_model", "generated_at", "grounding_snapshot", "author", "reviewed_by", "reviewed_at", "published_at", "origin_lesson_id", "origin_updated_at", "workspace_lesson_id", "student_is_stale", "source_ids", "source_provenance", "sections", "created_at", "updated_at")
         read_only_fields = fields
 
     def get_source_provenance(self, lesson):
-        return [{"id": source.id, "reference": source.reference, "category": source.category, "source_type": source.source_type, "priority": source.priority} for source in lesson.sources.all()]
+        return [{"id": source.id, "reference": source.reference, "category": source.category, "source_type": source.source_type, "priority": source.priority, "location": source.location, "approved_ranges": source.approved_ranges} for source in lesson.sources.all()]
 
     def get_student_is_stale(self, lesson):
         return bool(lesson.origin_lesson_id and lesson.origin_updated_at != lesson.origin_lesson.updated_at)
@@ -554,13 +593,16 @@ class SenseiUnitSourceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SenseiUnitSource
-        fields = ("id", "unit", "source", "category", "category_label", "source_type", "source_type_label", "title", "reference", "location", "objective", "priority", "notes", "is_required", "url", "author_or_organization", "publication_date", "accessed_at", "source_updated_at", "justification", "confidence", "reliability_notes", "editorial_status", "rejection_reason", "reviewed_by", "reviewed_at", "created_at", "updated_at")
+        fields = ("id", "unit", "source", "category", "category_label", "source_type", "source_type_label", "title", "reference", "location", "approved_ranges", "objective", "priority", "notes", "is_required", "url", "author_or_organization", "publication_date", "accessed_at", "source_updated_at", "justification", "confidence", "reliability_notes", "editorial_status", "rejection_reason", "reviewed_by", "reviewed_at", "created_at", "updated_at")
         read_only_fields = ("id", "unit", "category_label", "source_type_label", "editorial_status", "rejection_reason", "reviewed_by", "reviewed_at", "created_at", "updated_at")
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
         if not attrs.get("source") and not attrs.get("url") and not attrs.get("reference", "").strip():
             raise serializers.ValidationError("Informe uma fonte local, URL ou referência identificável.")
+        location = attrs.get("location")
+        if location is not None:
+            attrs["approved_ranges"] = parse_approved_pdf_ranges(location)
         return attrs
 
 
@@ -575,6 +617,17 @@ class SenseiUnitSourceReviewSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Aprovação exige justificativa e proveniência identificável.")
             if not proposal.location.strip():
                 raise serializers.ValidationError("Aprovação exige capítulo, seção, páginas ou trecho confirmado por revisão humana.")
+            lowered = proposal.location.lower()
+            if any(token in lowered for token in PROVISIONAL_LOCATION_TOKENS):
+                raise serializers.ValidationError("A localização ainda contém marcador provisório. Confirme capítulo e páginas reais antes de aprovar.")
+            if proposal.source_id:
+                if not proposal.approved_ranges:
+                    raise serializers.ValidationError("Fonte local exige ao menos um intervalo estruturado no formato 'PDF p.122 a 135'.")
+                linked_book = getattr(proposal.source, "book", None)
+                if linked_book is not None:
+                    max_page = linked_book.chunks.exclude(page_number__isnull=True).order_by("-page_number").values_list("page_number", flat=True).first()
+                    if max_page and any(int(item.get("pdf_end", 0)) > max_page for item in proposal.approved_ranges):
+                        raise serializers.ValidationError(f"A localização aprovada excede a última página processada do PDF ({max_page}).")
         elif not attrs.get("rejection_reason", "").strip():
             raise serializers.ValidationError({"rejection_reason": "Informe o motivo da rejeição."})
         return attrs
