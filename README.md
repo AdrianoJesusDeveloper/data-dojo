@@ -89,6 +89,8 @@ A ponte entre a Biblioteca do Sensei e o conteúdo didático agora possui um flu
 
 > A IA pode ajudar a localizar e usar o acervo, mas a decisão sobre o que se torna fonte oficial da unidade continua humana.
 
+> **Validação funcional da Curadoria de Fontes V2:** fluxo testado em uso real com fonte local processada, proposta revisada, aprovação humana e geração de aula em DRAFT via Groq. A validação editorial da qualidade/proveniência do conteúdo gerado continua sendo uma etapa humana separada.
+
 ### 🧠 Content Studio
 
 Ambiente privado para pesquisa, planejamento editorial e geração assistida por IA.
@@ -246,6 +248,7 @@ Arquitetura preparada para providers configuráveis, incluindo integrações com
 - [x] persistência do índice manual validada ao sair e reabrir o Reader;
 - [ ] Tradutor V1;
 - [x] Curadoria de Fontes V2 integrada ao plano de estudo;
+- [x] Curadoria de Fontes V2 validada em uso real até a geração da aula com fonte aprovada;
 - [ ] modo Original / Traduzido / Lado a lado;
 - [ ] integração Narrador + tradução.
 
