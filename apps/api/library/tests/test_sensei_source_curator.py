@@ -64,6 +64,74 @@ class SenseiSourceCuratorTests(APITestCase):
         self.assertIsNotNone(stored.reviewed_at)
         self.assertEqual(str(stored.confidence), "0.900")
 
+    def test_rejected_local_source_can_be_resubmitted_without_duplicate_error(self):
+        proposal = self.proposal()
+        review_url = reverse("library-sensei-unit-source-review", kwargs={"pk": proposal["id"]})
+        rejected = self.request(
+            "patch",
+            review_url,
+            {"editorial_status": "REJECTED", "rejection_reason": "Localização provisória"},
+        )
+        self.assertEqual(rejected.status_code, status.HTTP_200_OK)
+
+        list_url = reverse("library-sensei-unit-sources", kwargs={"unit_pk": self.unit.pk})
+        resubmitted = self.request("post", list_url, {
+            "source": self.source.pk,
+            "category": "FOUNDATIONAL",
+            "source_type": "TECHNICAL_BOOK",
+            "title": "Fonte proposta revisada",
+            "reference": "Edição identificada",
+            "location": "Capítulo 6, PDF p.122-135 (livro p.118-131)",
+            "objective": "Apoiar a unidade",
+            "priority": 1,
+            "is_required": True,
+            "justification": "Localização conferida manualmente.",
+            "reliability_notes": "Fonte técnica revisada.",
+        })
+        self.assertEqual(resubmitted.status_code, status.HTTP_200_OK, resubmitted.data)
+        self.assertEqual(resubmitted.data["id"], proposal["id"])
+        self.assertEqual(resubmitted.data["editorial_status"], "PROPOSED")
+        self.assertEqual(
+            SenseiUnitSource.objects.filter(unit=self.unit, source=self.source).count(),
+            1,
+        )
+        stored = SenseiUnitSource.objects.get(pk=proposal["id"])
+        self.assertEqual(stored.location, "Capítulo 6, PDF p.122-135 (livro p.118-131)")
+        self.assertEqual(stored.rejection_reason, "")
+        self.assertIsNone(stored.reviewed_by)
+        self.assertIsNone(stored.reviewed_at)
+        self.assertIn("Rejeição anterior: Localização provisória", stored.notes)
+
+        approved = self.request(
+            "patch",
+            review_url,
+            {"editorial_status": "APPROVED"},
+        )
+        self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.data)
+        self.assertEqual(approved.data["editorial_status"], "APPROVED")
+
+    def test_existing_proposed_local_source_returns_conflict_instead_of_500(self):
+        self.proposal()
+        list_url = reverse("library-sensei-unit-sources", kwargs={"unit_pk": self.unit.pk})
+        duplicate = self.request("post", list_url, {
+            "source": self.source.pk,
+            "category": "FOUNDATIONAL",
+            "source_type": "TECHNICAL_BOOK",
+            "title": "Duplicada",
+            "reference": "Outra referência",
+            "location": "Capítulo 3",
+            "objective": "Apoiar",
+            "priority": 1,
+            "is_required": True,
+            "justification": "Teste de duplicidade.",
+        })
+        self.assertEqual(duplicate.status_code, status.HTTP_409_CONFLICT, duplicate.data)
+        self.assertIn("já possui uma proposta", duplicate.data["detail"])
+        self.assertEqual(
+            SenseiUnitSource.objects.filter(unit=self.unit, source=self.source).count(),
+            1,
+        )
+
     def test_approval_requires_human_confirmed_location(self):
         proposal = SenseiUnitSource.objects.create(
             unit=self.unit,
