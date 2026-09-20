@@ -17,6 +17,17 @@ type Section = {
   order: number;
   metadata: Record<string, unknown>;
 };
+type GroundingExcerpt = {
+  source_id: number;
+  library_source_id: number | null;
+  book_id: number;
+  book_title: string;
+  pdf_page: number | null;
+  chunk_id: number;
+  chunk_index: number;
+  approved_ranges: Array<{ pdf_start: number; pdf_end: number }>;
+  content: string;
+};
 type Lesson = {
   id: number;
   title: string;
@@ -26,6 +37,14 @@ type Lesson = {
   ai_provider: string;
   ai_model: string;
   generated_at: string | null;
+  grounding_snapshot?: {
+    version?: number;
+    captured_at?: string;
+    provider?: string;
+    model?: string;
+    sources?: Array<{ id: number; title: string; location: string; approved_ranges?: Array<{ pdf_start: number; pdf_end: number }> }>;
+    excerpts?: GroundingExcerpt[];
+  };
   sections: Section[];
 };
 type Attempt = {
@@ -258,6 +277,29 @@ export function DidacticContentV1({
       );
     },
   });
+  const regenerate = useMutation({
+    mutationFn: async () => {
+      if (lesson?.status !== "ARCHIVED") {
+        await api.patch(`/api/library/sensei-units/${unitId}/didactic-content/`, { status: "ARCHIVED" });
+      }
+      return unwrapLesson(
+        (
+          await api.post<LessonResponse | Lesson>(
+            `/api/library/sensei-units/${unitId}/didactic-content/`,
+            {},
+          )
+        ).data,
+      );
+    },
+    onSuccess: (data) => {
+      client.setQueryData(queryKey, data);
+      toast.success("Aula regenerada com o grounding aprovado mais recente.");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.detail ?? "Não foi possível regenerar a aula.");
+    },
+  });
+
   const transitionLesson = useMutation({
     mutationFn: async (status: Lesson["status"]) =>
       (await api.patch<Lesson>(`/api/library/sensei-units/${unitId}/didactic-content/`, { status }))
@@ -453,12 +495,57 @@ export function DidacticContentV1({
               {lesson.ai_model ? ` · ${lesson.ai_model}` : ""}
             </p>
           )}
+          {lesson.grounding_snapshot?.excerpts?.length ? (
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline">GROUNDING AUDITÁVEL</Badge>
+                <span>{lesson.grounding_snapshot.excerpts.length} trecho(s) preservado(s)</span>
+              </div>
+              <p className="mt-2 text-muted-foreground">
+                Páginas PDF usadas: {Array.from(new Set(lesson.grounding_snapshot.excerpts.map((item) => item.pdf_page).filter((value): value is number => typeof value === "number"))).sort((a, b) => a - b).join(", ")}
+              </p>
+              <details className="mt-2">
+                <summary className="cursor-pointer font-medium">Ver proveniência do grounding</summary>
+                <div className="mt-2 space-y-2">
+                  {lesson.grounding_snapshot.excerpts.map((item) => (
+                    <div key={item.chunk_id} className="rounded border bg-background p-2">
+                      <b>{item.book_title}</b> · PDF p.{item.pdf_page ?? "?"} · chunk {item.chunk_index}
+                      <p className="mt-1 line-clamp-3 text-muted-foreground">{item.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </div>
+          ) : lesson.source_mode === "APPROVED_SOURCES" ? (
+            <p className="rounded border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-300">
+              Esta aula foi gerada antes do snapshot de grounding. Regenere o rascunho antes de enviá-lo para revisão.
+            </p>
+          ) : null}
           <div className="rounded-lg border bg-background p-4 print:hidden">
             <h4 className="font-bold">STATUS EDITORIAL DA AULA</h4>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Badge>{lesson.status}</Badge>
               {lesson.status === "DRAFT" && (
-                <Button size="sm" disabled={transitionLesson.isPending} onClick={() => transitionLesson.mutate("REVIEW")}>Enviar para revisão</Button>
+                <>
+                  <Button size="sm" disabled={transitionLesson.isPending || regenerate.isPending} onClick={() => transitionLesson.mutate("REVIEW")}>Enviar para revisão</Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={transitionLesson.isPending || regenerate.isPending}
+                    onClick={() => {
+                      if (window.confirm("Regenerar substitui o rascunho atual usando as fontes e intervalos aprovados mais recentes. Continuar?")) {
+                        regenerate.mutate();
+                      }
+                    }}
+                  >
+                    {regenerate.isPending ? "Regenerando..." : "Regenerar com grounding atual"}
+                  </Button>
+                </>
+              )}
+              {lesson.status === "ARCHIVED" && (
+                <Button size="sm" disabled={regenerate.isPending} onClick={() => regenerate.mutate()}>
+                  {regenerate.isPending ? "Regenerando..." : "Gerar nova versão"}
+                </Button>
               )}
               {lesson.status === "REVIEW" && (
                 <>
