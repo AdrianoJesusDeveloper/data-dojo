@@ -110,7 +110,7 @@ export function SenseiStudyPlanDialog({ formationId, unitId, unitTitle, onClose 
     onSuccess: () => {
       setSourceDraft({ sourceId: null, title: "", reference: "", location: "", objective: "", justification: "", priority: 1 });
       queryClient.invalidateQueries({ queryKey });
-      toast.success("Fonte adicionada à curadoria. Revise e aprove antes de gerar a aula.");
+      toast.success("Proposta criada ou reenviada para revisão. Revise e aprove antes de gerar a aula.");
     },
     onError: (error: any) => {
       const detail = error?.response?.data;
