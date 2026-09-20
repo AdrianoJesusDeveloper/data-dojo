@@ -64,6 +64,30 @@ class SenseiSourceCuratorTests(APITestCase):
         self.assertIsNotNone(stored.reviewed_at)
         self.assertEqual(str(stored.confidence), "0.900")
 
+    def test_approval_requires_human_confirmed_location(self):
+        proposal = SenseiUnitSource.objects.create(
+            unit=self.unit,
+            source=self.source,
+            category="FOUNDATIONAL",
+            source_type="TECHNICAL_BOOK",
+            title="Fonte sem localização",
+            reference="Edição identificada",
+            location="",
+            objective="Apoiar a unidade",
+            priority=1,
+            justification="Cobertura direta e tecnicamente adequada.",
+            editorial_status=SenseiUnitSource.EditorialStatus.PROPOSED,
+            curated_by=self.admin,
+        )
+        response = self.request(
+            "patch",
+            reverse("library-sensei-unit-source-review", kwargs={"pk": proposal.pk}),
+            {"editorial_status": "APPROVED"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
+        proposal.refresh_from_db()
+        self.assertEqual(proposal.editorial_status, SenseiUnitSource.EditorialStatus.PROPOSED)
+
     def test_gap_permissions_and_source_absence_do_not_touch_mastery(self):
         gap = SenseiUnitSourceGap.objects.create(unit=self.unit, reason="NEEDS_SOURCE", requirements=["Paper primário"], created_by=self.admin)
         plan = self.request("get", reverse("library-sensei-unit-study-plan", kwargs={"pk": self.unit.pk})).data
