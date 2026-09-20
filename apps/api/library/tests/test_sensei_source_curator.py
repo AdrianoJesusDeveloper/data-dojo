@@ -31,7 +31,7 @@ class SenseiSourceCuratorTests(APITestCase):
     def proposal(self, title="Fonte proposta", required=True):
         response = self.request("post", reverse("library-sensei-unit-sources", kwargs={"unit_pk": self.unit.pk}), {
             "source": self.source.pk, "category": "FOUNDATIONAL", "source_type": "TECHNICAL_BOOK",
-            "title": title, "reference": "Edição identificada", "location": "Capítulo 2, seção 2.1",
+            "title": title, "reference": "Edição identificada", "location": "Capítulo 2, PDF p.20 a 25",
             "objective": "Apoiar a unidade", "priority": 1, "is_required": required,
             "author_or_organization": "Autora Teste", "publication_date": "2025-01-10",
             "accessed_at": "2026-09-03T12:00:00Z", "source_updated_at": "2025-06-01T12:00:00Z",
@@ -131,6 +131,31 @@ class SenseiSourceCuratorTests(APITestCase):
             SenseiUnitSource.objects.filter(unit=self.unit, source=self.source).count(),
             1,
         )
+
+    def test_local_source_derives_structured_pdf_ranges_and_blocks_placeholders(self):
+        list_url = reverse("library-sensei-unit-sources", kwargs={"unit_pk": self.unit.pk})
+        created = self.request("post", list_url, {
+            "source": self.source.pk,
+            "category": "FOUNDATIONAL",
+            "source_type": "TECHNICAL_BOOK",
+            "title": "Fonte estruturada",
+            "reference": "Edição identificada",
+            "location": "Capítulo X — PDF p.20 a 25",
+            "objective": "Apoiar a unidade",
+            "priority": 1,
+            "is_required": True,
+            "justification": "Fonte adequada.",
+        })
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        self.assertEqual(created.data["approved_ranges"], [{"pdf_start": 20, "pdf_end": 25}])
+
+        review = self.request(
+            "patch",
+            reverse("library-sensei-unit-source-review", kwargs={"pk": created.data["id"]}),
+            {"editorial_status": "APPROVED"},
+        )
+        self.assertEqual(review.status_code, status.HTTP_400_BAD_REQUEST, review.data)
+        self.assertIn("marcador provisório", str(review.data))
 
     def test_approval_requires_human_confirmed_location(self):
         proposal = SenseiUnitSource.objects.create(
