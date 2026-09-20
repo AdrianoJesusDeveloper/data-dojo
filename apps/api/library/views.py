@@ -1815,7 +1815,7 @@ class SenseiDidacticLessonView(APIView):
         if (
             next_status == DidacticLesson.Status.REVIEW
             and lesson.source_mode == DidacticLesson.SourceMode.APPROVED_SOURCES
-            and not (lesson.grounding_snapshot or {}).get("excerpts")
+            and not (lesson.grounding_snapshot or {}).get("sources")
         ):
             return Response(
                 {"detail": "A aula não possui snapshot de grounding auditável. Regenere o rascunho com as fontes aprovadas atuais antes de enviar para revisão."},
