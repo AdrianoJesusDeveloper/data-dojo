@@ -623,7 +623,7 @@ class SenseiUnitSourceReviewSerializer(serializers.Serializer):
             if proposal.source_id:
                 if not proposal.approved_ranges:
                     raise serializers.ValidationError("Fonte local exige ao menos um intervalo estruturado no formato 'PDF p.122 a 135'.")
-                linked_book = getattr(proposal.source, "book", None)
+                linked_book = Book.objects.filter(source_id=proposal.source_id).first()
                 if linked_book is not None:
                     max_page = linked_book.chunks.exclude(page_number__isnull=True).order_by("-page_number").values_list("page_number", flat=True).first()
                     if max_page and any(int(item.get("pdf_end", 0)) > max_page for item in proposal.approved_ranges):
