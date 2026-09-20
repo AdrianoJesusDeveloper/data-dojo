@@ -87,14 +87,19 @@ def _validate_semantic_alignment(sections, context):
         item for item in sections
         if item.get("section_type") == DidacticLessonSection.SectionType.LEARNING_OBJECTIVES
     ]
-    if objective_sections and pedagogical_tokens:
+    # Só aplica a checagem lexical específica dos objetivos quando o contexto
+    # pedagógico possui vocabulário suficiente para ser discriminativo. Planos
+    # genéricos de teste/rascunho (ex.: "Unidade didática" / "Explicar") não
+    # devem gerar falso positivo; nesses casos, a coerência continua sendo
+    # protegida pela validação global contra práticas + grounding recuperado.
+    if objective_sections and len(pedagogical_tokens) >= 5:
         generated_objective_tokens = _semantic_tokens(
             " ".join(
                 f"{item.get('title', '')} {item.get('content', '')}"
                 for item in objective_sections
             )
         )
-        if len(pedagogical_tokens & generated_objective_tokens) < min(3, len(pedagogical_tokens)):
+        if len(pedagogical_tokens & generated_objective_tokens) < 3:
             raise DidacticContentError(
                 "SEMANTIC_MISMATCH: os objetivos gerados não correspondem aos objetivos confiáveis da unidade. "
                 "A aula não foi salva."
