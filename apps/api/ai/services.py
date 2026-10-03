@@ -143,11 +143,23 @@ def agent_runtime_status(agent):
 
 
 def _provider_candidates(primary):
-    candidates = [(primary or "").strip().lower()]
-    configured = os.getenv("AI_FALLBACK_PROVIDERS", "gemini,deepseek")
-    for name in (item.strip().lower() for item in configured.split(",")):
-        if name and name not in candidates:
-            candidates.append(name)
+    """Return configured provider candidates, skipping unusable fallbacks."""
+    configured = [(primary or "").strip().lower()]
+    configured.extend(
+        item.strip().lower()
+        for item in os.getenv("AI_FALLBACK_PROVIDERS", "gemini,deepseek").split(",")
+    )
+
+    candidates = []
+    seen = set()
+    for name in configured:
+        canonical = canonical_provider_name(name)
+        if not canonical or canonical in seen:
+            continue
+        seen.add(canonical)
+        if not provider_is_available(canonical):
+            continue
+        candidates.append(name)
     return candidates
 
 
