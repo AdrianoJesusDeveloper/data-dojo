@@ -33,6 +33,7 @@ from .providers.gemini_provider import GeminiProvider
 from .providers.deepseek_provider import DeepSeekProvider
 from .providers.copilot_provider import GitHubCopilotProvider
 from .providers.groq_provider import GroqProvider
+from .providers.ollama_provider import OllamaProvider
 
 
 WHATSAPP_URL = "https://wa.me/5521972663791"
@@ -43,6 +44,7 @@ SENSEI_PROVIDER_CATALOG = {
     "gemini": {"label": "Gemini", "aliases": ("gemini",), "required": ("GEMINI_API_KEY",)},
     "deepseek": {"label": "DeepSeek", "aliases": ("deepseek",), "required": ("DEEPSEEK_API_KEY",)},
     "groq": {"label": "Groq", "aliases": ("groq",), "required": ("GROQ_API_KEY",)},
+    "ollama": {"label": "Ollama (local)", "aliases": ("ollama",), "required": ("OLLAMA_BASE_URL",)},
     "copilot": {"label": "GitHub Copilot", "aliases": ("copilot",), "required": ("COPILOT_API_URL", "COPILOT_API_TOKEN")},
 }
 
@@ -66,6 +68,7 @@ def _provider(name):
         "gemini": GeminiProvider,
         "deepseek": DeepSeekProvider,
         "groq": GroqProvider,
+        "ollama": OllamaProvider,
         "copilot": GitHubCopilotProvider,        
     }
     try:
@@ -96,6 +99,8 @@ def get_provider_model(provider_name):
         return os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
     if provider == "groq":
         return os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+    if provider == "ollama":
+        return os.getenv("OLLAMA_MODEL", "llama3.2:3b")
     if provider == "copilot":
         return os.getenv("COPILOT_MODEL", "gpt-5.4")
     return ""
