@@ -27,6 +27,7 @@ from .providers.openai_provider import OpenAIProvider
 from .services import (
     AIProviderError,
     _provider,
+    _provider_candidates,
     agent_runtime_status,
     chat_ai,
     chat_with_provider,
@@ -81,6 +82,47 @@ class AgentRuntimeTests(TestCase):
             self.assertEqual(answer, "Resposta do fallback Gemini")
             mocked_openai.assert_called_once()
             mocked_gemini.assert_called_once()
+
+    @patch.dict(
+        "os.environ",
+        {
+            "AI_ENABLED": "true",
+            "GROQ_API_KEY": "groq-test-key",
+            "GEMINI_API_KEY": "gemini-test-key",
+            "AI_FALLBACK_PROVIDERS": "gemini,deepseek",
+        },
+        clear=True,
+    )
+    def test_provider_candidates_skip_unconfigured_fallbacks(self):
+        self.assertEqual(_provider_candidates("groq"), ["groq", "gemini"])
+
+    @patch.dict(
+        "os.environ",
+        {
+            "AI_ENABLED": "true",
+            "SENSEI_AI_PROVIDER": "groq",
+            "GROQ_API_KEY": "groq-test-key",
+            "GEMINI_API_KEY": "gemini-test-key",
+            "AI_FALLBACK_PROVIDERS": "gemini,deepseek",
+        },
+        clear=True,
+    )
+    def test_chat_skips_unconfigured_deepseek_fallback(self):
+        with patch(
+            "ai.services.GroqProvider.chat",
+            side_effect=AIProviderError("rate_limit", "groq"),
+        ) as mocked_groq, patch(
+            "ai.services.GeminiProvider.chat",
+            side_effect=AIProviderError("unavailable", "gemini"),
+        ) as mocked_gemini, patch(
+            "ai.services.DeepSeekProvider.chat",
+        ) as mocked_deepseek:
+            with self.assertRaises(RuntimeError):
+                chat_ai("sensei", "Explique SQL")
+
+            mocked_groq.assert_called_once()
+            mocked_gemini.assert_called_once()
+            mocked_deepseek.assert_not_called()
 
 
 @override_settings(OPENAI_API_KEY="test-placeholder-key", OPENAI_AI_MODEL="gpt-test")
