@@ -24,6 +24,7 @@ from .models import Conversation, Message
 from .orchestrator import route_message
 from .providers.gemini_provider import GeminiProvider
 from .providers.openai_provider import OpenAIProvider
+from .providers.ollama_provider import OllamaProvider
 from .services import (
     AIProviderError,
     _provider,
@@ -280,6 +281,141 @@ class GeminiProviderTests(TestCase):
         self.assertNotIn("test-placeholder-key", json.dumps(payload))
 
 
+class OllamaProviderTests(TestCase):
+    @patch.dict(
+        os.environ,
+        {
+            "OLLAMA_BASE_URL": "http://127.0.0.1:11434",
+            "OLLAMA_MODEL": "llama3.2:3b",
+        },
+        clear=False,
+    )
+    @patch("ai.providers.ollama_provider.requests.post")
+    def test_calls_local_chat_without_streaming(self, post):
+        response = Mock()
+        response.json.return_value = {
+            "message": {"role": "assistant", "content": "OSS"}
+        }
+        post.return_value = response
+
+        self.assertEqual(
+            OllamaProvider().chat([{"role": "user", "content": "Responda OSS"}]),
+            "OSS",
+        )
+
+        self.assertEqual(post.call_args.args[0], "http://127.0.0.1:11434/api/chat")
+        payload = post.call_args.kwargs["json"]
+        self.assertEqual(payload["model"], "llama3.2:3b")
+        self.assertFalse(payload["stream"])
+        self.assertNotIn("format", payload)
+
+    @patch.dict(
+        os.environ,
+        {
+            "OLLAMA_BASE_URL": "http://localhost:11434",
+            "OLLAMA_MODEL": "llama3.2:3b",
+        },
+        clear=False,
+    )
+    @patch("ai.providers.ollama_provider.requests.post")
+    def test_sends_json_schema_for_structured_output(self, post):
+        response = Mock()
+        response.json.return_value = {
+            "message": {"role": "assistant", "content": '{"decision":"GO"}'}
+        }
+        post.return_value = response
+        schema = {
+            "type": "object",
+            "properties": {"decision": {"type": "string"}},
+            "required": ["decision"],
+            "additionalProperties": False,
+        }
+
+        OllamaProvider().chat(
+            [{"role": "user", "content": "Decida"}],
+            response_schema=schema,
+        )
+
+        payload = post.call_args.kwargs["json"]
+        self.assertEqual(payload["format"], schema)
+        self.assertEqual(payload["options"], {"temperature": 0})
+
+    @patch.dict(
+        os.environ,
+        {
+            "OLLAMA_BASE_URL": "http://localhost:11434",
+            "OLLAMA_MODEL": "llama3.2:3b",
+        },
+        clear=False,
+    )
+    @patch("ai.providers.ollama_provider.requests.post")
+    def test_json_object_mode_uses_native_json_format(self, post):
+        response = Mock()
+        response.json.return_value = {
+            "message": {"role": "assistant", "content": '{"ok":true}'}
+        }
+        post.return_value = response
+
+        OllamaProvider().chat(
+            [{"role": "user", "content": "Retorne JSON"}],
+            response_schema={"type": "json_object"},
+        )
+
+        self.assertEqual(post.call_args.kwargs["json"]["format"], "json")
+
+    @patch.dict(
+        os.environ,
+        {
+            "OLLAMA_BASE_URL": "http://127.0.0.1:11434",
+            "OLLAMA_MODEL": "llama3.2:3b",
+        },
+        clear=False,
+    )
+    @patch("ai.providers.ollama_provider.requests.post")
+    def test_classifies_local_connection_and_http_failures(self, post):
+        post.side_effect = requests.ConnectionError("offline")
+        with self.assertRaises(AIProviderError) as unavailable:
+            OllamaProvider().chat([{"role": "user", "content": "teste"}])
+        self.assertEqual(unavailable.exception.code, "unavailable")
+
+        for status_code, expected_code in (
+            (413, "payload_too_large"),
+            (429, "rate_limit"),
+            (404, "invalid_request"),
+            (503, "unavailable"),
+        ):
+            with self.subTest(status_code=status_code):
+                response = Mock(status_code=status_code)
+                response.raise_for_status.side_effect = requests.HTTPError(
+                    "local ollama error",
+                    response=response,
+                )
+                post.side_effect = None
+                post.return_value = response
+                with self.assertRaises(AIProviderError) as raised:
+                    OllamaProvider().chat([{"role": "user", "content": "teste"}])
+                self.assertEqual(raised.exception.code, expected_code)
+
+    @patch.dict(os.environ, {"OLLAMA_BASE_URL": ""}, clear=False)
+    def test_requires_explicit_local_endpoint_configuration(self):
+        with self.assertRaises(AIProviderError) as raised:
+            OllamaProvider().chat([{"role": "user", "content": "teste"}])
+        self.assertEqual(raised.exception.code, "authentication")
+
+    @patch.dict(
+        os.environ,
+        {
+            "OLLAMA_BASE_URL": "http://192.168.0.10:11434",
+            "OLLAMA_MODEL": "llama3.2:3b",
+        },
+        clear=False,
+    )
+    def test_rejects_non_local_endpoint_in_local_provider_v1(self):
+        with self.assertRaises(AIProviderError) as raised:
+            OllamaProvider().chat([{"role": "user", "content": "teste"}])
+        self.assertEqual(raised.exception.code, "invalid_request")
+
+
 class ContentStudioProviderTests(TestCase):
     def _provider_response(self):
         return json.dumps(
@@ -340,6 +476,7 @@ class ContentStudioProviderTests(TestCase):
         self.assertIsInstance(_provider("chatgpt"), OpenAIProvider)
         self.assertIsInstance(_provider("openai"), OpenAIProvider)
         self.assertIsInstance(_provider("gemini"), GeminiProvider)
+        self.assertIsInstance(_provider("ollama"), OllamaProvider)
 
     @override_settings(
         OPENAI_AI_MODEL="openai-model",
@@ -351,6 +488,7 @@ class ContentStudioProviderTests(TestCase):
             "GEMINI_MODEL": "gemini-model",
             "DEEPSEEK_MODEL": "deepseek-model",
             "COPILOT_MODEL": "copilot-model",
+            "OLLAMA_MODEL": "llama3.2:test",
             "GEMINI_API_KEY": "must-not-be-returned",
             "COPILOT_API_TOKEN": "must-not-be-returned",
         },
@@ -361,6 +499,7 @@ class ContentStudioProviderTests(TestCase):
         self.assertEqual(get_provider_model("gemini"), "gemini-model")
         self.assertEqual(get_provider_model("deepseek"), "deepseek-model")
         self.assertEqual(get_provider_model("copilot"), "copilot-model")
+        self.assertEqual(get_provider_model("ollama"), "llama3.2:test")
         self.assertEqual(get_provider_model("unknown"), "")
         resolved = " ".join(
             get_provider_model(name)
