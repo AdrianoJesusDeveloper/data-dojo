@@ -53,6 +53,36 @@ htmlcov/
 apps/api/db.sqlite3
 apps/api/media/
 apps/api/lessons/files/
+apps/api/errors.log
+apps/api/estrutura.txt
+apps/api/Nova pasta/
+apps/api/config/errors.log
+# Arquivos acidentalmente colocados no app library
+apps/api/library/*.pdf
+apps/api/library/*.exe
+apps/api/library/*.winmd
+apps/api/api/media/
+# Pasta de livros local (volume bind do Docker) — conteúdo nunca versiona
+/library/
+!/library/.gitkeep
+
+# Arquivos de backup gerados localmente — nunca devem entrar no repositório
+*.bak
+*.backup
+*.backup-*
+*.bak-*
+# Atalhos do Windows
+*.lnk
+# Patches locais de código
+*.patch
+# Arquivos de imagem/mídia em zip local
+BANCO-DE-IMAGENS-*.zip
+BANCO-DE-IMAGENS-*/
+# Manuais exportados localmente (Word, HTML, PowerPoint)
+Manual_Usuario_*.docx
+Manual_Usuario_*.htm
+Manual_Usuario_*.html
+Manual_Usuario_*.pptx
 
 # Lovable / IA tool artifacts
 .lovable/

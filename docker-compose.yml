@@ -55,8 +55,12 @@ services:
       HF_HOME: /app/media/model-cache/huggingface
       SENTENCE_TRANSFORMERS_HOME: /app/media/model-cache/sentence-transformers
     volumes:
+      # Aponte LIBRARY_HOST_PATH no .env para o diretório de livros da sua máquina.
+      # Exemplo Windows : LIBRARY_HOST_PATH=C:/livros
+      # Exemplo Linux/Mac: LIBRARY_HOST_PATH=/home/usuario/livros
+      # Se a variável não estiver definida, cria um volume vazio (sem livros locais).
       - type: bind
-        source: C:/livros
+        source: ${LIBRARY_HOST_PATH:-./library}
         target: /library
         read_only: true
       - type: volume
@@ -101,7 +105,7 @@ services:
       SENTENCE_TRANSFORMERS_HOME: /app/media/model-cache/sentence-transformers
     volumes:
       - type: bind
-        source: C:/livros
+        source: ${LIBRARY_HOST_PATH:-./library}
         target: /library
         read_only: true
       - type: volume

@@ -68,10 +68,14 @@ jobs:
           DATABASE_URL: postgresql://dojo:dojo@127.0.0.1:5432/dojo_test
           ALLOWED_HOSTS: localhost,127.0.0.1
           CSRF_TRUSTED_ORIGINS: https://data-dojo-nine.vercel.app,https://data-dojo-nar3.vercel.app
+          # Provedores de IA ficam desabilitados no CI para não depender de credenciais reais.
+          AI_ENABLED: 'False'
+          DDJ_CONTENT_STUDIO_ENABLED: 'True'
+          CONTENT_STUDIO_PROVIDER: ollama
         run: |
           python manage.py check
           python manage.py migrate --noinput
-          python manage.py test core.tests store.tests --verbosity=2
+          python manage.py test core.tests store.tests ai.tests library.tests professional.tests --verbosity=2
 
       - name: Production settings check
         working-directory: apps/api
@@ -83,6 +87,8 @@ jobs:
           ALLOWED_HOSTS: localhost,127.0.0.1
           CSRF_TRUSTED_ORIGINS: https://data-dojo-nine.vercel.app,https://data-dojo-nar3.vercel.app
           CORS_ALLOWED_ORIGINS: https://data-dojo-nine.vercel.app,https://data-dojo-nar3.vercel.app
+          AI_ENABLED: 'False'
+          DDJ_CONTENT_STUDIO_ENABLED: 'True'
         run: |
           python manage.py check --deploy
           python manage.py migrate --noinput

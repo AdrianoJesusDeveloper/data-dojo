@@ -61,20 +61,21 @@ def ai_is_enabled():
 
 
 def _provider(name):
+    """Retorna o provider autorizado. Em produção permite Groq e Gemini além do Ollama."""
     name = (name or "").strip().lower()
-    providers = {
-        "chatgpt": OpenAIProvider,
-        "openai": OpenAIProvider,
-        "gemini": GeminiProvider,
-        "deepseek": DeepSeekProvider,
-        "groq": GroqProvider,
-        "ollama": OllamaProvider,
-        "copilot": GitHubCopilotProvider,        
-    }
-    try:
-        return providers[name]()
-    except KeyError as exc:
-        raise AIProviderError("invalid_request", name or "unknown") from exc
+    if name == "ollama":
+        return OllamaProvider()
+    if name in ("groq",):
+        return GroqProvider()
+    if name in ("gemini",):
+        return GeminiProvider()
+    if name in ("openai", "chatgpt"):
+        return OpenAIProvider()
+    if name in ("deepseek",):
+        return DeepSeekProvider()
+    if name in ("copilot",):
+        return GitHubCopilotProvider()
+    raise AIProviderError("invalid_request", name or "unknown")
 
 
 def chat_with_provider(provider_name, messages, response_schema=None):
@@ -115,27 +116,51 @@ def canonical_provider_name(provider_name):
 
 
 def provider_is_available(provider_name):
+    """Verifica se o provider está configurado com credenciais válidas."""
     canonical = canonical_provider_name(provider_name)
     if not canonical or not ai_is_enabled():
         return False
-    return all(os.getenv(variable, "").strip() for variable in SENSEI_PROVIDER_CATALOG[canonical]["required"])
+    return all(
+        os.getenv(variable, "").strip()
+        for variable in SENSEI_PROVIDER_CATALOG.get(canonical, {}).get("required", ["_MISSING"])
+    )
 
 
 def available_sensei_providers():
-    return [
-        {"id": provider, "label": metadata["label"], "available": True}
-        for provider, metadata in SENSEI_PROVIDER_CATALOG.items()
-        if provider_is_available(provider)
-    ]
+    """Retorna todos os providers disponíveis com credenciais configuradas."""
+    result = []
+    for pid, meta in SENSEI_PROVIDER_CATALOG.items():
+        if provider_is_available(pid):
+            result.append({"id": pid, "label": meta["label"], "available": True})
+    return result
 
 
 def _configured_provider(agent):
-    global_default = os.getenv("AI_DEFAULT_PROVIDER", "").strip().lower()
-    if not global_default and os.getenv("GEMINI_API_KEY", "").strip():
-        global_default = "gemini"
-    return os.getenv(
-        agent["provider_env"], global_default or agent["default_provider"]
-    ).strip().lower()
+    """Resolve o provider para um agente respeitando env vars e fallbacks."""
+    env_var = agent.get("provider_env", "") if isinstance(agent, dict) else ""
+    default = agent.get("default_provider", "ollama") if isinstance(agent, dict) else "ollama"
+
+    # Lê a preferência definida por variável de ambiente do agente
+    preferred = os.getenv(env_var, "").strip().lower() if env_var else ""
+    if not preferred:
+        preferred = os.getenv("AI_DEFAULT_PROVIDER", default).strip().lower()
+
+    # Testa o provider preferido primeiro
+    if provider_is_available(preferred):
+        return preferred
+
+    # Fallbacks configurados globalmente
+    fallbacks = [
+        p.strip().lower()
+        for p in os.getenv("AI_FALLBACK_PROVIDERS", "groq,gemini,ollama").split(",")
+        if p.strip()
+    ]
+    for fallback in fallbacks:
+        if fallback != preferred and provider_is_available(fallback):
+            return fallback
+
+    # Retorna o preferido mesmo sem credenciais (vai falhar com erro claro)
+    return preferred or default
 
 
 def agent_runtime_status(agent):
@@ -148,23 +173,18 @@ def agent_runtime_status(agent):
 
 
 def _provider_candidates(primary):
-    """Return configured provider candidates, skipping unusable fallbacks."""
-    configured = [(primary or "").strip().lower()]
-    configured.extend(
-        item.strip().lower()
-        for item in os.getenv("AI_FALLBACK_PROVIDERS", "gemini,deepseek").split(",")
-    )
-
+    """Retorna lista de providers para tentar, com fallback."""
     candidates = []
-    seen = set()
-    for name in configured:
-        canonical = canonical_provider_name(name)
-        if not canonical or canonical in seen:
-            continue
-        seen.add(canonical)
-        if not provider_is_available(canonical):
-            continue
-        candidates.append(name)
+    if provider_is_available(primary):
+        candidates.append(primary)
+    fallbacks = [
+        p.strip().lower()
+        for p in os.getenv("AI_FALLBACK_PROVIDERS", "groq,gemini,ollama").split(",")
+        if p.strip()
+    ]
+    for fb in fallbacks:
+        if fb != primary and provider_is_available(fb) and fb not in candidates:
+            candidates.append(fb)
     return candidates
 
 

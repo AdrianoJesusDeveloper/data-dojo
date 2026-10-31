@@ -15,6 +15,12 @@ if not SECRET_KEY:
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
 PAYMENT_BACKEND = os.getenv("PAYMENT_BACKEND", "sandbox" if ENVIRONMENT == "development" else "disabled")
+# Mercado Pago — ativo somente quando PAYMENT_BACKEND=mercado_pago
+MERCADO_PAGO_ACCESS_TOKEN = os.getenv("MERCADO_PAGO_ACCESS_TOKEN", "")
+MERCADO_PAGO_PUBLIC_KEY = os.getenv("MERCADO_PAGO_PUBLIC_KEY", "")
+MERCADO_PAGO_NOTIFICATION_URL = os.getenv("MERCADO_PAGO_NOTIFICATION_URL", "")
+# URL base do frontend (usada nos back_urls do Checkout Pro)
+DOJO_APP_URL = os.getenv("DOJO_APP_URL", "https://data-dojo-nine.vercel.app")
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
@@ -78,6 +84,10 @@ OPENAI_AI_MODEL = os.getenv("OPENAI_AI_MODEL", "gpt-4.1-mini")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_LIBRARY_MODEL = os.getenv("ANTHROPIC_LIBRARY_MODEL", "claude-sonnet-4-20250514")
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+ANTHROPIC_LIBRARY_MODEL = os.getenv("ANTHROPIC_LIBRARY_MODEL", "claude-sonnet-4-20250514")
 LIBRARY_EMBEDDING_MODEL = os.getenv("LIBRARY_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 LIBRARY_MAX_UPLOAD_MB = int(os.getenv("LIBRARY_MAX_UPLOAD_MB", "50"))
 DDJ_CONTENT_STUDIO_ENABLED = (
@@ -93,8 +103,8 @@ DDJ_CONTENT_STUDIO_TRUSTED_IPS = {
     ).split(",")
     if ip.strip()
 }
-LOCAL_LIBRARY_PATH = Path(os.getenv("LOCAL_LIBRARY_PATH", r"C:\livros"))
-CONTENT_STUDIO_PROVIDER = os.getenv("CONTENT_STUDIO_PROVIDER", "openai")
+LOCAL_LIBRARY_PATH = Path(os.getenv("LOCAL_LIBRARY_PATH", "./library"))
+CONTENT_STUDIO_PROVIDER = os.getenv("CONTENT_STUDIO_PROVIDER", "ollama")
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 CELERY_BROKER_URL = REDIS_URL
