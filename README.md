@@ -30,7 +30,7 @@ Uma plataforma educacional gamificada para formação de profissionais de **dado
 
 ### 🥋 Visão geral
 
-![Data Driven Dojô — Visão geral][!(docs/screenshots/01-home.png)]
+![Data Driven Dojô — Visão geral](docs/screenshots/01-home.png)
 
 *Visão geral da plataforma, identidade e experiência de entrada no Dojô.*
 
